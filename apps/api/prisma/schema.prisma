@@ -1,0 +1,46 @@
+// Prisma schema — MVP (هویت + کیف پول). هم‌راستا با مدل پایه‌ی سند طراحی.
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String        @id @default(uuid())
+  email         String        @unique
+  passwordHash  String
+  displayName   String
+  role          UserRole      @default(USER)
+  accountStatus AccountStatus @default(ACTIVE)
+  wallet        Wallet?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model Wallet {
+  id            String   @id @default(uuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  balance       Decimal  @default(0) @db.Decimal(18, 2)
+  escrowBalance Decimal  @default(0) @db.Decimal(18, 2)
+  currency      String   @default("IRR")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+enum UserRole {
+  USER
+  GAME_ADMIN
+  REFEREE
+  SUPPORT
+  MAIN_ADMIN
+}
+
+enum AccountStatus {
+  ACTIVE
+  SUSPENDED
+  BANNED
+}

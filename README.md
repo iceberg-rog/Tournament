@@ -48,7 +48,43 @@
 
 ---
 
+## 🚀 شروع توسعه (Getting Started)
+
+### پیش‌نیازها
+- Node.js ≥ ۲۰
+- PostgreSQL (یا `docker compose up -d` برای راه‌اندازی Postgres + Redis)
+
+### راه‌اندازی
+```bash
+# ۱. نصب وابستگی‌ها (npm workspaces)
+npm install
+
+# ۲. کپی فایل محیط
+cp .env.example apps/api/.env
+
+# ۳. ساخت Prisma client + اعمال migration روی دیتابیس
+npm run prisma:generate
+npm run prisma:migrate
+
+# ۴. اجرای API (پورت 4000)
+npm run dev:api
+
+# ۵. در ترمینال دیگر، اجرای Web (پورت 3000)
+npm run dev:web
+```
+سپس http://localhost:3000 را باز کنید: ثبت‌نام → داشبورد.
+
+### ساختار مخزن
+```
+apps/api   — بک‌اند NestJS + Prisma (هویت، کیف پول)
+apps/web   — فرانت‌اند Next.js (صفحه‌ی اصلی، ثبت‌نام، ورود، داشبورد)
+docs/      — اسناد طراحی کامل
+```
+
+---
+
 ## 📌 وضعیت
 
 - ✅ طراحی کامل سیستم (با ممیزی فنیِ خصمانه و رفع ۱۸ یافته)
-- ⬜ پیاده‌سازی MVP (فاز بعد — حدود ۸ تا ۱۲ هفته)
+- ✅ **اسکلت MVP**: monorepo + ماژول هویت (register/login، JWT، Argon2، کیف پول) + داشبورد — **build سالم**
+- ⬜ ماژول‌های بعدی: ساخت تورنومنت (wizard)، موتور براکت، ثبت‌نام در مسابقه، پرداخت/escrow، …

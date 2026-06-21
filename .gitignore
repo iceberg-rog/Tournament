@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.next/
+out/
+build/
+coverage/
+*.log
+.env
+.env.local
+.env.*.local
+.turbo/
+*.tsbuildinfo
+next-env.d.ts
+prisma/*.db

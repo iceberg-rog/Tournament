@@ -50,3 +50,10 @@ model Tournament {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }
+
+// تنظیمات پلتفرم (درگاه پرداخت، کلیدهای API، …) — یک رکورد با key="platform".
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}

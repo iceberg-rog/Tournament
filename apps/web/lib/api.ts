@@ -36,10 +36,36 @@ export async function publicGet<T>(path: string): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+/** GET احرازشده (توکن از localStorage). */
+export async function authedGet<T>(path: string): Promise<T> {
+  const res = await fetch(`${API_URL}${path}`, {
+    headers: { Authorization: `Bearer ${token()}` },
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message ?? 'خطا در دریافت اطلاعات');
+  }
+  return res.json() as Promise<T>;
+}
+
 /** POST احرازشده (توکن از localStorage). */
 export async function authedPost<T>(path: string, body: unknown = {}): Promise<T> {
   const res = await fetch(`${API_URL}${path}`, {
     method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message ?? 'خطا در ارتباط با سرور');
+  }
+  return res.json().catch(() => ({})) as Promise<T>;
+}
+
+/** PUT احرازشده. */
+export async function authedPut<T>(path: string, body: unknown = {}): Promise<T> {
+  const res = await fetch(`${API_URL}${path}`, {
+    method: 'PUT',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token()}` },
     body: JSON.stringify(body),
   });

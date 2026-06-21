@@ -7,3 +7,4 @@ export * from './notifications';
 export * from './season';
 export * from './community';
 export * from './ladder';
+export * from './settings';

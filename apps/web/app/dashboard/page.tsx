@@ -61,12 +61,20 @@ export default function DashboardPage() {
           </p>
         )}
       </div>
-      <button
-        onClick={logout}
-        className="mt-4 rounded-lg border border-slate-700 px-4 py-2 transition hover:bg-slate-800"
-      >
-        خروج
-      </button>
+      <div className="mt-4 flex flex-wrap gap-3">
+        <a href="/tournaments" className="rounded-lg bg-indigo-600 px-4 py-2 hover:bg-indigo-500">
+          تورنومنت‌ها
+        </a>
+        <a href="/settings" className="rounded-lg border border-slate-700 px-4 py-2 hover:bg-slate-800">
+          تنظیمات مدیریت
+        </a>
+        <button
+          onClick={logout}
+          className="rounded-lg border border-slate-700 px-4 py-2 transition hover:bg-slate-800"
+        >
+          خروج
+        </button>
+      </div>
     </main>
   );
 }

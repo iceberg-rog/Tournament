@@ -11,6 +11,7 @@ import { InMemoryNotificationRepository } from './notifications';
 import { InMemorySeasonRepository, SeasonService } from './season';
 import { CommunityService, InMemorySpaceRepository } from './community';
 import { InMemoryLadderRepository, LadderService } from './ladder';
+import { InMemorySettingsRepository, SettingsService } from './settings';
 
 interface Case {
   format: Format;
@@ -695,6 +696,38 @@ async function runLadderScenario(): Promise<Outcome> {
   }
 }
 
+/** سناریوی تنظیمات پلتفرم (deep-merge، حفظ مقادیر هنگام آپدیت جزئی). */
+async function runSettingsScenario(): Promise<Outcome> {
+  const base: Outcome = {
+    format: 'SINGLE_ELIM',
+    genre: 'DUEL',
+    n: 0,
+    ok: false,
+    champion: '-',
+    detail: '',
+  };
+  try {
+    const svc = new SettingsService(new InMemorySettingsRepository());
+    const def = await svc.get();
+    if (def.payment.provider !== 'zarinpal' || def.payment.sandbox !== true) {
+      throw new Error('default payment settings wrong');
+    }
+    await svc.update({ payment: { merchantId: 'MID-123', sandbox: false } });
+    const after = await svc.get();
+    if (after.payment.merchantId !== 'MID-123') throw new Error('merchantId not saved');
+    if (after.payment.sandbox !== false) throw new Error('sandbox not updated');
+    if (after.payment.provider !== 'zarinpal') throw new Error('provider lost on partial merge');
+    await svc.update({ sms: { apiKey: 'SMS-KEY' }, general: { siteName: 'My Cup' } });
+    const final = await svc.get();
+    if (final.sms.apiKey !== 'SMS-KEY') throw new Error('sms apiKey not saved');
+    if (final.general.siteName !== 'My Cup') throw new Error('siteName not saved');
+    if (final.payment.merchantId !== 'MID-123') throw new Error('payment lost after later update');
+    return { ...base, ok: true, detail: 'OK' };
+  } catch (e) {
+    return { ...base, detail: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 async function main(): Promise<void> {
   const cases: Case[] = [];
   for (const n of [2, 3, 5, 8, 16, 31]) cases.push({ format: 'SINGLE_ELIM', genre: 'DUEL', n });
@@ -719,6 +752,7 @@ async function main(): Promise<void> {
   const season = await runSeasonScenario();
   const community = await runCommunityScenario();
   const ladder = await runLadderScenario();
+  const settings = await runSettingsScenario();
 
   const pad = (s: string | number, w: number) => String(s).padEnd(w);
   console.log('\n🏆 تست چرخه‌ی کامل تورنومنت (سرویس + مخزن in-memory)');
@@ -748,6 +782,7 @@ async function main(): Promise<void> {
   console.log(`سناریوی لیگ / فصل: ${season.ok ? '✅ PASS' : '❌ FAIL: ' + season.detail}`);
   console.log(`سناریوی کامیونیتی: ${community.ok ? '✅ PASS' : '❌ FAIL: ' + community.detail}`);
   console.log(`سناریوی matchmaking / ladder: ${ladder.ok ? '✅ PASS' : '❌ FAIL: ' + ladder.detail}`);
+  console.log(`سناریوی تنظیمات پلتفرم: ${settings.ok ? '✅ PASS' : '❌ FAIL: ' + settings.detail}`);
 
   const passed =
     results.filter((r) => r.ok).length +
@@ -761,8 +796,9 @@ async function main(): Promise<void> {
     (gamesCatalog.ok ? 1 : 0) +
     (season.ok ? 1 : 0) +
     (community.ok ? 1 : 0) +
-    (ladder.ok ? 1 : 0);
-  const total = results.length + 11;
+    (ladder.ok ? 1 : 0) +
+    (settings.ok ? 1 : 0);
+  const total = results.length + 12;
   console.log(`\nنتیجه: ${passed}/${total} تست پاس شد.`);
   if (passed !== total) {
     console.log('❌ بعضی تست‌ها رد شدند.');

@@ -7,6 +7,7 @@ import { Format, Genre, makeRng } from '@tournament/engine';
 import { InMemoryTournamentRepository } from './memoryRepository';
 import { TournamentService } from './tournamentService';
 import { InMemoryWalletRepository } from './wallet';
+import { InMemoryNotificationRepository } from './notifications';
 
 interface Case {
   format: Format;
@@ -369,6 +370,66 @@ async function runDisputeScenario(): Promise<Outcome> {
   }
 }
 
+/** سناریوی اعلان‌ها: emit روی ثبت‌نام/waitlist/شروع/پایان. */
+async function runNotificationScenario(): Promise<Outcome> {
+  const base: Outcome = {
+    format: 'SINGLE_ELIM',
+    genre: 'DUEL',
+    n: 2,
+    ok: false,
+    champion: '',
+    detail: '',
+  };
+  try {
+    const repo = new InMemoryTournamentRepository();
+    const notifier = new InMemoryNotificationRepository();
+    let c = 0;
+    const svc = new TournamentService(
+      repo,
+      () => `n${++c}`,
+      () => '2026-01-01T00:00:00Z',
+      undefined,
+      notifier,
+    );
+    const t = await svc.create({
+      title: 'Notif Cup',
+      format: 'SINGLE_ELIM',
+      genre: 'DUEL',
+      maxParticipants: 2,
+    });
+    for (let i = 0; i < 3; i++) {
+      await svc.register(t.id, { id: `u${i}`, name: `P${i}`, seed: 0, skill: 0.5 });
+    }
+    await svc.start(t.id);
+    let guard = 0;
+    while ((await svc.get(t.id)).status !== 'COMPLETED') {
+      if (guard++ > 100) throw new Error('did not converge');
+      for (const m of await svc.ready(t.id)) await svc.reportDuel(t.id, m.id, m.participantIds[0]);
+    }
+
+    const u0 = (await notifier.forUser('u0')).map((n) => n.type);
+    const u2 = (await notifier.forUser('u2')).map((n) => n.type);
+    const all = await notifier.all();
+    const champ = await svc.champion(t.id);
+    if (!u0.includes('REGISTERED') || !u0.includes('STARTED')) {
+      throw new Error('u0 missing REGISTERED/STARTED notification');
+    }
+    if (!u0.includes('WON') && !u0.includes('COMPLETED')) {
+      throw new Error('u0 missing completion notification');
+    }
+    if (u2.length !== 1 || u2[0] !== 'WAITLISTED') {
+      throw new Error(`u2 notifications ${JSON.stringify(u2)} != [WAITLISTED]`);
+    }
+    if (!(await notifier.forUser(champ ?? '')).some((n) => n.type === 'WON')) {
+      throw new Error('champion did not receive WON notification');
+    }
+    if (all.length !== 7) throw new Error(`total notifications ${all.length} != 7`);
+    return { ...base, ok: true, champion: champ ?? '', detail: 'OK' };
+  } catch (e) {
+    return { ...base, detail: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 async function main(): Promise<void> {
   const cases: Case[] = [];
   for (const n of [2, 3, 5, 8, 16, 31]) cases.push({ format: 'SINGLE_ELIM', genre: 'DUEL', n });
@@ -386,6 +447,7 @@ async function main(): Promise<void> {
   const prize = await runPrizeScenario();
   const capacity = await runCapacityScenario();
   const dispute = await runDisputeScenario();
+  const notif = await runNotificationScenario();
 
   const pad = (s: string | number, w: number) => String(s).padEnd(w);
   console.log('\n🏆 تست چرخه‌ی کامل تورنومنت (سرویس + مخزن in-memory)');
@@ -408,14 +470,16 @@ async function main(): Promise<void> {
   console.log(`سناریوی پرداخت جایزه: ${prize.ok ? '✅ PASS' : '❌ FAIL: ' + prize.detail}`);
   console.log(`سناریوی ظرفیت / waitlist: ${capacity.ok ? '✅ PASS' : '❌ FAIL: ' + capacity.detail}`);
   console.log(`سناریوی اعتراض / داوری: ${dispute.ok ? '✅ PASS' : '❌ FAIL: ' + dispute.detail}`);
+  console.log(`سناریوی اعلان‌ها: ${notif.ok ? '✅ PASS' : '❌ FAIL: ' + notif.detail}`);
 
   const passed =
     results.filter((r) => r.ok).length +
     (checkIn.ok ? 1 : 0) +
     (prize.ok ? 1 : 0) +
     (capacity.ok ? 1 : 0) +
-    (dispute.ok ? 1 : 0);
-  const total = results.length + 4;
+    (dispute.ok ? 1 : 0) +
+    (notif.ok ? 1 : 0);
+  const total = results.length + 5;
   console.log(`\nنتیجه: ${passed}/${total} تست پاس شد.`);
   if (passed !== total) {
     console.log('❌ بعضی تست‌ها رد شدند.');

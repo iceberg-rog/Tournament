@@ -8,6 +8,7 @@ import {
   Standing,
 } from '@tournament/engine';
 import { DomainError } from './errors';
+import { NotificationRepository, NotificationType } from './notifications';
 import { ReportEvent, TournamentRecord, TournamentRepository } from './repository';
 import { WalletRepository } from './wallet';
 
@@ -35,7 +36,17 @@ export class TournamentService {
     private readonly idGen: () => string,
     private readonly now: () => string = () => new Date().toISOString(),
     private readonly wallet?: WalletRepository,
+    private readonly notifier?: NotificationRepository,
   ) {}
+
+  private async notify(
+    userId: string,
+    type: NotificationType,
+    tournamentId: string,
+    message: string,
+  ): Promise<void> {
+    if (this.notifier) await this.notifier.notify({ userId, type, tournamentId, message });
+  }
 
   async create(input: CreateTournamentInput): Promise<TournamentRecord> {
     const valid: Format[] = ['SINGLE_ELIM', 'DOUBLE_ELIM', 'ROUND_ROBIN', 'SWISS', 'FFA'];
@@ -71,12 +82,20 @@ export class TournamentService {
     ) {
       throw new DomainError('already registered');
     }
+    let waitlisted = false;
     if (rec.maxParticipants && rec.participants.length >= rec.maxParticipants) {
       (rec.waitlist ??= []).push({ ...p }); // ظرفیت پر است → waitlist
+      waitlisted = true;
     } else {
       rec.participants.push({ ...p });
     }
     await this.repo.update(rec);
+    await this.notify(
+      p.id,
+      waitlisted ? 'WAITLISTED' : 'REGISTERED',
+      rec.id,
+      waitlisted ? 'در لیست انتظار قرار گرفتید' : 'ثبت‌نام شما ثبت شد',
+    );
   }
 
   /** انصراف یک شرکت‌کننده (فقط در DRAFT)؛ با انصرافِ یک تأییدشده اولین waitlist promote می‌شود. */
@@ -110,6 +129,9 @@ export class TournamentService {
     rec.participants.forEach((p, i) => (p.seed = i + 1));
     rec.status = 'RUNNING';
     await this.repo.update(rec);
+    for (const p of rec.participants) {
+      await this.notify(p.id, 'STARTED', rec.id, 'تورنومنت شروع شد');
+    }
   }
 
   private buildEngine(rec: TournamentRecord): Engine {
@@ -159,10 +181,7 @@ export class TournamentService {
       source: 'REPORT',
       sides: [rm.participantIds[0], rm.participantIds[1]],
     });
-    if (e.isComplete()) {
-      rec.status = 'COMPLETED';
-      await this.payout(rec, e);
-    }
+    if (e.isComplete()) await this.complete(rec, e);
     await this.repo.update(rec);
   }
 
@@ -200,10 +219,7 @@ export class TournamentService {
       source: 'NO_SHOW',
       sides: [rm.participantIds[0], rm.participantIds[1]],
     });
-    if (e.isComplete()) {
-      rec.status = 'COMPLETED';
-      await this.payout(rec, e);
-    }
+    if (e.isComplete()) await this.complete(rec, e);
     await this.repo.update(rec);
   }
 
@@ -227,10 +243,7 @@ export class TournamentService {
     if (rm.kind !== 'LOBBY') throw new DomainError('this match is a duel, not a lobby');
     e.reportLobby(matchId, rankedIds);
     rec.events.push({ kind: 'LOBBY', matchId, rankedIds: [...rankedIds] });
-    if (e.isComplete()) {
-      rec.status = 'COMPLETED';
-      await this.payout(rec, e);
-    }
+    if (e.isComplete()) await this.complete(rec, e);
     await this.repo.update(rec);
   }
 
@@ -292,10 +305,7 @@ export class TournamentService {
       throw new DomainError('cannot overturn: it would invalidate later results');
     }
     rec.events.push({ kind: 'RESOLVE', matchId, winnerId });
-    if (engine.isComplete()) {
-      rec.status = 'COMPLETED';
-      await this.payout(rec, engine);
-    }
+    if (engine.isComplete()) await this.complete(rec, engine);
     await this.repo.update(rec);
   }
 
@@ -306,6 +316,21 @@ export class TournamentService {
       if (ev.kind === 'RESOLVE' && ev.matchId === matchId) w = ev.winnerId;
     }
     return w;
+  }
+
+  /** نهایی‌سازی تورنومنت: COMPLETED + پرداخت جایزه + اعلان به برنده/همه. */
+  private async complete(rec: TournamentRecord, engine: Engine): Promise<void> {
+    rec.status = 'COMPLETED';
+    await this.payout(rec, engine);
+    const champ = engine.champion();
+    for (const p of rec.participants) {
+      await this.notify(
+        p.id,
+        p.id === champ ? 'WON' : 'COMPLETED',
+        rec.id,
+        p.id === champ ? 'شما قهرمان شدید! 🏆' : 'تورنومنت پایان یافت',
+      );
+    }
   }
 
   /** پرداخت جوایز per-rank به کیف پول برنده‌ها (یک‌بار، هنگام پایان). */

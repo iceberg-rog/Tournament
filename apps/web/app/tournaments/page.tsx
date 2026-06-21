@@ -15,9 +15,20 @@ interface TournamentRow {
 
 const FORMATS = ['SINGLE_ELIM', 'DOUBLE_ELIM', 'ROUND_ROBIN', 'SWISS', 'FFA'];
 const GENRES = ['DUEL', 'TEAM', 'FFA'];
+const STATUS: Record<string, string[]> = {
+  upcoming: ['DRAFT'],
+  running: ['RUNNING'],
+  finished: ['COMPLETED', 'CANCELLED'],
+};
+const TABS = [
+  ['upcoming', 'پیش‌رو'],
+  ['running', 'در حال انجام'],
+  ['finished', 'اتمام‌یافته'],
+] as const;
 
 export default function TournamentsPage() {
   const [list, setList] = useState<TournamentRow[]>([]);
+  const [tab, setTab] = useState<'upcoming' | 'running' | 'finished'>('upcoming');
   const [form, setForm] = useState({
     title: '',
     format: 'SINGLE_ELIM',
@@ -131,21 +142,37 @@ export default function TournamentsPage() {
 
       {error && <p className="mb-4 text-red-400">{error}</p>}
 
-      <ul className="flex flex-col gap-2">
-        {list.map((t) => (
-          <li key={t.id}>
-            <Link
-              href={`/tournaments/${t.id}`}
-              className="flex items-center justify-between rounded-lg bg-slate-800 p-4 hover:bg-slate-700"
-            >
-              <span className="font-medium">{t.title}</span>
-              <span className="text-sm text-slate-400">
-                {t.format} · {t.genre} · {t.participants.length} نفر · {t.status}
-              </span>
-            </Link>
-          </li>
+      <div className="mb-4 flex gap-2">
+        {TABS.map(([k, label]) => (
+          <button
+            key={k}
+            onClick={() => setTab(k)}
+            className={`rounded-lg px-4 py-2 text-sm ${tab === k ? 'bg-indigo-600' : 'bg-slate-800'}`}
+          >
+            {label}
+          </button>
         ))}
-        {list.length === 0 && <li className="text-slate-500">هنوز تورنومنتی نیست.</li>}
+      </div>
+
+      <ul className="flex flex-col gap-2">
+        {list
+          .filter((t) => STATUS[tab].includes(t.status))
+          .map((t) => (
+            <li key={t.id}>
+              <Link
+                href={`/tournaments/${t.id}`}
+                className="flex items-center justify-between rounded-lg bg-slate-800 p-4 hover:bg-slate-700"
+              >
+                <span className="font-medium">{t.title}</span>
+                <span className="text-sm text-slate-400">
+                  {t.format} · {t.genre} · {t.participants.length} نفر · {t.status}
+                </span>
+              </Link>
+            </li>
+          ))}
+        {list.filter((t) => STATUS[tab].includes(t.status)).length === 0 && (
+          <li className="text-slate-500">موردی در این بخش نیست.</li>
+        )}
       </ul>
     </main>
   );

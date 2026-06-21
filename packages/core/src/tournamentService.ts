@@ -8,6 +8,7 @@ import {
   Standing,
 } from '@tournament/engine';
 import { TournamentRecord, TournamentRepository } from './repository';
+import { WalletRepository } from './wallet';
 
 export interface CreateTournamentInput {
   title: string;
@@ -17,6 +18,7 @@ export interface CreateTournamentInput {
   ffaRounds?: number;
   swissRounds?: number;
   requireCheckIn?: boolean;
+  prizePool?: { rank: number; amount: number }[];
 }
 
 /**
@@ -30,6 +32,7 @@ export class TournamentService {
     private readonly repo: TournamentRepository,
     private readonly idGen: () => string,
     private readonly now: () => string = () => new Date().toISOString(),
+    private readonly wallet?: WalletRepository,
   ) {}
 
   async create(input: CreateTournamentInput): Promise<TournamentRecord> {
@@ -44,6 +47,8 @@ export class TournamentService {
       ffaRounds: input.ffaRounds,
       swissRounds: input.swissRounds,
       requireCheckIn: input.requireCheckIn ?? false,
+      prizePool: input.prizePool,
+      paidOut: false,
       status: 'DRAFT',
       events: [],
       createdAt: this.now(),
@@ -107,7 +112,10 @@ export class TournamentService {
     }
     e.reportDuel(matchId, winnerId);
     rec.events.push({ kind: 'DUEL', matchId, winnerId, source: 'REPORT' });
-    if (e.isComplete()) rec.status = 'COMPLETED';
+    if (e.isComplete()) {
+      rec.status = 'COMPLETED';
+      await this.payout(rec, e);
+    }
     await this.repo.update(rec);
   }
 
@@ -139,7 +147,10 @@ export class TournamentService {
     if (checked.includes(opponent)) throw new Error('opponent has checked in — not a no-show');
     e.reportDuel(matchId, presentId);
     rec.events.push({ kind: 'DUEL', matchId, winnerId: presentId, source: 'NO_SHOW' });
-    if (e.isComplete()) rec.status = 'COMPLETED';
+    if (e.isComplete()) {
+      rec.status = 'COMPLETED';
+      await this.payout(rec, e);
+    }
     await this.repo.update(rec);
   }
 
@@ -163,7 +174,10 @@ export class TournamentService {
     if (rm.kind !== 'LOBBY') throw new Error('this match is a duel, not a lobby');
     e.reportLobby(matchId, rankedIds);
     rec.events.push({ kind: 'LOBBY', matchId, rankedIds: [...rankedIds] });
-    if (e.isComplete()) rec.status = 'COMPLETED';
+    if (e.isComplete()) {
+      rec.status = 'COMPLETED';
+      await this.payout(rec, e);
+    }
     await this.repo.update(rec);
   }
 
@@ -181,6 +195,19 @@ export class TournamentService {
 
   async list(): Promise<TournamentRecord[]> {
     return this.repo.list();
+  }
+
+  /** پرداخت جوایز per-rank به کیف پول برنده‌ها (یک‌بار، هنگام پایان). */
+  private async payout(rec: TournamentRecord, engine: Engine): Promise<void> {
+    if (!this.wallet || !rec.prizePool || rec.paidOut) return;
+    const standings = engine.standings();
+    for (const prize of rec.prizePool) {
+      const s = standings.find((x) => x.rank === prize.rank);
+      if (s && prize.amount > 0) {
+        await this.wallet.credit(s.participantId, prize.amount, `prize:${rec.id}:rank${prize.rank}`);
+      }
+    }
+    rec.paidOut = true;
   }
 
   private async mustGet(id: string): Promise<TournamentRecord> {

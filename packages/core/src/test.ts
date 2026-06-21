@@ -6,6 +6,7 @@
 import { Format, Genre, makeRng } from '@tournament/engine';
 import { InMemoryTournamentRepository } from './memoryRepository';
 import { TournamentService } from './tournamentService';
+import { InMemoryWalletRepository } from './wallet';
 
 interface Case {
   format: Format;
@@ -187,6 +188,61 @@ async function runCheckInScenario(): Promise<Outcome> {
   }
 }
 
+/** سناریوی استخر جایزه: پرداخت per-rank به کیف پول برنده‌ها هنگام پایان. */
+async function runPrizeScenario(): Promise<Outcome> {
+  const base: Outcome = {
+    format: 'SINGLE_ELIM',
+    genre: 'DUEL',
+    n: 4,
+    ok: false,
+    champion: '',
+    detail: '',
+  };
+  try {
+    const repo = new InMemoryTournamentRepository();
+    const wallet = new InMemoryWalletRepository();
+    let c = 0;
+    const svc = new TournamentService(repo, () => `p${++c}`, () => '2026-01-01T00:00:00Z', wallet);
+    const t = await svc.create({
+      title: 'Prize Cup',
+      format: 'SINGLE_ELIM',
+      genre: 'DUEL',
+      prizePool: [
+        { rank: 1, amount: 1000 },
+        { rank: 2, amount: 500 },
+      ],
+    });
+    for (let i = 0; i < 4; i++) {
+      await svc.register(t.id, { id: `u${i}`, name: `P${i}`, seed: 0, skill: 0.5 });
+    }
+    await svc.start(t.id);
+
+    let guard = 0;
+    while ((await svc.get(t.id)).status !== 'COMPLETED') {
+      if (guard++ > 100) throw new Error('did not converge');
+      for (const m of await svc.ready(t.id)) {
+        await svc.reportDuel(t.id, m.id, m.participantIds[0]);
+      }
+    }
+
+    const st = await svc.standings(t.id);
+    const champ = st[0].participantId;
+    const second = st[1].participantId;
+    const cb = await wallet.balanceOf(champ);
+    const sb = await wallet.balanceOf(second);
+    if (cb !== 1000) throw new Error(`champion balance ${cb} != 1000`);
+    if (sb !== 500) throw new Error(`runner-up balance ${sb} != 500`);
+    const total = (await wallet.ledger()).reduce((a, e) => a + e.amount, 0);
+    if (total !== 1500) throw new Error(`total payout ${total} != 1500`);
+    for (const s of st.slice(2)) {
+      if ((await wallet.balanceOf(s.participantId)) !== 0) throw new Error('non-podium player was paid');
+    }
+    return { ...base, ok: true, champion: champ, detail: 'OK' };
+  } catch (e) {
+    return { ...base, detail: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 async function main(): Promise<void> {
   const cases: Case[] = [];
   for (const n of [2, 3, 5, 8, 16, 31]) cases.push({ format: 'SINGLE_ELIM', genre: 'DUEL', n });
@@ -201,6 +257,7 @@ async function main(): Promise<void> {
     results.push(await runCase(cases[i], 5000 + i * 13));
   }
   const checkIn = await runCheckInScenario();
+  const prize = await runPrizeScenario();
 
   const pad = (s: string | number, w: number) => String(s).padEnd(w);
   console.log('\n🏆 تست چرخه‌ی کامل تورنومنت (سرویس + مخزن in-memory)');
@@ -220,9 +277,11 @@ async function main(): Promise<void> {
   console.log(
     `\nسناریوی check-in / no-show: ${checkIn.ok ? '✅ PASS' : '❌ FAIL: ' + checkIn.detail}`,
   );
+  console.log(`سناریوی پرداخت جایزه: ${prize.ok ? '✅ PASS' : '❌ FAIL: ' + prize.detail}`);
 
-  const passed = results.filter((r) => r.ok).length + (checkIn.ok ? 1 : 0);
-  const total = results.length + 1;
+  const passed =
+    results.filter((r) => r.ok).length + (checkIn.ok ? 1 : 0) + (prize.ok ? 1 : 0);
+  const total = results.length + 2;
   console.log(`\nنتیجه: ${passed}/${total} تست پاس شد.`);
   if (passed !== total) {
     console.log('❌ بعضی تست‌ها رد شدند.');

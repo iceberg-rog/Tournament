@@ -12,6 +12,7 @@
 - `InMemoryTournamentRepository` — برای تست و توسعه‌ی محلی (بدون دیتابیس). نسخه‌ی Prisma بعداً افزوده می‌شود.
 - `TournamentService` — `create / register / start / ready / reportDuel / reportLobby / checkIn / declareNoShow / standings / champion`.
 - **check-in / no-show** (اختیاری per-tournament با `requireCheckIn`): پیش از ثبت نتیجه‌ی یک DUEL هر دو طرف باید check-in کنند؛ اگر یک طرف نیامد، طرفِ حاضر می‌تواند no-show اعلام کند و خودکار برنده شود (`source: 'NO_SHOW'`).
+- **استخر جایزه + کیف پول**: با تعریف `prizePool` (per-rank)، هنگام پایان تورنومنت جوایز یک‌بار به کیف پول برنده‌ها واریز می‌شود (`WalletRepository` + `InMemoryWalletRepository`؛ نسخه‌ی Prisma/escrow/KYC از قدم‌های بعدی).
 
 ## تست
 ```bash

@@ -19,6 +19,10 @@ export interface TournamentRecord {
   swissRounds?: number;
   /** اگر true، پیش از ثبت نتیجه‌ی یک DUEL هر دو طرف باید check-in کنند (وگرنه no-show). */
   requireCheckIn?: boolean;
+  /** جوایز per-rank؛ هنگام پایان تورنومنت به کیف پول برنده‌ها واریز می‌شود. */
+  prizePool?: { rank: number; amount: number }[];
+  /** آیا جوایز پرداخت شده‌اند (یک‌بار، هنگام COMPLETED). */
+  paidOut?: boolean;
   status: TournamentStatus;
   events: ReportEvent[];
   createdAt: string;

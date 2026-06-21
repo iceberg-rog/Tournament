@@ -77,6 +77,12 @@ export default function DashboardPage() {
         <a href="/ladders" className="rounded-lg border border-slate-700 px-4 py-2 hover:bg-slate-800">
           نردبان رتبه‌بندی
         </a>
+        <a href="/support" className="rounded-lg border border-slate-700 px-4 py-2 hover:bg-slate-800">
+          پشتیبانی
+        </a>
+        <a href="/report" className="rounded-lg border border-slate-700 px-4 py-2 hover:bg-slate-800">
+          گزارش تخلف
+        </a>
         <a href="/settings" className="rounded-lg border border-slate-700 px-4 py-2 hover:bg-slate-800">
           تنظیمات مدیریت
         </a>

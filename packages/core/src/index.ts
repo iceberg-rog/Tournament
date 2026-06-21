@@ -10,3 +10,5 @@ export * from './ladder';
 export * from './settings';
 export * from './payment';
 export * from './payout';
+export * from './moderation';
+export * from './support';

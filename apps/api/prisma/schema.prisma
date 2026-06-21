@@ -108,6 +108,33 @@ model Withdrawal {
   @@index([userId])
 }
 
+// گزارش تخلف (UC27) و رسیدگی/تعدیل (UC18).
+model Report {
+  id           String    @id @default(uuid())
+  reporterId   String
+  targetUserId String?
+  tournamentId String?
+  category     String
+  reason       String
+  status       String    @default("OPEN")
+  action       String?
+  resolution   String?
+  createdAt    DateTime  @default(now())
+  reviewedAt   DateTime?
+}
+
+// تیکت پشتیبانی (UC26) — پیام‌ها به‌صورت JSON.
+model Ticket {
+  id        String   @id @default(uuid())
+  userId    String
+  subject   String
+  status    String   @default("OPEN")
+  messages  Json
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
 model Season {
   id            String   @id @default(uuid())
   title         String

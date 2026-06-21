@@ -19,6 +19,8 @@ import {
   KycService,
   WithdrawalService,
 } from './payout';
+import { InMemoryReportRepository, ModerationService } from './moderation';
+import { InMemoryTicketRepository, SupportService } from './support';
 
 interface Case {
   format: Format;
@@ -915,6 +917,50 @@ async function runKycWithdrawalScenario(): Promise<Outcome> {
   }
 }
 
+/** سناریوی تعدیل/گزارش (UC18/UC27) و تیکت پشتیبانی (UC26). */
+async function runModerationSupportScenario(): Promise<Outcome> {
+  const base: Outcome = {
+    format: 'SINGLE_ELIM',
+    genre: 'DUEL',
+    n: 0,
+    ok: false,
+    champion: '-',
+    detail: '',
+  };
+  try {
+    let c = 0;
+    const at = () => '2026-01-01T00:00:00Z';
+    const mod = new ModerationService(new InMemoryReportRepository(), () => `r${++c}`, at);
+    const r = await mod.file('reporter', {
+      targetUserId: 'cheater',
+      tournamentId: 't1',
+      category: 'CHEAT',
+      reason: 'aimbot suspected',
+    });
+    if (r.status !== 'OPEN') throw new Error('report not OPEN');
+    await expectThrow(() => mod.file('reporter', { category: 'OTHER', reason: 'x' }), 'short reason');
+    if ((await mod.flagsForUser('cheater')) !== 1) throw new Error('flags count wrong');
+    if ((await mod.listOpen()).length !== 1) throw new Error('open list wrong');
+    const resolved = await mod.resolve(r.id, 'BAN', 'confirmed cheating');
+    if (resolved.status !== 'RESOLVED' || resolved.action !== 'BAN') throw new Error('resolve wrong');
+    await expectThrow(() => mod.resolve(r.id, 'WARN', 'again'), 'double review');
+
+    const sup = new SupportService(new InMemoryTicketRepository(), () => `tk${++c}`, at);
+    const t = await sup.open('user', 'Payment issue', 'My prize did not arrive');
+    if (t.status !== 'OPEN' || t.messages.length !== 1) throw new Error('ticket open wrong');
+    const replied = await sup.reply(t.id, 'staff', 'We are checking', true);
+    if (replied.status !== 'ANSWERED' || replied.messages.length !== 2) throw new Error('staff reply wrong');
+    if ((await sup.reply(t.id, 'user', 'Thanks', false)).status !== 'OPEN')
+      throw new Error('user reply should reopen');
+    await expectThrow(() => sup.reply(t.id, 'intruder', 'hi', false), 'non-owner reply blocked');
+    if ((await sup.close(t.id)).status !== 'CLOSED') throw new Error('close wrong');
+    await expectThrow(() => sup.reply(t.id, 'user', 'reopen', false), 'reply to closed blocked');
+    return { ...base, ok: true, detail: 'OK' };
+  } catch (e) {
+    return { ...base, detail: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 async function main(): Promise<void> {
   const cases: Case[] = [];
   for (const n of [2, 3, 5, 8, 16, 31]) cases.push({ format: 'SINGLE_ELIM', genre: 'DUEL', n });
@@ -943,6 +989,7 @@ async function main(): Promise<void> {
   const payment = await runPaymentScenario();
   const walletEscrow = await runWalletEscrowScenario();
   const kycWithdrawal = await runKycWithdrawalScenario();
+  const modSupport = await runModerationSupportScenario();
 
   const pad = (s: string | number, w: number) => String(s).padEnd(w);
   console.log('\n🏆 تست چرخه‌ی کامل تورنومنت (سرویس + مخزن in-memory)');
@@ -976,6 +1023,7 @@ async function main(): Promise<void> {
   console.log(`سناریوی پرداخت: ${payment.ok ? '✅ PASS' : '❌ FAIL: ' + payment.detail}`);
   console.log(`سناریوی هزینه‌ی ورودی / escrow / کیف پول: ${walletEscrow.ok ? '✅ PASS' : '❌ FAIL: ' + walletEscrow.detail}`);
   console.log(`سناریوی KYC / برداشت: ${kycWithdrawal.ok ? '✅ PASS' : '❌ FAIL: ' + kycWithdrawal.detail}`);
+  console.log(`سناریوی تعدیل / پشتیبانی: ${modSupport.ok ? '✅ PASS' : '❌ FAIL: ' + modSupport.detail}`);
 
   const passed =
     results.filter((r) => r.ok).length +
@@ -993,8 +1041,9 @@ async function main(): Promise<void> {
     (settings.ok ? 1 : 0) +
     (payment.ok ? 1 : 0) +
     (walletEscrow.ok ? 1 : 0) +
-    (kycWithdrawal.ok ? 1 : 0);
-  const total = results.length + 15;
+    (kycWithdrawal.ok ? 1 : 0) +
+    (modSupport.ok ? 1 : 0);
+  const total = results.length + 16;
   console.log(`\nنتیجه: ${passed}/${total} تست پاس شد.`);
   if (passed !== total) {
     console.log('❌ بعضی تست‌ها رد شدند.');

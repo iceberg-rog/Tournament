@@ -65,6 +65,9 @@ export default function DashboardPage() {
         <a href="/tournaments" className="rounded-lg bg-indigo-600 px-4 py-2 hover:bg-indigo-500">
           تورنومنت‌ها
         </a>
+        <a href="/tournaments/new" className="rounded-lg border border-slate-700 px-4 py-2 hover:bg-slate-800">
+          ساخت تورنومنت
+        </a>
         <a href="/wallet" className="rounded-lg border border-slate-700 px-4 py-2 hover:bg-slate-800">
           کیف پول
         </a>

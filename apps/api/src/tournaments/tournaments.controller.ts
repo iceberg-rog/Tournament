@@ -10,6 +10,8 @@ import {
 } from '@nestjs/common';
 import { RatingService, TournamentService } from '@tournament/core';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateTournamentDto, RegisterDto, ReportDto } from './dto';
 
@@ -87,6 +89,8 @@ export class TournamentsController {
       entryFee: dto.entryFee,
       prizePool: dto.prizePool,
       streamUrl: dto.streamUrl,
+      requireResultConfirmation: dto.requireResultConfirmation,
+      scoring: dto.scoring,
     });
   }
 
@@ -151,6 +155,8 @@ export class TournamentsController {
       prizePool?: { rank: number; amount: number }[];
       requireCheckIn?: boolean;
       streamUrl?: string;
+      requireResultConfirmation?: boolean;
+      scoring?: { win: number; draw: number; loss: number };
     },
   ) {
     return this.svc.update(id, dto);
@@ -191,6 +197,19 @@ export class TournamentsController {
       throw new BadRequestException('winnerId (DUEL) or rankedIds (LOBBY) is required');
     }
     return this.svc.reportDuel(id, matchId, dto.winnerId, dto.score);
+  }
+
+  // ───────── گیتِ تأیید داور (UC11) ─────────
+  @Get(':id/pending-confirmations')
+  pendingConfirmations(@Param('id') id: string) {
+    return this.svc.pendingConfirmations(id);
+  }
+
+  @Post(':id/matches/:matchId/confirm')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'MAIN_ADMIN', 'REFEREE', 'GAME_ADMIN')
+  confirm(@Param('id') id: string, @Param('matchId') matchId: string) {
+    return this.svc.confirmResult(id, matchId);
   }
 
   @Post(':id/matches/:matchId/checkin')

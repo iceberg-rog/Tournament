@@ -25,6 +25,8 @@ export interface CreateTournamentInput {
   prizePool?: { rank: number; amount: number }[];
   entryFee?: number;
   streamUrl?: string;
+  requireResultConfirmation?: boolean;
+  scoring?: { win: number; draw: number; loss: number };
 }
 
 /** نتیجه‌ی یک مسابقه برای نمایش تاریخچه. */
@@ -81,6 +83,8 @@ export class TournamentService {
       prizePool: input.prizePool,
       entryFee: input.entryFee,
       streamUrl: input.streamUrl,
+      requireResultConfirmation: input.requireResultConfirmation ?? false,
+      scoring: input.scoring,
       heldFees: [],
       paidOut: false,
       status: 'DRAFT',
@@ -208,6 +212,8 @@ export class TournamentService {
       prizePool?: { rank: number; amount: number }[];
       requireCheckIn?: boolean;
       streamUrl?: string;
+      requireResultConfirmation?: boolean;
+      scoring?: { win: number; draw: number; loss: number };
     },
   ): Promise<TournamentRecord> {
     const rec = await this.mustGet(id);
@@ -229,6 +235,9 @@ export class TournamentService {
     if (patch.entryFee !== undefined) rec.entryFee = patch.entryFee;
     if (patch.prizePool !== undefined) rec.prizePool = patch.prizePool;
     if (patch.requireCheckIn !== undefined) rec.requireCheckIn = patch.requireCheckIn;
+    if (patch.requireResultConfirmation !== undefined)
+      rec.requireResultConfirmation = patch.requireResultConfirmation;
+    if (patch.scoring !== undefined) rec.scoring = patch.scoring;
     await this.repo.update(rec);
     return rec;
   }
@@ -247,6 +256,8 @@ export class TournamentService {
       maxParticipants: src.maxParticipants,
       prizePool: src.prizePool,
       entryFee: src.entryFee,
+      requireResultConfirmation: src.requireResultConfirmation,
+      scoring: src.scoring,
     });
   }
 
@@ -257,14 +268,30 @@ export class TournamentService {
     });
     // RESOLVE‌ها برنده‌ی مؤثر هر مسابقه را override می‌کنند (داوری)
     const overrides = new Map<string, string>();
+    const confirmed = new Set<string>(); // CONFIRM یا RESOLVE → نتیجه مؤثر است
     for (const ev of rec.events) {
-      if (ev.kind === 'RESOLVE') overrides.set(ev.matchId, ev.winnerId);
+      if (ev.kind === 'RESOLVE') {
+        overrides.set(ev.matchId, ev.winnerId);
+        confirmed.add(ev.matchId);
+      }
+      if (ev.kind === 'CONFIRM') confirmed.add(ev.matchId);
     }
     for (const ev of rec.events) {
-      if (ev.kind === 'CHECKIN' || ev.kind === 'RESOLVE') continue;
+      if (ev.kind === 'CHECKIN' || ev.kind === 'RESOLVE' || ev.kind === 'CONFIRM') continue;
       e.ready(); // تضمین تولید ساختارهای lazy (مثلاً راندهای Swiss)
-      if (ev.kind === 'DUEL') e.reportDuel(ev.matchId, overrides.get(ev.matchId) ?? ev.winnerId);
-      else e.reportLobby(ev.matchId, ev.rankedIds);
+      if (ev.kind === 'DUEL') {
+        // گیتِ تأیید داور (UC11): نتیجه‌ی REPORTِ تأییدنشده هنوز براکت را جلو نمی‌برد
+        if (
+          rec.requireResultConfirmation &&
+          ev.source === 'REPORT' &&
+          !confirmed.has(ev.matchId)
+        ) {
+          continue;
+        }
+        e.reportDuel(ev.matchId, overrides.get(ev.matchId) ?? ev.winnerId);
+      } else {
+        e.reportLobby(ev.matchId, ev.rankedIds);
+      }
     }
     return e;
   }
@@ -289,6 +316,29 @@ export class TournamentService {
         throw new DomainError('both participants must check in before reporting a result');
       }
     }
+    // گیتِ تأیید داور (UC11): نتیجه ثبت می‌شود ولی تا تأیید، براکت جلو نمی‌رود
+    if (rec.requireResultConfirmation) {
+      const hasPending =
+        rec.events.some(
+          (ev) => ev.kind === 'DUEL' && ev.matchId === matchId && ev.source === 'REPORT',
+        ) &&
+        !rec.events.some(
+          (ev) => (ev.kind === 'CONFIRM' || ev.kind === 'RESOLVE') && ev.matchId === matchId,
+        );
+      if (hasPending) {
+        throw new DomainError('نتیجه‌ی این مسابقه گزارش شده و در انتظار تأیید داور است');
+      }
+      rec.events.push({
+        kind: 'DUEL',
+        matchId,
+        winnerId,
+        source: 'REPORT',
+        sides: [rm.participantIds[0], rm.participantIds[1]],
+        score,
+      });
+      await this.repo.update(rec);
+      return;
+    }
     e.reportDuel(matchId, winnerId);
     rec.events.push({
       kind: 'DUEL',
@@ -300,6 +350,46 @@ export class TournamentService {
     });
     if (e.isComplete()) await this.complete(rec, e);
     await this.repo.update(rec);
+  }
+
+  /** تأیید نتیجه‌ی گزارش‌شده توسط داور (UC11) → نتیجه مؤثر و در صورت اتمام، نهایی می‌شود. */
+  async confirmResult(id: string, matchId: string): Promise<void> {
+    const rec = await this.mustGet(id);
+    if (rec.status !== 'RUNNING') throw new DomainError('tournament is not running');
+    const reported = rec.events.some(
+      (ev) => ev.kind === 'DUEL' && ev.matchId === matchId && ev.source === 'REPORT',
+    );
+    if (!reported) throw new DomainError('نتیجه‌ای برای تأیید در این مسابقه وجود ندارد');
+    const already = rec.events.some(
+      (ev) => (ev.kind === 'CONFIRM' || ev.kind === 'RESOLVE') && ev.matchId === matchId,
+    );
+    if (already) throw new DomainError('این نتیجه قبلاً تأیید/داوری شده است');
+    rec.events.push({ kind: 'CONFIRM', matchId });
+    const e = this.buildEngine(rec); // اکنون نتیجه اعمال می‌شود
+    if (e.isComplete()) await this.complete(rec, e);
+    await this.repo.update(rec);
+  }
+
+  /** فهرست نتایجِ گزارش‌شده‌ی در انتظار تأیید (برای داور) — UC11. */
+  async pendingConfirmations(
+    id: string,
+  ): Promise<{ matchId: string; winnerId: string; sides?: [string, string] }[]> {
+    const rec = await this.mustGet(id);
+    if (!rec.requireResultConfirmation) return [];
+    const done = new Set(
+      rec.events
+        .filter((ev) => ev.kind === 'CONFIRM' || ev.kind === 'RESOLVE')
+        .map((ev) => (ev as { matchId: string }).matchId),
+    );
+    const out: { matchId: string; winnerId: string; sides?: [string, string] }[] = [];
+    const seen = new Set<string>();
+    for (const ev of rec.events) {
+      if (ev.kind === 'DUEL' && ev.source === 'REPORT' && !done.has(ev.matchId) && !seen.has(ev.matchId)) {
+        seen.add(ev.matchId);
+        out.push({ matchId: ev.matchId, winnerId: ev.winnerId, sides: ev.sides });
+      }
+    }
+    return out;
   }
 
   /** اعلام حضور یک طرف برای یک مسابقه‌ی آماده. */
@@ -365,7 +455,14 @@ export class TournamentService {
   }
 
   async standings(id: string): Promise<Standing[]> {
-    return this.buildEngine(await this.mustGet(id)).standings();
+    const rec = await this.mustGet(id);
+    const st = this.buildEngine(rec).standings();
+    // قالب امتیازدهیِ سفارشی (UC14): بازمحاسبه‌ی points از برد/باخت (rank از موتور حفظ می‌شود).
+    if (rec.scoring) {
+      const { win, loss } = rec.scoring;
+      return st.map((s) => ({ ...s, points: s.wins * win + s.losses * loss }));
+    }
+    return st;
   }
 
   async champion(id: string): Promise<string | null> {

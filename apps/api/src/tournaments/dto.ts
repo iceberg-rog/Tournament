@@ -3,6 +3,7 @@ import {
   IsBoolean,
   IsIn,
   IsInt,
+  IsObject,
   IsOptional,
   IsString,
   MaxLength,
@@ -63,6 +64,14 @@ export class CreateTournamentDto {
   @IsString()
   @MaxLength(300)
   streamUrl?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  requireResultConfirmation?: boolean;
+
+  @IsOptional()
+  @IsObject()
+  scoring?: { win: number; draw: number; loss: number };
 }
 
 export class RegisterDto {

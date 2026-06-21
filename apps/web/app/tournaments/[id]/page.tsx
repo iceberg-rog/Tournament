@@ -53,6 +53,7 @@ export default function TournamentDetail() {
   const [chat, setChat] = useState<ChatMessage[]>([]);
   const [chatText, setChatText] = useState('');
   const [streamInput, setStreamInput] = useState('');
+  const [pendingConf, setPendingConf] = useState<{ matchId: string; winnerId: string; sides?: [string, string] }[]>([]);
   const [error, setError] = useState('');
   const loggedIn = isLoggedIn();
 
@@ -60,8 +61,13 @@ export default function TournamentDetail() {
     try {
       const t = await publicGet<TournamentRecord>(`/tournaments/${id}`);
       setRec(t);
-      if (t.status === 'RUNNING') setReady(await publicGet<ReadyMatch[]>(`/tournaments/${id}/ready`));
-      else setReady([]);
+      if (t.status === 'RUNNING') {
+        setReady(await publicGet<ReadyMatch[]>(`/tournaments/${id}/ready`));
+        setPendingConf(await publicGet(`/tournaments/${id}/pending-confirmations`));
+      } else {
+        setReady([]);
+        setPendingConf([]);
+      }
       if (t.status !== 'DRAFT') setStandings(await publicGet<Standing[]>(`/tournaments/${id}/standings`));
       if (t.status === 'COMPLETED') {
         setRating(await publicGet(`/tournaments/${id}/rating`));
@@ -315,6 +321,25 @@ export default function TournamentDetail() {
               ))}
             </div>
           )}
+        </section>
+      )}
+
+      {loggedIn && pendingConf.length > 0 && (
+        <section className="mt-6 rounded-lg border border-amber-700/50 bg-amber-950/20 p-4">
+          <h2 className="mb-2 font-bold">نتایج در انتظار تأیید داور</h2>
+          <ul className="space-y-2 text-sm">
+            {pendingConf.map((p) => (
+              <li key={p.matchId} className="flex items-center justify-between">
+                <span>برنده‌ی گزارش‌شده: {nameOf(p.winnerId)}</span>
+                <button
+                  onClick={() => act(() => authedPost(`/tournaments/${id}/matches/${p.matchId}/confirm`, {}))}
+                  className="rounded-lg bg-emerald-600 px-4 py-1.5 hover:bg-emerald-500"
+                >
+                  تأیید
+                </button>
+              </li>
+            ))}
+          </ul>
         </section>
       )}
 

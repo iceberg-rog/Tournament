@@ -14,7 +14,8 @@ export type ReportEvent =
     }
   | { kind: 'LOBBY'; matchId: string; rankedIds: string[] }
   | { kind: 'CHECKIN'; matchId: string; participantId: string }
-  | { kind: 'RESOLVE'; matchId: string; winnerId: string };
+  | { kind: 'RESOLVE'; matchId: string; winnerId: string }
+  | { kind: 'CONFIRM'; matchId: string };
 
 /** رکورد پایدارِ یک تورنومنت. */
 export interface TournamentRecord {
@@ -39,6 +40,10 @@ export interface TournamentRecord {
   entryFee?: number;
   /** آدرس استریم زنده (Twitch/YouTube) برای نمایش embed — UC16. */
   streamUrl?: string;
+  /** اگر true، نتیجه‌ی گزارش‌شده تا تأیید داور مؤثر نمی‌شود — UC11. */
+  requireResultConfirmation?: boolean;
+  /** قالب امتیازدهیِ سفارشی برای رده‌بندی — UC14. */
+  scoring?: { win: number; draw: number; loss: number };
   /** شناسه‌ی کاربرانی که هزینه‌ی ورودی‌شان اکنون در escrow مسدود است. */
   heldFees?: string[];
   /** آیا جوایز پرداخت شده‌اند (یک‌بار، هنگام COMPLETED). */

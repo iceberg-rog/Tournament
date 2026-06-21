@@ -1026,6 +1026,80 @@ async function runEditCopyScenario(): Promise<Outcome> {
   }
 }
 
+/** سناریوی گیتِ تأیید داور (UC11): نتیجه تا تأیید مؤثر نمی‌شود. */
+async function runConfirmationGateScenario(): Promise<Outcome> {
+  const base: Outcome = { format: 'SINGLE_ELIM', genre: 'DUEL', n: 4, ok: false, champion: '', detail: '' };
+  try {
+    const repo = new InMemoryTournamentRepository();
+    let c = 0;
+    const svc = new TournamentService(repo, () => `p${++c}`, () => '2026-01-01T00:00:00Z');
+    const t = await svc.create({
+      title: 'Gated',
+      format: 'SINGLE_ELIM',
+      genre: 'DUEL',
+      requireResultConfirmation: true,
+    });
+    for (let i = 0; i < 4; i++) await svc.register(t.id, { id: `u${i}`, name: `u${i}`, seed: 0, skill: 0.5 });
+    await svc.start(t.id);
+
+    const first = (await svc.ready(t.id))[0];
+    await svc.reportDuel(t.id, first.id, first.participantIds[0]);
+    // گزارش مجدد قبل از تأیید مسدود است
+    await expectThrow(() => svc.reportDuel(t.id, first.id, first.participantIds[0]), 're-report blocked');
+    if ((await svc.pendingConfirmations(t.id)).length !== 1) throw new Error('pending count wrong');
+    if ((await svc.get(t.id)).status !== 'RUNNING') throw new Error('should still be RUNNING (gated)');
+    await svc.confirmResult(t.id, first.id);
+    if ((await svc.pendingConfirmations(t.id)).length !== 0) throw new Error('still pending after confirm');
+
+    let guard = 0;
+    while ((await svc.get(t.id)).status !== 'COMPLETED') {
+      if (guard++ > 50) throw new Error('did not converge');
+      const pend = new Set((await svc.pendingConfirmations(t.id)).map((p) => p.matchId));
+      for (const rm of await svc.ready(t.id)) {
+        if (!pend.has(rm.id)) await svc.reportDuel(t.id, rm.id, rm.participantIds[0]);
+      }
+      for (const p of await svc.pendingConfirmations(t.id)) await svc.confirmResult(t.id, p.matchId);
+    }
+    const champ = await svc.champion(t.id);
+    if (!champ) throw new Error('no champion');
+    return { ...base, ok: true, champion: champ, detail: 'OK' };
+  } catch (e) {
+    return { ...base, detail: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/** سناریوی قالب امتیازدهیِ سفارشی (UC14): points = wins*win + losses*loss. */
+async function runScoringScenario(): Promise<Outcome> {
+  const base: Outcome = { format: 'ROUND_ROBIN', genre: 'DUEL', n: 4, ok: false, champion: '', detail: '' };
+  try {
+    const repo = new InMemoryTournamentRepository();
+    let c = 0;
+    const svc = new TournamentService(repo, () => `p${++c}`, () => '2026-01-01T00:00:00Z');
+    const t = await svc.create({
+      title: 'Scored',
+      format: 'ROUND_ROBIN',
+      genre: 'DUEL',
+      scoring: { win: 3, draw: 1, loss: 0 },
+    });
+    for (let i = 0; i < 4; i++) await svc.register(t.id, { id: `u${i}`, name: `u${i}`, seed: 0, skill: 0.5 });
+    await svc.start(t.id);
+    let guard = 0;
+    while ((await svc.get(t.id)).status !== 'COMPLETED') {
+      if (guard++ > 50) throw new Error('did not converge');
+      for (const rm of await svc.ready(t.id)) await svc.reportDuel(t.id, rm.id, rm.participantIds[0]);
+    }
+    const st = await svc.standings(t.id);
+    if (st.length !== 4) throw new Error('standings size');
+    for (const s of st) {
+      if (s.points !== s.wins * 3 + s.losses * 0) throw new Error(`scoring not applied for ${s.participantId}`);
+    }
+    if (st[0].points < st[st.length - 1].points) throw new Error('ordering broke');
+    return { ...base, ok: true, champion: st[0].participantId, detail: 'OK' };
+  } catch (e) {
+    return { ...base, detail: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 async function main(): Promise<void> {
   const cases: Case[] = [];
   for (const n of [2, 3, 5, 8, 16, 31]) cases.push({ format: 'SINGLE_ELIM', genre: 'DUEL', n });
@@ -1057,6 +1131,8 @@ async function main(): Promise<void> {
   const modSupport = await runModerationSupportScenario();
   const rating = await runRatingScenario();
   const editCopy = await runEditCopyScenario();
+  const confirmGate = await runConfirmationGateScenario();
+  const scoring = await runScoringScenario();
 
   const pad = (s: string | number, w: number) => String(s).padEnd(w);
   console.log('\n🏆 تست چرخه‌ی کامل تورنومنت (سرویس + مخزن in-memory)');
@@ -1093,6 +1169,8 @@ async function main(): Promise<void> {
   console.log(`سناریوی تعدیل / پشتیبانی: ${modSupport.ok ? '✅ PASS' : '❌ FAIL: ' + modSupport.detail}`);
   console.log(`سناریوی امتیازدهی به مسابقه: ${rating.ok ? '✅ PASS' : '❌ FAIL: ' + rating.detail}`);
   console.log(`سناریوی ویرایش / کپی: ${editCopy.ok ? '✅ PASS' : '❌ FAIL: ' + editCopy.detail}`);
+  console.log(`سناریوی گیتِ تأیید داور: ${confirmGate.ok ? '✅ PASS' : '❌ FAIL: ' + confirmGate.detail}`);
+  console.log(`سناریوی قالب امتیازدهی: ${scoring.ok ? '✅ PASS' : '❌ FAIL: ' + scoring.detail}`);
 
   const passed =
     results.filter((r) => r.ok).length +
@@ -1113,8 +1191,10 @@ async function main(): Promise<void> {
     (kycWithdrawal.ok ? 1 : 0) +
     (modSupport.ok ? 1 : 0) +
     (rating.ok ? 1 : 0) +
-    (editCopy.ok ? 1 : 0);
-  const total = results.length + 18;
+    (editCopy.ok ? 1 : 0) +
+    (confirmGate.ok ? 1 : 0) +
+    (scoring.ok ? 1 : 0);
+  const total = results.length + 20;
   console.log(`\nنتیجه: ${passed}/${total} تست پاس شد.`);
   if (passed !== total) {
     console.log('❌ بعضی تست‌ها رد شدند.');

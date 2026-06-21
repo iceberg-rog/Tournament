@@ -12,6 +12,7 @@ import { InMemorySeasonRepository, SeasonService } from './season';
 import { CommunityService, InMemorySpaceRepository } from './community';
 import { InMemoryLadderRepository, LadderService } from './ladder';
 import { InMemorySettingsRepository, SettingsService } from './settings';
+import { InMemoryPaymentRepository, PaymentGateway, PaymentService, SandboxGateway } from './payment';
 
 interface Case {
   format: Format;
@@ -728,6 +729,54 @@ async function runSettingsScenario(): Promise<Outcome> {
   }
 }
 
+/** سناریوی پرداخت: ساخت درخواست، verify موفق (sandbox) و ناموفق. */
+async function runPaymentScenario(): Promise<Outcome> {
+  const base: Outcome = {
+    format: 'SINGLE_ELIM',
+    genre: 'DUEL',
+    n: 0,
+    ok: false,
+    champion: '-',
+    detail: '',
+  };
+  try {
+    let c = 0;
+    const svc = new PaymentService(
+      new InMemoryPaymentRepository(),
+      new SandboxGateway(() => `a${++c}`),
+      () => `pay${++c}`,
+      () => '2026-01-01T00:00:00Z',
+    );
+    await expectThrow(() => svc.createRequest(0, 'zero'), 'zero amount');
+    const { payment, redirectUrl } = await svc.createRequest(50000, 'Entry fee');
+    if (payment.status !== 'PENDING') throw new Error('not PENDING after create');
+    if (!payment.authority.startsWith('SBX-')) throw new Error('no authority');
+    if (!redirectUrl.includes('sandbox://')) throw new Error('no redirect url');
+    const verified = await svc.verify(payment.id);
+    if (verified.status !== 'PAID') throw new Error('not PAID after verify');
+    if (!verified.ref) throw new Error('no ref after payment');
+    await expectThrow(() => svc.verify(payment.id), 'double verify');
+
+    // مسیر ناموفق با درگاهِ ساختگیِ شکست‌خورده
+    const failGw: PaymentGateway = {
+      request: async () => ({ authority: 'F-1', redirectUrl: 'x' }),
+      verify: async () => ({ ok: false }),
+    };
+    let cc = 0;
+    const svc2 = new PaymentService(
+      new InMemoryPaymentRepository(),
+      failGw,
+      () => `f${++cc}`,
+      () => '2026-01-01T00:00:00Z',
+    );
+    const { payment: p2 } = await svc2.createRequest(1000, 'fail');
+    if ((await svc2.verify(p2.id)).status !== 'FAILED') throw new Error('failed path not FAILED');
+    return { ...base, ok: true, detail: 'OK' };
+  } catch (e) {
+    return { ...base, detail: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 async function main(): Promise<void> {
   const cases: Case[] = [];
   for (const n of [2, 3, 5, 8, 16, 31]) cases.push({ format: 'SINGLE_ELIM', genre: 'DUEL', n });
@@ -753,6 +802,7 @@ async function main(): Promise<void> {
   const community = await runCommunityScenario();
   const ladder = await runLadderScenario();
   const settings = await runSettingsScenario();
+  const payment = await runPaymentScenario();
 
   const pad = (s: string | number, w: number) => String(s).padEnd(w);
   console.log('\n🏆 تست چرخه‌ی کامل تورنومنت (سرویس + مخزن in-memory)');
@@ -783,6 +833,7 @@ async function main(): Promise<void> {
   console.log(`سناریوی کامیونیتی: ${community.ok ? '✅ PASS' : '❌ FAIL: ' + community.detail}`);
   console.log(`سناریوی matchmaking / ladder: ${ladder.ok ? '✅ PASS' : '❌ FAIL: ' + ladder.detail}`);
   console.log(`سناریوی تنظیمات پلتفرم: ${settings.ok ? '✅ PASS' : '❌ FAIL: ' + settings.detail}`);
+  console.log(`سناریوی پرداخت: ${payment.ok ? '✅ PASS' : '❌ FAIL: ' + payment.detail}`);
 
   const passed =
     results.filter((r) => r.ok).length +
@@ -797,8 +848,9 @@ async function main(): Promise<void> {
     (season.ok ? 1 : 0) +
     (community.ok ? 1 : 0) +
     (ladder.ok ? 1 : 0) +
-    (settings.ok ? 1 : 0);
-  const total = results.length + 12;
+    (settings.ok ? 1 : 0) +
+    (payment.ok ? 1 : 0);
+  const total = results.length + 13;
   console.log(`\nنتیجه: ${passed}/${total} تست پاس شد.`);
   if (passed !== total) {
     console.log('❌ بعضی تست‌ها رد شدند.');

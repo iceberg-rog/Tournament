@@ -57,3 +57,13 @@ model Setting {
   value     Json
   updatedAt DateTime @updatedAt
 }
+
+model Payment {
+  id          String   @id @default(uuid())
+  amount      Decimal
+  description String
+  status      String   @default("PENDING")
+  authority   String
+  ref         String?
+  createdAt   DateTime @default(now())
+}

@@ -6,13 +6,10 @@ import AppShell from '@/components/AppShell';
 import { apiGet, authedGet, publicGet, isLoggedIn } from '@/lib/api';
 
 interface Me {
+  id: string;
   displayName: string;
   email: string;
   role: string;
-}
-interface Balance {
-  available: number;
-  escrow: number;
 }
 interface T {
   id: string;
@@ -20,30 +17,38 @@ interface T {
   status: string;
   game?: string;
   format: string;
+  participants?: { id: string }[];
 }
 
 const fmt = (n: number) => n.toLocaleString('fa-IR');
+const formatFa: Record<string, string> = {
+  SINGLE_ELIM: 'تک‌حذفی',
+  DOUBLE_ELIM: 'دوحذفی',
+  ROUND_ROBIN: 'دوره‌ای',
+  SWISS: 'سوئیسی',
+  FFA: 'Battle Royale',
+};
 const statusFa: Record<string, string> = {
   DRAFT: 'پیش‌نویس',
   RUNNING: 'در حال اجرا',
   COMPLETED: 'پایان‌یافته',
   CANCELLED: 'لغوشده',
 };
-const statusColor: Record<string, string> = {
+const statusChip: Record<string, string> = {
   DRAFT: 'bg-slate-500/20 text-slate-300',
   RUNNING: 'bg-emerald-500/20 text-emerald-300',
-  COMPLETED: 'bg-indigo-500/20 text-indigo-300',
+  COMPLETED: 'bg-violet-500/20 text-violet-300',
   CANCELLED: 'bg-red-500/20 text-red-300',
 };
 
-function Stat({ icon, label, value, small }: { icon: string; label: string; value: string; small?: boolean }) {
+function StatCard({ value, label, icon, tint }: { value: string; label: string; icon: string; tint: string }) {
   return (
-    <div className="card flex items-center gap-3 p-4">
-      <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/5 text-xl">{icon}</span>
+    <div className="card flex items-center justify-between p-5">
       <div className="min-w-0">
-        <p className="truncate text-xs text-slate-400">{label}</p>
-        <p className={`font-extrabold ${small ? 'text-base' : 'text-xl'}`}>{value}</p>
+        <p className="text-2xl font-extrabold">{value}</p>
+        <p className="mt-0.5 truncate text-xs text-slate-400">{label}</p>
       </div>
+      <span className={`grid h-12 w-12 shrink-0 place-items-center rounded-2xl text-xl ${tint}`}>{icon}</span>
     </div>
   );
 }
@@ -51,9 +56,9 @@ function Stat({ icon, label, value, small }: { icon: string; label: string; valu
 export default function Dashboard() {
   const router = useRouter();
   const [me, setMe] = useState<Me | null>(null);
-  const [bal, setBal] = useState<Balance | null>(null);
+  const [balance, setBalance] = useState<number | null>(null);
   const [tournaments, setTournaments] = useState<T[]>([]);
-  const [unread, setUnread] = useState(0);
+  const [openTickets, setOpenTickets] = useState(0);
   const [ready, setReady] = useState(false);
 
   useEffect(() => {
@@ -67,119 +72,112 @@ export default function Dashboard() {
         setMe(await apiGet<Me>('/users/me', token));
       } catch {}
       try {
-        setBal(await authedGet<Balance>('/wallet'));
+        setBalance((await authedGet<{ available: number }>('/wallet')).available);
       } catch {}
       try {
         setTournaments(await publicGet<T[]>('/tournaments'));
       } catch {}
       try {
-        const n = await authedGet<{ read: boolean }[]>('/notifications');
-        setUnread(n.filter((x) => !x.read).length);
+        const tk = await authedGet<{ status: string }[]>('/tickets');
+        setOpenTickets(tk.filter((t) => t.status !== 'CLOSED').length);
       } catch {}
       setReady(true);
     })();
   }, [router]);
 
-  const activeCount = tournaments.filter((t) => t.status === 'RUNNING').length;
-  const isAdmin = me?.role === 'ADMIN' || me?.role === 'MAIN_ADMIN';
-
-  const quick = [
-    { href: '/tournaments/new', label: 'ساخت تورنومنت', icon: '➕', desc: 'wizard ۹ مرحله‌ای' },
-    { href: '/wallet', label: 'کیف پول', icon: '💳', desc: 'شارژ، برداشت، KYC' },
-    { href: '/tournaments', label: 'تورنومنت‌ها', icon: '🏆', desc: 'مرور و ثبت‌نام' },
-    { href: '/ladders', label: 'نردبان رتبه‌بندی', icon: '📈', desc: 'matchmaking ELO' },
-    ...(isAdmin ? [{ href: '/admin', label: 'کنسول مدیریت', icon: '📊', desc: 'کاربران، آمار، بازی‌ها' }] : []),
-    { href: '/security', label: 'امنیت', icon: '🛡️', desc: 'فعال‌سازی ۲FA' },
-  ];
+  const running = tournaments.filter((t) => t.status === 'RUNNING').length;
+  const mine = me ? tournaments.filter((t) => t.participants?.some((p) => p.id === me.id)) : [];
+  const myList = (mine.length ? mine : tournaments).slice(0, 6);
 
   return (
     <AppShell title="داشبورد">
-      <section className="card relative mb-6 overflow-hidden p-6">
-        <div className="absolute -left-10 -top-10 h-40 w-40 rounded-full bg-indigo-600/20 blur-3xl" />
-        <div className="relative flex flex-wrap items-center justify-between gap-4">
-          <div>
-            <p className="text-sm text-slate-400">خوش آمدی</p>
-            <h2 className="mt-1 text-2xl font-extrabold">{me?.displayName ?? '...'} 👋</h2>
-            <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-400">
-              <span>{me?.email}</span>
-              <span className="chip bg-indigo-500/15 text-indigo-300">{me?.role}</span>
-            </div>
+      <h2 className="mb-6 text-center text-2xl font-extrabold">
+        به شلتر تورنومنت خوش آمدید! <span className="align-middle">👋</span>
+      </h2>
+
+      {/* stat cards */}
+      <section className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <StatCard value={fmt(openTickets)} label="تیکت باز" icon="🎫" tint="bg-amber-400/15 text-amber-300" />
+        <StatCard value={fmt(running)} label="تورنومنت‌های فعال" icon="🟢" tint="bg-emerald-400/15 text-emerald-300" />
+        <StatCard
+          value={`${balance !== null ? fmt(balance) : '—'}`}
+          label="موجودی کیف پول (تومان)"
+          icon="💳"
+          tint="bg-teal-400/15 text-teal-300"
+        />
+        <StatCard value={fmt(tournaments.length)} label="کل تورنومنت‌ها" icon="🏆" tint="bg-violet-400/15 text-violet-300" />
+      </section>
+
+      {/* promo banner */}
+      <section className="card relative mb-8 overflow-hidden bg-gradient-to-l from-violet-700/50 via-fuchsia-700/30 to-slate-900/40 p-6">
+        <div className="absolute -left-8 -top-8 h-40 w-40 rounded-full bg-fuchsia-600/20 blur-3xl" />
+        <div className="relative flex flex-wrap items-center gap-5">
+          <span className="grid h-20 w-20 shrink-0 place-items-center rounded-3xl bg-white/10 text-4xl backdrop-blur">
+            🏆
+          </span>
+          <div className="min-w-0 flex-1">
+            <h3 className="flex items-center gap-2 text-xl font-extrabold">
+              تورنومنت بساز، آنی شروع کن <span>⚡</span>
+            </h3>
+            <p className="mt-1 max-w-lg text-sm text-slate-300">
+              ۵ فرمت حرفه‌ای، جایزه‌ی نقدی با escrow، چت و استریم زنده. با wizard چندمرحله‌ای چند ثانیه‌ای بساز.
+            </p>
           </div>
           <a
-            href="/wallet"
-            className="rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 p-5 text-center shadow-lg shadow-indigo-600/25 transition hover:scale-[1.02]"
+            href="/tournaments/new"
+            className="rounded-2xl bg-gradient-to-l from-violet-600 to-fuchsia-500 px-6 py-3 font-semibold shadow-lg shadow-fuchsia-600/30 transition hover:opacity-90"
           >
-            <p className="text-xs text-indigo-100/80">موجودی کیف پول</p>
-            <p className="mt-1 text-2xl font-extrabold">
-              {bal ? fmt(bal.available) : '—'} <span className="text-sm font-normal">﷼</span>
-            </p>
-            {bal && bal.escrow > 0 && (
-              <p className="mt-1 text-[11px] text-indigo-100/70">مسدودی: {fmt(bal.escrow)} ﷼</p>
-            )}
+            ➕ ساخت تورنومنت
           </a>
         </div>
       </section>
 
-      <section className="mb-8 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Stat icon="🏆" label="کل تورنومنت‌ها" value={fmt(tournaments.length)} />
-        <Stat icon="🟢" label="در حال اجرا" value={fmt(activeCount)} />
-        <Stat icon="🔔" label="اعلان نخوانده" value={fmt(unread)} />
-        <Stat icon="🛡️" label="نقش" value={me?.role ?? '—'} small />
-      </section>
-
-      <h3 className="mb-3 text-sm font-semibold text-slate-400">دسترسی سریع</h3>
-      <section className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-3">
-        {quick.map((q) => (
-          <a
-            key={q.href}
-            href={q.href}
-            className="card group flex items-center gap-3 p-4 transition hover:border-indigo-500/40 hover:bg-slate-900/80"
-          >
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white/5 text-xl transition group-hover:bg-indigo-600/20">
-              {q.icon}
-            </span>
-            <div className="min-w-0">
-              <p className="font-semibold">{q.label}</p>
-              <p className="truncate text-xs text-slate-400">{q.desc}</p>
-            </div>
-          </a>
-        ))}
-      </section>
-
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-slate-400">تورنومنت‌های اخیر</h3>
-        <a href="/tournaments" className="text-xs text-indigo-400 hover:underline">
-          مشاهده‌ی همه
+      {/* my tournaments */}
+      <div className="mb-4 flex items-center justify-between">
+        <h3 className="flex items-center gap-2 text-lg font-bold">
+          <span>🏆</span> {mine.length ? 'تورنومنت‌های من' : 'تورنومنت‌های اخیر'}
+        </h3>
+        <a
+          href="/tournaments/new"
+          className="rounded-xl border border-white/10 px-3 py-1.5 text-sm text-slate-200 transition hover:bg-white/5"
+        >
+          + تورنومنت جدید
         </a>
       </div>
-      <section className="card divide-y divide-white/5 overflow-hidden">
-        {tournaments.slice(0, 6).map((t) => (
+
+      <section className="grid gap-4 md:grid-cols-2">
+        {myList.map((t) => (
           <a
             key={t.id}
             href={`/tournaments/${t.id}`}
-            className="flex items-center justify-between gap-3 px-4 py-3 transition hover:bg-white/5"
+            className="card p-5 transition hover:border-fuchsia-500/30 hover:bg-slate-900/80"
           >
-            <div className="flex min-w-0 items-center gap-3">
-              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-white/5">🎮</span>
+            <div className="flex items-start justify-between gap-3">
               <div className="min-w-0">
-                <p className="truncate font-medium">{t.title}</p>
-                <p className="truncate text-xs text-slate-400">
-                  {t.game ?? '—'} · {t.format}
-                </p>
+                <h4 className="truncate text-lg font-bold">{t.title}</h4>
+                <p className="mt-0.5 text-xs text-slate-400">{t.game ?? 'بدون بازی'}</p>
               </div>
+              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-white/5 text-xl">🎮</span>
             </div>
-            <span className={`chip shrink-0 ${statusColor[t.status] ?? 'bg-slate-500/20 text-slate-300'}`}>
-              {statusFa[t.status] ?? t.status}
-            </span>
+            <div className="mt-4 flex flex-wrap gap-x-5 gap-y-2 text-xs text-slate-400">
+              <span>🎯 {formatFa[t.format] ?? t.format}</span>
+              <span>👥 {fmt(t.participants?.length ?? 0)} شرکت‌کننده</span>
+            </div>
+            <div className="mt-4 flex items-center justify-between">
+              <span className={`chip ${statusChip[t.status] ?? 'bg-slate-500/20 text-slate-300'}`}>
+                <span className="text-[8px]">●</span> {statusFa[t.status] ?? t.status}
+              </span>
+              <span className="text-sm text-fuchsia-300">مشاهده ←</span>
+            </div>
           </a>
         ))}
         {ready && tournaments.length === 0 && (
-          <p className="px-4 py-8 text-center text-slate-400">
+          <div className="card col-span-full p-10 text-center text-slate-400">
             هنوز تورنومنتی نیست.{' '}
-            <a href="/tournaments/new" className="text-indigo-400">
-              یکی بساز
+            <a href="/tournaments/new" className="text-fuchsia-300">
+              اولین تورنومنت را بساز
             </a>
-          </p>
+          </div>
         )}
       </section>
     </AppShell>

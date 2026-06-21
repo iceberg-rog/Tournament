@@ -10,7 +10,7 @@ import {
 import { DomainError } from './errors';
 import { NotificationRepository, NotificationType } from './notifications';
 import { ReportEvent, TournamentRecord, TournamentRepository } from './repository';
-import { WalletRepository } from './wallet';
+import { WalletPort } from './wallet';
 
 export interface CreateTournamentInput {
   title: string;
@@ -23,6 +23,7 @@ export interface CreateTournamentInput {
   requireCheckIn?: boolean;
   maxParticipants?: number;
   prizePool?: { rank: number; amount: number }[];
+  entryFee?: number;
 }
 
 /** نتیجه‌ی یک مسابقه برای نمایش تاریخچه. */
@@ -48,7 +49,7 @@ export class TournamentService {
     private readonly repo: TournamentRepository,
     private readonly idGen: () => string,
     private readonly now: () => string = () => new Date().toISOString(),
-    private readonly wallet?: WalletRepository,
+    private readonly wallet?: WalletPort,
     private readonly notifier?: NotificationRepository,
   ) {}
 
@@ -77,6 +78,8 @@ export class TournamentService {
       maxParticipants: input.maxParticipants,
       waitlist: [],
       prizePool: input.prizePool,
+      entryFee: input.entryFee,
+      heldFees: [],
       paidOut: false,
       status: 'DRAFT',
       events: [],
@@ -98,9 +101,13 @@ export class TournamentService {
     }
     let waitlisted = false;
     if (rec.maxParticipants && rec.participants.length >= rec.maxParticipants) {
-      (rec.waitlist ??= []).push({ ...p }); // ظرفیت پر است → waitlist
+      (rec.waitlist ??= []).push({ ...p }); // ظرفیت پر است → waitlist (هزینه‌ی ورودی هنگام promote مسدود می‌شود)
       waitlisted = true;
     } else {
+      if (this.wallet && rec.entryFee) {
+        await this.wallet.hold(p.id, rec.entryFee, `entry:${rec.id}`); // در صورت کمبود موجودی، throw و لغو ثبت‌نام
+        (rec.heldFees ??= []).push(p.id);
+      }
       rec.participants.push({ ...p });
     }
     await this.repo.update(rec);
@@ -119,9 +126,20 @@ export class TournamentService {
     const ci = rec.participants.findIndex((x) => x.id === participantId);
     if (ci >= 0) {
       rec.participants.splice(ci, 1);
+      await this.releaseFee(rec, participantId); // بازگشت هزینه‌ی ورودی
       const wl = rec.waitlist ?? [];
       const promoted = wl.shift();
-      if (promoted) rec.participants.push(promoted);
+      if (promoted) {
+        rec.participants.push(promoted);
+        if (this.wallet && rec.entryFee) {
+          try {
+            await this.wallet.hold(promoted.id, rec.entryFee, `entry:${rec.id}`);
+            (rec.heldFees ??= []).push(promoted.id);
+          } catch {
+            // موجودیِ ناکافیِ نفرِ promote‌شده: همچنان اضافه می‌شود (ساده‌سازیِ MVP)
+          }
+        }
+      }
       rec.waitlist = wl;
       await this.repo.update(rec);
       return;
@@ -154,9 +172,26 @@ export class TournamentService {
     if (rec.status === 'COMPLETED') throw new DomainError('a completed tournament cannot be cancelled');
     if (rec.status === 'CANCELLED') throw new DomainError('tournament is already cancelled');
     rec.status = 'CANCELLED';
+    // بازگشت همه‌ی هزینه‌های ورودیِ مسدودشده (هیچ هزینه‌ای هنوز قطعی نشده)
+    if (this.wallet && rec.entryFee && rec.heldFees) {
+      for (const uid of [...rec.heldFees]) {
+        await this.wallet.release(uid, rec.entryFee, `entry:${rec.id}`);
+      }
+      rec.heldFees = [];
+    }
     await this.repo.update(rec);
     for (const p of rec.participants) {
       await this.notify(p.id, 'CANCELLED', rec.id, 'تورنومنت لغو شد');
+    }
+  }
+
+  /** آزادسازی هزینه‌ی ورودیِ مسدودِ یک کاربر (اگر داشته باشد). */
+  private async releaseFee(rec: TournamentRecord, userId: string): Promise<void> {
+    if (!this.wallet || !rec.entryFee || !rec.heldFees) return;
+    const i = rec.heldFees.indexOf(userId);
+    if (i >= 0) {
+      await this.wallet.release(userId, rec.entryFee, `entry:${rec.id}`);
+      rec.heldFees.splice(i, 1);
     }
   }
 
@@ -407,14 +442,24 @@ export class TournamentService {
     }
   }
 
-  /** پرداخت جوایز per-rank به کیف پول برنده‌ها (یک‌بار، هنگام پایان). */
+  /** قطعی‌کردن هزینه‌های ورودی (escrow) و پرداخت جوایز per-rank (یک‌بار، هنگام پایان). */
   private async payout(rec: TournamentRecord, engine: Engine): Promise<void> {
-    if (!this.wallet || !rec.prizePool || rec.paidOut) return;
-    const standings = engine.standings();
-    for (const prize of rec.prizePool) {
-      const s = standings.find((x) => x.rank === prize.rank);
-      if (s && prize.amount > 0) {
-        await this.wallet.credit(s.participantId, prize.amount, `prize:${rec.id}:rank${prize.rank}`);
+    if (!this.wallet || rec.paidOut) return;
+    // قطعی‌کردن همه‌ی هزینه‌های ورودیِ مسدود (escrow → خروج)
+    if (rec.entryFee && rec.heldFees) {
+      for (const uid of [...rec.heldFees]) {
+        await this.wallet.capture(uid, rec.entryFee, `entry:${rec.id}`);
+      }
+      rec.heldFees = [];
+    }
+    // واریز جوایز
+    if (rec.prizePool) {
+      const standings = engine.standings();
+      for (const prize of rec.prizePool) {
+        const s = standings.find((x) => x.rank === prize.rank);
+        if (s && prize.amount > 0) {
+          await this.wallet.prize(s.participantId, prize.amount, `prize:${rec.id}:rank${prize.rank}`);
+        }
       }
     }
     rec.paidOut = true;

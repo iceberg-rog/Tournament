@@ -49,6 +49,15 @@ export class CreateTournamentDto {
   @IsInt()
   @Min(2)
   maxParticipants?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  entryFee?: number;
+
+  @IsOptional()
+  @IsArray()
+  prizePool?: { rank: number; amount: number }[];
 }
 
 export class RegisterDto {

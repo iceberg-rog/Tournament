@@ -35,6 +35,10 @@ export interface TournamentRecord {
   requireCheckIn?: boolean;
   /** جوایز per-rank؛ هنگام پایان تورنومنت به کیف پول برنده‌ها واریز می‌شود. */
   prizePool?: { rank: number; amount: number }[];
+  /** هزینه‌ی ورودی (ریال)؛ هنگام ثبت‌نام از کیف پول کاربر در escrow مسدود می‌شود. */
+  entryFee?: number;
+  /** شناسه‌ی کاربرانی که هزینه‌ی ورودی‌شان اکنون در escrow مسدود است. */
+  heldFees?: string[];
   /** آیا جوایز پرداخت شده‌اند (یک‌بار، هنگام COMPLETED). */
   paidOut?: boolean;
   status: TournamentStatus;

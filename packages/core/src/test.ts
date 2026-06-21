@@ -6,7 +6,7 @@
 import { Format, Genre, makeRng } from '@tournament/engine';
 import { InMemoryTournamentRepository } from './memoryRepository';
 import { TournamentService } from './tournamentService';
-import { InMemoryWalletRepository } from './wallet';
+import { InMemoryWalletRepository, WalletService } from './wallet';
 import { InMemoryNotificationRepository } from './notifications';
 import { InMemorySeasonRepository, SeasonService } from './season';
 import { CommunityService, InMemorySpaceRepository } from './community';
@@ -206,8 +206,9 @@ async function runPrizeScenario(): Promise<Outcome> {
   };
   try {
     const repo = new InMemoryTournamentRepository();
-    const wallet = new InMemoryWalletRepository();
+    const ledger = new InMemoryWalletRepository();
     let c = 0;
+    const wallet = new WalletService(ledger, () => `w${++c}`, () => '2026-01-01T00:00:00Z');
     const svc = new TournamentService(repo, () => `p${++c}`, () => '2026-01-01T00:00:00Z', wallet);
     const t = await svc.create({
       title: 'Prize Cup',
@@ -234,15 +235,93 @@ async function runPrizeScenario(): Promise<Outcome> {
     const st = await svc.standings(t.id);
     const champ = st[0].participantId;
     const second = st[1].participantId;
-    const cb = await wallet.balanceOf(champ);
-    const sb = await wallet.balanceOf(second);
+    const cb = (await wallet.balance(champ)).available;
+    const sb = (await wallet.balance(second)).available;
     if (cb !== 1000) throw new Error(`champion balance ${cb} != 1000`);
     if (sb !== 500) throw new Error(`runner-up balance ${sb} != 500`);
-    const total = (await wallet.ledger()).reduce((a, e) => a + e.amount, 0);
+    const total = (await ledger.all())
+      .filter((e) => e.type === 'PRIZE')
+      .reduce((a, e) => a + e.availableDelta, 0);
     if (total !== 1500) throw new Error(`total payout ${total} != 1500`);
     for (const s of st.slice(2)) {
-      if ((await wallet.balanceOf(s.participantId)) !== 0) throw new Error('non-podium player was paid');
+      if ((await wallet.balance(s.participantId)).available !== 0)
+        throw new Error('non-podium player was paid');
     }
+    return { ...base, ok: true, champion: champ, detail: 'OK' };
+  } catch (e) {
+    return { ...base, detail: e instanceof Error ? e.message : String(e) };
+  }
+}
+
+/** سناریوی هزینه‌ی ورودی + escrow + کیف پول (UC21/UC28): hold/release/capture/prize. */
+async function runWalletEscrowScenario(): Promise<Outcome> {
+  const base: Outcome = {
+    format: 'SINGLE_ELIM',
+    genre: 'DUEL',
+    n: 4,
+    ok: false,
+    champion: '',
+    detail: '',
+  };
+  try {
+    const repo = new InMemoryTournamentRepository();
+    const ledger = new InMemoryWalletRepository();
+    let c = 0;
+    const wallet = new WalletService(ledger, () => `w${++c}`, () => '2026-01-01T00:00:00Z');
+    const svc = new TournamentService(repo, () => `p${++c}`, () => '2026-01-01T00:00:00Z', wallet);
+    const users = ['u0', 'u1', 'u2', 'u3'];
+    for (const u of users) await wallet.deposit(u, 10000, 'topup');
+
+    // کمبود موجودی → ثبت‌نام رد می‌شود
+    const fee = 2000;
+    const t = await svc.create({
+      title: 'Paid Cup',
+      format: 'SINGLE_ELIM',
+      genre: 'DUEL',
+      entryFee: fee,
+      prizePool: [{ rank: 1, amount: 5000 }],
+    });
+    await expectThrow(
+      () => svc.register(t.id, { id: 'broke', name: 'Broke', seed: 0, skill: 0.5 }),
+      'insufficient funds blocks registration',
+    );
+
+    for (const u of users) await svc.register(t.id, { id: u, name: u, seed: 0, skill: 0.5 });
+    // هر کاربر: available 8000، escrow 2000
+    const b0 = await wallet.balance('u0');
+    if (b0.available !== 8000 || b0.escrow !== 2000) throw new Error(`hold wrong: ${JSON.stringify(b0)}`);
+
+    // انصراف → بازگشت وجه
+    await svc.withdraw(t.id, 'u3');
+    const w3 = await wallet.balance('u3');
+    if (w3.available !== 10000 || w3.escrow !== 0) throw new Error('withdraw did not refund');
+    await svc.register(t.id, { id: 'u3', name: 'u3', seed: 0, skill: 0.5 });
+
+    await svc.start(t.id);
+    let guard = 0;
+    while ((await svc.get(t.id)).status !== 'COMPLETED') {
+      if (guard++ > 100) throw new Error('did not converge');
+      for (const m of await svc.ready(t.id)) await svc.reportDuel(t.id, m.id, m.participantIds[0]);
+    }
+
+    const st = await svc.standings(t.id);
+    const champ = st[0].participantId;
+    const cbal = await wallet.balance(champ);
+    // قهرمان: 10000 − 2000 (هزینه‌ی قطعی‌شده) + 5000 جایزه = 13000، escrow صفر
+    if (cbal.available !== 13000 || cbal.escrow !== 0)
+      throw new Error(`champion balance wrong: ${JSON.stringify(cbal)}`);
+    for (const u of users) {
+      if ((await wallet.balance(u)).escrow !== 0) throw new Error('escrow not cleared after completion');
+    }
+    if ((await wallet.history(champ)).length === 0) throw new Error('history empty');
+
+    // سناریوی لغو → بازگشت کاملِ همه
+    const t2 = await svc.create({ title: 'Cancel Cup', format: 'SINGLE_ELIM', genre: 'DUEL', entryFee: fee });
+    await svc.register(t2.id, { id: 'u0', name: 'u0', seed: 0, skill: 0.5 });
+    await svc.register(t2.id, { id: 'u1', name: 'u1', seed: 0, skill: 0.5 });
+    await svc.cancel(t2.id);
+    if ((await wallet.balance('u1')).escrow !== 0) throw new Error('cancel did not release escrow');
+
     return { ...base, ok: true, champion: champ, detail: 'OK' };
   } catch (e) {
     return { ...base, detail: e instanceof Error ? e.message : String(e) };
@@ -803,6 +882,7 @@ async function main(): Promise<void> {
   const ladder = await runLadderScenario();
   const settings = await runSettingsScenario();
   const payment = await runPaymentScenario();
+  const walletEscrow = await runWalletEscrowScenario();
 
   const pad = (s: string | number, w: number) => String(s).padEnd(w);
   console.log('\n🏆 تست چرخه‌ی کامل تورنومنت (سرویس + مخزن in-memory)');
@@ -834,6 +914,7 @@ async function main(): Promise<void> {
   console.log(`سناریوی matchmaking / ladder: ${ladder.ok ? '✅ PASS' : '❌ FAIL: ' + ladder.detail}`);
   console.log(`سناریوی تنظیمات پلتفرم: ${settings.ok ? '✅ PASS' : '❌ FAIL: ' + settings.detail}`);
   console.log(`سناریوی پرداخت: ${payment.ok ? '✅ PASS' : '❌ FAIL: ' + payment.detail}`);
+  console.log(`سناریوی هزینه‌ی ورودی / escrow / کیف پول: ${walletEscrow.ok ? '✅ PASS' : '❌ FAIL: ' + walletEscrow.detail}`);
 
   const passed =
     results.filter((r) => r.ok).length +
@@ -849,8 +930,9 @@ async function main(): Promise<void> {
     (community.ok ? 1 : 0) +
     (ladder.ok ? 1 : 0) +
     (settings.ok ? 1 : 0) +
-    (payment.ok ? 1 : 0);
-  const total = results.length + 13;
+    (payment.ok ? 1 : 0) +
+    (walletEscrow.ok ? 1 : 0);
+  const total = results.length + 14;
   console.log(`\nنتیجه: ${passed}/${total} تست پاس شد.`);
   if (passed !== total) {
     console.log('❌ بعضی تست‌ها رد شدند.');

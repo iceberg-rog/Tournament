@@ -28,6 +28,8 @@ export class TournamentsController {
       swissRounds: dto.swissRounds,
       requireCheckIn: dto.requireCheckIn,
       maxParticipants: dto.maxParticipants,
+      entryFee: dto.entryFee,
+      prizePool: dto.prizePool,
     });
   }
 

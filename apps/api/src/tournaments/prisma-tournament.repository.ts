@@ -37,10 +37,20 @@ export class PrismaTournamentRepository implements TournamentRepository {
       swissRounds: rec.swissRounds ?? null,
       participants: rec.participants as unknown as object,
       events: rec.events as unknown as object,
+      meta: {
+        maxParticipants: rec.maxParticipants ?? null,
+        waitlist: rec.waitlist ?? [],
+        requireCheckIn: rec.requireCheckIn ?? false,
+        prizePool: rec.prizePool ?? null,
+        entryFee: rec.entryFee ?? null,
+        heldFees: rec.heldFees ?? [],
+        paidOut: rec.paidOut ?? false,
+      } as unknown as object,
     };
   }
 
   private fromRow(r: any): TournamentRecord {
+    const m = (r.meta ?? {}) as Record<string, any>;
     return {
       id: r.id,
       title: r.title,
@@ -52,6 +62,13 @@ export class PrismaTournamentRepository implements TournamentRepository {
       swissRounds: r.swissRounds ?? undefined,
       participants: r.participants,
       events: r.events,
+      maxParticipants: m.maxParticipants ?? undefined,
+      waitlist: m.waitlist ?? [],
+      requireCheckIn: m.requireCheckIn ?? false,
+      prizePool: m.prizePool ?? undefined,
+      entryFee: m.entryFee ?? undefined,
+      heldFees: m.heldFees ?? [],
+      paidOut: m.paidOut ?? false,
       createdAt: r.createdAt.toISOString(),
     };
   }

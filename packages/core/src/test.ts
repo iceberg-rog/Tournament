@@ -522,6 +522,40 @@ async function runResultsScenario(): Promise<Outcome> {
   }
 }
 
+/** سناریوی کاتالوگ بازی‌ها (گروه‌بندی بر اساس بازی + شمارش وضعیت). */
+async function runGamesCatalogScenario(): Promise<Outcome> {
+  const base: Outcome = {
+    format: 'SINGLE_ELIM',
+    genre: 'DUEL',
+    n: 0,
+    ok: false,
+    champion: '-',
+    detail: '',
+  };
+  try {
+    let c = 0;
+    const svc = new TournamentService(
+      new InMemoryTournamentRepository(),
+      () => `g${++c}`,
+      () => '2026-01-01T00:00:00Z',
+    );
+    await svc.create({ title: 'FC A', game: 'FC26', format: 'SINGLE_ELIM', genre: 'DUEL' });
+    await svc.create({ title: 'FC B', game: 'FC26', format: 'ROUND_ROBIN', genre: 'DUEL' });
+    await svc.create({ title: 'WZ', game: 'Warzone', format: 'FFA', genre: 'FFA' });
+    await svc.create({ title: 'No game', format: 'SWISS', genre: 'DUEL' });
+    const catalog = await svc.gamesCatalog();
+    const fc = catalog.find((g) => g.game === 'FC26');
+    if (!fc || fc.total !== 2 || fc.upcoming !== 2) throw new Error('FC26 catalog wrong');
+    const wz = catalog.find((g) => g.game === 'Warzone');
+    if (!wz || wz.total !== 1) throw new Error('Warzone catalog wrong');
+    if (!catalog.find((g) => g.game === 'سایر')) throw new Error('uncategorized group missing');
+    if (catalog[0].game !== 'FC26') throw new Error('catalog not sorted by total');
+    return { ...base, ok: true, detail: 'OK' };
+  } catch (e) {
+    return { ...base, detail: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 async function main(): Promise<void> {
   const cases: Case[] = [];
   for (const n of [2, 3, 5, 8, 16, 31]) cases.push({ format: 'SINGLE_ELIM', genre: 'DUEL', n });
@@ -542,6 +576,7 @@ async function main(): Promise<void> {
   const notif = await runNotificationScenario();
   const cancel = await runCancelScenario();
   const resultsScenario = await runResultsScenario();
+  const gamesCatalog = await runGamesCatalogScenario();
 
   const pad = (s: string | number, w: number) => String(s).padEnd(w);
   console.log('\n🏆 تست چرخه‌ی کامل تورنومنت (سرویس + مخزن in-memory)');
@@ -567,6 +602,7 @@ async function main(): Promise<void> {
   console.log(`سناریوی اعلان‌ها: ${notif.ok ? '✅ PASS' : '❌ FAIL: ' + notif.detail}`);
   console.log(`سناریوی لغو: ${cancel.ok ? '✅ PASS' : '❌ FAIL: ' + cancel.detail}`);
   console.log(`سناریوی نتایج / اسکور: ${resultsScenario.ok ? '✅ PASS' : '❌ FAIL: ' + resultsScenario.detail}`);
+  console.log(`سناریوی کاتالوگ بازی‌ها: ${gamesCatalog.ok ? '✅ PASS' : '❌ FAIL: ' + gamesCatalog.detail}`);
 
   const passed =
     results.filter((r) => r.ok).length +
@@ -576,8 +612,9 @@ async function main(): Promise<void> {
     (dispute.ok ? 1 : 0) +
     (notif.ok ? 1 : 0) +
     (cancel.ok ? 1 : 0) +
-    (resultsScenario.ok ? 1 : 0);
-  const total = results.length + 7;
+    (resultsScenario.ok ? 1 : 0) +
+    (gamesCatalog.ok ? 1 : 0);
+  const total = results.length + 8;
   console.log(`\nنتیجه: ${passed}/${total} تست پاس شد.`);
   if (passed !== total) {
     console.log('❌ بعضی تست‌ها رد شدند.');

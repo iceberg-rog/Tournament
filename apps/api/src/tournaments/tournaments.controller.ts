@@ -21,6 +21,7 @@ export class TournamentsController {
   create(@Body() dto: CreateTournamentDto) {
     return this.svc.create({
       title: dto.title,
+      game: dto.game,
       format: dto.format,
       genre: dto.genre,
       ffaRounds: dto.ffaRounds,
@@ -33,6 +34,11 @@ export class TournamentsController {
   @Get()
   list() {
     return this.svc.list();
+  }
+
+  @Get('games')
+  games() {
+    return this.svc.gamesCatalog();
   }
 
   @Get(':id')

@@ -35,6 +35,7 @@ model Wallet {
 model Tournament {
   id          String   @id @default(uuid())
   title       String
+  game        String?
   format      String
   genre       String
   status      String   @default("DRAFT")

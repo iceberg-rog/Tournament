@@ -7,6 +7,7 @@ import { authedPost, isLoggedIn, publicGet } from '@/lib/api';
 interface TournamentRow {
   id: string;
   title: string;
+  game?: string;
   format: string;
   genre: string;
   status: string;
@@ -31,6 +32,7 @@ export default function TournamentsPage() {
   const [tab, setTab] = useState<'upcoming' | 'running' | 'finished'>('upcoming');
   const [form, setForm] = useState({
     title: '',
+    game: '',
     format: 'SINGLE_ELIM',
     genre: 'DUEL',
     maxParticipants: '',
@@ -61,6 +63,7 @@ export default function TournamentsPage() {
         genre: form.genre,
         requireCheckIn: form.requireCheckIn,
       };
+      if (form.game) payload.game = form.game;
       if (form.maxParticipants) payload.maxParticipants = Number(form.maxParticipants);
       await authedPost('/tournaments', payload);
       setForm({ ...form, title: '' });
@@ -87,6 +90,12 @@ export default function TournamentsPage() {
             value={form.title}
             onChange={(e) => setForm({ ...form, title: e.target.value })}
             required
+          />
+          <input
+            className="w-36 rounded-lg bg-slate-800 px-3 py-2"
+            placeholder="بازی (مثلاً FC26)"
+            value={form.game}
+            onChange={(e) => setForm({ ...form, game: e.target.value })}
           />
           <select
             className="rounded-lg bg-slate-800 px-3 py-2"
@@ -165,6 +174,7 @@ export default function TournamentsPage() {
               >
                 <span className="font-medium">{t.title}</span>
                 <span className="text-sm text-slate-400">
+                  {t.game ? `${t.game} · ` : ''}
                   {t.format} · {t.genre} · {t.participants.length} نفر · {t.status}
                 </span>
               </Link>

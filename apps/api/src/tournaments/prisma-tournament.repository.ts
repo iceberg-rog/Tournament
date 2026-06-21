@@ -29,6 +29,7 @@ export class PrismaTournamentRepository implements TournamentRepository {
     return {
       id: rec.id,
       title: rec.title,
+      game: rec.game ?? null,
       format: rec.format,
       genre: rec.genre,
       status: rec.status,
@@ -43,6 +44,7 @@ export class PrismaTournamentRepository implements TournamentRepository {
     return {
       id: r.id,
       title: r.title,
+      game: r.game ?? undefined,
       format: r.format,
       genre: r.genre,
       status: r.status,

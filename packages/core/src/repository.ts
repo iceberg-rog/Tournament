@@ -20,6 +20,8 @@ export type ReportEvent =
 export interface TournamentRecord {
   id: string;
   title: string;
+  /** بازی (مثلاً «FC26»، «Warzone»)؛ مبنای کاتالوگ بازی‌ها. */
+  game?: string;
   format: Format;
   genre: Genre;
   participants: Participant[];

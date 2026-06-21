@@ -14,6 +14,7 @@ import { WalletRepository } from './wallet';
 
 export interface CreateTournamentInput {
   title: string;
+  game?: string;
   format: Format;
   genre: Genre;
   participants?: Participant[];
@@ -66,6 +67,7 @@ export class TournamentService {
     const rec: TournamentRecord = {
       id: this.idGen(),
       title: input.title,
+      game: input.game,
       format: input.format,
       genre: input.genre,
       participants: input.participants ? input.participants.map((p) => ({ ...p })) : [],
@@ -312,6 +314,27 @@ export class TournamentService {
 
   async list(): Promise<TournamentRecord[]> {
     return this.repo.list();
+  }
+
+  /** کاتالوگ بازی‌ها: گروه‌بندی تورنومنت‌ها بر اساس بازی، با شمارش هر وضعیت. */
+  async gamesCatalog(): Promise<
+    { game: string; total: number; upcoming: number; running: number; finished: number }[]
+  > {
+    const all = await this.repo.list();
+    const map = new Map<
+      string,
+      { game: string; total: number; upcoming: number; running: number; finished: number }
+    >();
+    for (const t of all) {
+      const g = t.game ?? 'سایر';
+      const e = map.get(g) ?? { game: g, total: 0, upcoming: 0, running: 0, finished: 0 };
+      e.total++;
+      if (t.status === 'DRAFT') e.upcoming++;
+      else if (t.status === 'RUNNING') e.running++;
+      else e.finished++;
+      map.set(g, e);
+    }
+    return [...map.values()].sort((a, b) => b.total - a.total);
   }
 
   /**

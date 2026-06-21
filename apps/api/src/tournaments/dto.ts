@@ -20,6 +20,11 @@ export class CreateTournamentDto {
   @MaxLength(120)
   title!: string;
 
+  @IsOptional()
+  @IsString()
+  @MaxLength(60)
+  game?: string;
+
   @IsIn(FORMATS)
   format!: Format;
 

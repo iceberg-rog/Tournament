@@ -67,3 +67,27 @@ model Payment {
   ref         String?
   createdAt   DateTime @default(now())
 }
+
+model Season {
+  id            String   @id @default(uuid())
+  title         String
+  tournamentIds Json
+  createdAt     DateTime @default(now())
+}
+
+model Space {
+  id            String   @id @default(uuid())
+  title         String
+  tournamentId  String?
+  memberIds     Json
+  posts         Json
+  createdAt     DateTime @default(now())
+}
+
+model Ladder {
+  id        String   @id @default(uuid())
+  title     String
+  queue     Json
+  ratings   Json
+  createdAt DateTime @default(now())
+}

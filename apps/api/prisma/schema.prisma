@@ -135,6 +135,31 @@ model Ticket {
   @@index([userId])
 }
 
+// امتیاز کاربر به تورنومنت (UC25) — یک امتیاز per کاربر per تورنومنت.
+model Rating {
+  id           String   @id @default(uuid())
+  tournamentId String
+  userId       String
+  score        Int
+  comment      String?
+  createdAt    DateTime @default(now())
+
+  @@unique([tournamentId, userId])
+}
+
+// اعلان درون‌برنامه‌ای (UC15).
+model Notification {
+  id           String   @id @default(uuid())
+  userId       String
+  type         String
+  tournamentId String
+  message      String
+  read         Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+}
+
 model Season {
   id            String   @id @default(uuid())
   title         String

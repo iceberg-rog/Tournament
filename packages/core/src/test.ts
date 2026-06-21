@@ -21,6 +21,7 @@ import {
 } from './payout';
 import { InMemoryReportRepository, ModerationService } from './moderation';
 import { InMemoryTicketRepository, SupportService } from './support';
+import { InMemoryRatingRepository, RatingService } from './rating';
 
 interface Case {
   format: Format;
@@ -961,6 +962,38 @@ async function runModerationSupportScenario(): Promise<Outcome> {
   }
 }
 
+/** سناریوی امتیازدهی به مسابقه (UC25): محدوده، به‌روزرسانی، میانگین. */
+async function runRatingScenario(): Promise<Outcome> {
+  const base: Outcome = {
+    format: 'SINGLE_ELIM',
+    genre: 'DUEL',
+    n: 0,
+    ok: false,
+    champion: '-',
+    detail: '',
+  };
+  try {
+    let c = 0;
+    const svc = new RatingService(
+      new InMemoryRatingRepository(),
+      () => `rt${++c}`,
+      () => '2026-01-01T00:00:00Z',
+    );
+    await expectThrow(() => svc.rate('t1', 'u1', 6), 'score out of range');
+    await svc.rate('t1', 'u1', 4);
+    await svc.rate('t1', 'u2', 5);
+    await svc.rate('t1', 'u1', 2, 'changed mind'); // به‌روزرسانیِ امتیاز u1
+    const sum = await svc.summary('t1');
+    if (sum.count !== 2) throw new Error(`count ${sum.count} != 2`);
+    if (sum.average !== 3.5) throw new Error(`average ${sum.average} != 3.5`);
+    const ur = await svc.getUserRating('t1', 'u1');
+    if (ur?.score !== 2 || ur.comment !== 'changed mind') throw new Error('update not applied');
+    return { ...base, ok: true, detail: 'OK' };
+  } catch (e) {
+    return { ...base, detail: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 async function main(): Promise<void> {
   const cases: Case[] = [];
   for (const n of [2, 3, 5, 8, 16, 31]) cases.push({ format: 'SINGLE_ELIM', genre: 'DUEL', n });
@@ -990,6 +1023,7 @@ async function main(): Promise<void> {
   const walletEscrow = await runWalletEscrowScenario();
   const kycWithdrawal = await runKycWithdrawalScenario();
   const modSupport = await runModerationSupportScenario();
+  const rating = await runRatingScenario();
 
   const pad = (s: string | number, w: number) => String(s).padEnd(w);
   console.log('\n🏆 تست چرخه‌ی کامل تورنومنت (سرویس + مخزن in-memory)');
@@ -1024,6 +1058,7 @@ async function main(): Promise<void> {
   console.log(`سناریوی هزینه‌ی ورودی / escrow / کیف پول: ${walletEscrow.ok ? '✅ PASS' : '❌ FAIL: ' + walletEscrow.detail}`);
   console.log(`سناریوی KYC / برداشت: ${kycWithdrawal.ok ? '✅ PASS' : '❌ FAIL: ' + kycWithdrawal.detail}`);
   console.log(`سناریوی تعدیل / پشتیبانی: ${modSupport.ok ? '✅ PASS' : '❌ FAIL: ' + modSupport.detail}`);
+  console.log(`سناریوی امتیازدهی به مسابقه: ${rating.ok ? '✅ PASS' : '❌ FAIL: ' + rating.detail}`);
 
   const passed =
     results.filter((r) => r.ok).length +
@@ -1042,8 +1077,9 @@ async function main(): Promise<void> {
     (payment.ok ? 1 : 0) +
     (walletEscrow.ok ? 1 : 0) +
     (kycWithdrawal.ok ? 1 : 0) +
-    (modSupport.ok ? 1 : 0);
-  const total = results.length + 16;
+    (modSupport.ok ? 1 : 0) +
+    (rating.ok ? 1 : 0);
+  const total = results.length + 17;
   console.log(`\nنتیجه: ${passed}/${total} تست پاس شد.`);
   if (passed !== total) {
     console.log('❌ بعضی تست‌ها رد شدند.');

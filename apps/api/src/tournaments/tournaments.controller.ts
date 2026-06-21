@@ -8,13 +8,37 @@ import {
   Request,
   UseGuards,
 } from '@nestjs/common';
-import { TournamentService } from '@tournament/core';
+import { RatingService, TournamentService } from '@tournament/core';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { CreateTournamentDto, RegisterDto, ReportDto } from './dto';
 
 @Controller('tournaments')
 export class TournamentsController {
-  constructor(private readonly svc: TournamentService) {}
+  constructor(
+    private readonly svc: TournamentService,
+    private readonly ratings: RatingService,
+  ) {}
+
+  @Post(':id/rate')
+  @UseGuards(JwtAuthGuard)
+  rate(
+    @Param('id') id: string,
+    @Request() req: { user: { id: string } },
+    @Body() dto: { score: number; comment?: string },
+  ) {
+    return this.ratings.rate(id, req.user.id, dto.score, dto.comment);
+  }
+
+  @Get(':id/rating')
+  ratingSummary(@Param('id') id: string) {
+    return this.ratings.summary(id);
+  }
+
+  @Get(':id/my-rating')
+  @UseGuards(JwtAuthGuard)
+  myRating(@Param('id') id: string, @Request() req: { user: { id: string } }) {
+    return this.ratings.getUserRating(id, req.user.id);
+  }
 
   @Post()
   @UseGuards(JwtAuthGuard)

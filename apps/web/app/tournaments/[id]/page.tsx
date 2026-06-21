@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { authedPost, isLoggedIn, publicGet } from '@/lib/api';
+import { authedGet, authedPost, isLoggedIn, publicGet } from '@/lib/api';
 
 interface Participant {
   id: string;
@@ -40,6 +40,8 @@ export default function TournamentDetail() {
   const [rec, setRec] = useState<TournamentRecord | null>(null);
   const [ready, setReady] = useState<ReadyMatch[]>([]);
   const [standings, setStandings] = useState<Standing[]>([]);
+  const [rating, setRating] = useState<{ average: number; count: number }>({ average: 0, count: 0 });
+  const [myScore, setMyScore] = useState(0);
   const [error, setError] = useState('');
   const loggedIn = isLoggedIn();
 
@@ -50,6 +52,15 @@ export default function TournamentDetail() {
       if (t.status === 'RUNNING') setReady(await publicGet<ReadyMatch[]>(`/tournaments/${id}/ready`));
       else setReady([]);
       if (t.status !== 'DRAFT') setStandings(await publicGet<Standing[]>(`/tournaments/${id}/standings`));
+      if (t.status === 'COMPLETED') {
+        setRating(await publicGet(`/tournaments/${id}/rating`));
+        if (isLoggedIn()) {
+          const mine = await authedGet<{ score: number } | null>(`/tournaments/${id}/my-rating`).catch(
+            () => null,
+          );
+          setMyScore(mine?.score ?? 0);
+        }
+      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'خطا');
     }
@@ -219,6 +230,29 @@ export default function TournamentDetail() {
               ))}
             </tbody>
           </table>
+        </section>
+      )}
+
+      {rec.status === 'COMPLETED' && (
+        <section className="mt-6 rounded-lg bg-slate-900 p-5">
+          <h2 className="mb-2 font-bold">امتیاز به این مسابقه</h2>
+          <p className="mb-3 text-sm text-slate-400">
+            میانگین: <b className="text-amber-400">{rating.average || '—'}</b> از ۵ ({rating.count} رأی)
+          </p>
+          {loggedIn && (
+            <div className="flex gap-1" dir="ltr">
+              {[1, 2, 3, 4, 5].map((s) => (
+                <button
+                  key={s}
+                  onClick={() => act(async () => { await authedPost(`/tournaments/${id}/rate`, { score: s }); setMyScore(s); })}
+                  className={`text-2xl ${s <= myScore ? 'text-amber-400' : 'text-slate-600'} hover:text-amber-300`}
+                  aria-label={`${s} ستاره`}
+                >
+                  ★
+                </button>
+              ))}
+            </div>
+          )}
         </section>
       )}
     </main>

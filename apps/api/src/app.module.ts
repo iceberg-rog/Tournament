@@ -9,6 +9,7 @@ import { PaymentsModule } from './payments/payments.module';
 import { WalletModule } from './wallet/wallet.module';
 import { PayoutsModule } from './payouts/payouts.module';
 import { ModerationModule } from './moderation/moderation.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { SeasonsModule } from './seasons/seasons.module';
 import { CommunityModule } from './community/community.module';
 import { LaddersModule } from './ladders/ladders.module';
@@ -26,6 +27,7 @@ import { HealthController } from './health.controller';
     WalletModule,
     PayoutsModule,
     ModerationModule,
+    NotificationsModule,
     SeasonsModule,
     CommunityModule,
     LaddersModule,

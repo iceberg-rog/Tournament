@@ -12,3 +12,4 @@ export * from './payment';
 export * from './payout';
 export * from './moderation';
 export * from './support';
+export * from './rating';

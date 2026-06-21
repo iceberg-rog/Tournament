@@ -15,7 +15,7 @@ export interface Payment {
 /** انتزاع درگاه پرداخت — Sandbox برای تست/توسعه، زرین‌پال واقعی برای پروداکشن. */
 export interface PaymentGateway {
   request(amount: number, description: string): Promise<{ authority: string; redirectUrl: string }>;
-  verify(authority: string): Promise<{ ok: boolean; ref?: string }>;
+  verify(authority: string, amount?: number): Promise<{ ok: boolean; ref?: string }>;
 }
 
 /** درگاه آزمایشی بدون شبکه (همیشه موفق) — تا بدون merchant واقعی هم اجرا شود. */
@@ -27,6 +27,64 @@ export class SandboxGateway implements PaymentGateway {
   }
   async verify(authority: string): Promise<{ ok: boolean; ref?: string }> {
     return { ok: true, ref: `REF-${authority}` };
+  }
+}
+
+/**
+ * درگاه واقعی زرین‌پال (Payment API v4). با merchantId/callbackUrl از تنظیمات مدیریت
+ * ساخته می‌شود؛ با sandbox=false روی درگاه واقعی و با true روی sandbox زرین‌پال کار می‌کند.
+ */
+export class ZarinpalGateway implements PaymentGateway {
+  private readonly api: string;
+  private readonly startPay: string;
+  constructor(
+    private readonly merchantId: string,
+    private readonly callbackUrl: string,
+    sandbox = false,
+  ) {
+    this.api = sandbox
+      ? 'https://sandbox.zarinpal.com/pg/v4/payment'
+      : 'https://api.zarinpal.com/pg/v4/payment';
+    this.startPay = sandbox
+      ? 'https://sandbox.zarinpal.com/pg/StartPay'
+      : 'https://www.zarinpal.com/pg/StartPay';
+  }
+
+  async request(amount: number, description: string): Promise<{ authority: string; redirectUrl: string }> {
+    const json = await this.post('/request.json', {
+      merchant_id: this.merchantId,
+      amount,
+      callback_url: this.callbackUrl,
+      description,
+    });
+    const code = json?.data?.code;
+    if (code !== 100 && code !== 101) {
+      throw new DomainError(`zarinpal request failed: ${JSON.stringify(json?.errors ?? code)}`);
+    }
+    const authority = String(json.data.authority);
+    return { authority, redirectUrl: `${this.startPay}/${authority}` };
+  }
+
+  async verify(authority: string, amount?: number): Promise<{ ok: boolean; ref?: string }> {
+    const json = await this.post('/verify.json', {
+      merchant_id: this.merchantId,
+      amount,
+      authority,
+    });
+    const code = json?.data?.code;
+    return {
+      ok: code === 100 || code === 101,
+      ref: json?.data?.ref_id ? String(json.data.ref_id) : undefined,
+    };
+  }
+
+  private async post(path: string, body: unknown): Promise<any> {
+    const res = await fetch(`${this.api}${path}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return res.json();
   }
 }
 
@@ -81,7 +139,7 @@ export class PaymentService {
   async verify(paymentId: string): Promise<Payment> {
     const p = await this.mustGet(paymentId);
     if (p.status !== 'PENDING') throw new DomainError('payment is not pending');
-    const res = await this.gateway.verify(p.authority);
+    const res = await this.gateway.verify(p.authority, p.amount);
     p.status = res.ok ? 'PAID' : 'FAILED';
     if (res.ok) p.ref = res.ref;
     await this.repo.update(p);

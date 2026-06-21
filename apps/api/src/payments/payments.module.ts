@@ -1,22 +1,26 @@
 import { Module } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
-import { PaymentService, SandboxGateway } from '@tournament/core';
+import { PaymentService, SettingsService } from '@tournament/core';
 import { PrismaService } from '../prisma/prisma.service';
+import { PrismaSettingsRepository } from '../settings/prisma-settings.repository';
 import { PrismaPaymentRepository } from './prisma-payment.repository';
+import { DynamicPaymentGateway } from './dynamic-gateway';
 import { PaymentsController } from './payments.controller';
 
 @Module({
   controllers: [PaymentsController],
   providers: [
     {
-      // درگاهِ Sandbox؛ برای پروداکشن یک ZarinpalGateway (با کلیدهای تنظیماتِ مدیریت) جایگزین می‌شود.
+      // درگاه بر اساس تنظیماتِ زنده انتخاب می‌شود: Sandbox یا زرین‌پالِ واقعی.
       provide: PaymentService,
-      useFactory: (prisma: PrismaService) =>
-        new PaymentService(
+      useFactory: (prisma: PrismaService) => {
+        const settings = new SettingsService(new PrismaSettingsRepository(prisma));
+        return new PaymentService(
           new PrismaPaymentRepository(prisma),
-          new SandboxGateway(() => randomUUID()),
+          new DynamicPaymentGateway(settings),
           () => randomUUID(),
-        ),
+        );
+      },
       inject: [PrismaService],
     },
   ],

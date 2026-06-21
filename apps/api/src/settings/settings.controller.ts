@@ -1,10 +1,13 @@
 import { Body, Controller, Get, Put, UseGuards } from '@nestjs/common';
 import { DeepPartial, PlatformSettings, SettingsService } from '@tournament/core';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { RolesGuard } from '../auth/guards/roles.guard';
+import { Roles } from '../auth/decorators/roles.decorator';
 
-/** تنظیمات پایه‌ی داشبورد مدیریت (درگاه پرداخت، کلیدهای API). محافظت‌شده. */
+/** تنظیمات پایه‌ی داشبورد مدیریت (درگاه پرداخت، کلیدهای API). فقط مدیر. */
 @Controller('settings')
-@UseGuards(JwtAuthGuard)
+@UseGuards(JwtAuthGuard, RolesGuard)
+@Roles('ADMIN')
 export class SettingsController {
   constructor(private readonly svc: SettingsService) {}
 

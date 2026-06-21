@@ -67,6 +67,12 @@ export class TournamentsController {
     return this.svc.withdraw(id, req.user.id);
   }
 
+  @Post(':id/cancel')
+  @UseGuards(JwtAuthGuard)
+  cancel(@Param('id') id: string) {
+    return this.svc.cancel(id);
+  }
+
   @Get(':id/ready')
   ready(@Param('id') id: string) {
     return this.svc.ready(id);

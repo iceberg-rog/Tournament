@@ -1,4 +1,10 @@
-export type NotificationType = 'REGISTERED' | 'WAITLISTED' | 'STARTED' | 'WON' | 'COMPLETED';
+export type NotificationType =
+  | 'REGISTERED'
+  | 'WAITLISTED'
+  | 'STARTED'
+  | 'WON'
+  | 'COMPLETED'
+  | 'CANCELLED';
 
 export interface Notification {
   userId: string;

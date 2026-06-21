@@ -430,6 +430,63 @@ async function runNotificationScenario(): Promise<Outcome> {
   }
 }
 
+/** سناریوی لغو تورنومنت در DRAFT و RUNNING، و رد لغوِ COMPLETED. */
+async function runCancelScenario(): Promise<Outcome> {
+  const base: Outcome = {
+    format: 'SINGLE_ELIM',
+    genre: 'DUEL',
+    n: 2,
+    ok: false,
+    champion: '-',
+    detail: '',
+  };
+  const mkP = (id: string) => ({ id, name: id, seed: 0, skill: 0.5 });
+  try {
+    const notifier = new InMemoryNotificationRepository();
+    let c = 0;
+    const svc = new TournamentService(
+      new InMemoryTournamentRepository(),
+      () => `x${++c}`,
+      () => '2026-01-01T00:00:00Z',
+      undefined,
+      notifier,
+    );
+
+    // لغو در DRAFT
+    const t1 = await svc.create({ title: 'Cancel Draft', format: 'SINGLE_ELIM', genre: 'DUEL' });
+    await svc.register(t1.id, mkP('a'));
+    await svc.register(t1.id, mkP('b'));
+    await svc.cancel(t1.id);
+    if ((await svc.get(t1.id)).status !== 'CANCELLED') throw new Error('draft not cancelled');
+    if (!(await notifier.forUser('a')).some((n) => n.type === 'CANCELLED')) {
+      throw new Error('no cancel notification');
+    }
+    await expectThrow(() => svc.register(t1.id, mkP('c')), 'register after cancel');
+    await expectThrow(() => svc.cancel(t1.id), 'double cancel');
+
+    // لغو در RUNNING
+    const t2 = await svc.create({ title: 'Cancel Running', format: 'SINGLE_ELIM', genre: 'DUEL' });
+    await svc.register(t2.id, mkP('a'));
+    await svc.register(t2.id, mkP('b'));
+    await svc.start(t2.id);
+    await svc.cancel(t2.id);
+    if ((await svc.get(t2.id)).status !== 'CANCELLED') throw new Error('running not cancelled');
+    if ((await svc.ready(t2.id)).length !== 0) throw new Error('cancelled should have no ready matches');
+
+    // لغوِ COMPLETED رد می‌شود
+    const t3 = await svc.create({ title: 'Done', format: 'SINGLE_ELIM', genre: 'DUEL' });
+    await svc.register(t3.id, mkP('a'));
+    await svc.register(t3.id, mkP('b'));
+    await svc.start(t3.id);
+    for (const mm of await svc.ready(t3.id)) await svc.reportDuel(t3.id, mm.id, mm.participantIds[0]);
+    await expectThrow(() => svc.cancel(t3.id), 'cancel a completed tournament');
+
+    return { ...base, ok: true, detail: 'OK' };
+  } catch (e) {
+    return { ...base, detail: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 async function main(): Promise<void> {
   const cases: Case[] = [];
   for (const n of [2, 3, 5, 8, 16, 31]) cases.push({ format: 'SINGLE_ELIM', genre: 'DUEL', n });
@@ -448,6 +505,7 @@ async function main(): Promise<void> {
   const capacity = await runCapacityScenario();
   const dispute = await runDisputeScenario();
   const notif = await runNotificationScenario();
+  const cancel = await runCancelScenario();
 
   const pad = (s: string | number, w: number) => String(s).padEnd(w);
   console.log('\n🏆 تست چرخه‌ی کامل تورنومنت (سرویس + مخزن in-memory)');
@@ -471,6 +529,7 @@ async function main(): Promise<void> {
   console.log(`سناریوی ظرفیت / waitlist: ${capacity.ok ? '✅ PASS' : '❌ FAIL: ' + capacity.detail}`);
   console.log(`سناریوی اعتراض / داوری: ${dispute.ok ? '✅ PASS' : '❌ FAIL: ' + dispute.detail}`);
   console.log(`سناریوی اعلان‌ها: ${notif.ok ? '✅ PASS' : '❌ FAIL: ' + notif.detail}`);
+  console.log(`سناریوی لغو: ${cancel.ok ? '✅ PASS' : '❌ FAIL: ' + cancel.detail}`);
 
   const passed =
     results.filter((r) => r.ok).length +
@@ -478,8 +537,9 @@ async function main(): Promise<void> {
     (prize.ok ? 1 : 0) +
     (capacity.ok ? 1 : 0) +
     (dispute.ok ? 1 : 0) +
-    (notif.ok ? 1 : 0);
-  const total = results.length + 5;
+    (notif.ok ? 1 : 0) +
+    (cancel.ok ? 1 : 0);
+  const total = results.length + 6;
   console.log(`\nنتیجه: ${passed}/${total} تست پاس شد.`);
   if (passed !== total) {
     console.log('❌ بعضی تست‌ها رد شدند.');

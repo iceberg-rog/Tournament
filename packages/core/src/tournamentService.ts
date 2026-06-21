@@ -134,6 +134,18 @@ export class TournamentService {
     }
   }
 
+  /** لغو تورنومنت (در DRAFT یا RUNNING) → CANCELLED، با اعلان به شرکت‌کننده‌ها. */
+  async cancel(id: string): Promise<void> {
+    const rec = await this.mustGet(id);
+    if (rec.status === 'COMPLETED') throw new DomainError('a completed tournament cannot be cancelled');
+    if (rec.status === 'CANCELLED') throw new DomainError('tournament is already cancelled');
+    rec.status = 'CANCELLED';
+    await this.repo.update(rec);
+    for (const p of rec.participants) {
+      await this.notify(p.id, 'CANCELLED', rec.id, 'تورنومنت لغو شد');
+    }
+  }
+
   private buildEngine(rec: TournamentRecord): Engine {
     const e = createTournament(rec.format, rec.participants, {
       ffaRounds: rec.ffaRounds,

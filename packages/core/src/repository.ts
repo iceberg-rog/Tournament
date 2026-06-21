@@ -1,6 +1,6 @@
 import { Format, Genre, Participant } from '@tournament/engine';
 
-export type TournamentStatus = 'DRAFT' | 'RUNNING' | 'COMPLETED';
+export type TournamentStatus = 'DRAFT' | 'RUNNING' | 'COMPLETED' | 'CANCELLED';
 
 /** رویدادِ لاگِ replay برای بازسازی قطعی وضعیت. */
 export type ReportEvent =

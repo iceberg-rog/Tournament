@@ -92,6 +92,9 @@ export default function DashboardPage() {
         <a href="/settings" className="rounded-lg border border-slate-700 px-4 py-2 hover:bg-slate-800">
           تنظیمات مدیریت
         </a>
+        <a href="/admin" className="rounded-lg border border-slate-700 px-4 py-2 hover:bg-slate-800">
+          کنسول مدیریت
+        </a>
         <button
           onClick={logout}
           className="rounded-lg border border-slate-700 px-4 py-2 transition hover:bg-slate-800"

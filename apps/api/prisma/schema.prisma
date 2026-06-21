@@ -152,6 +152,16 @@ model Rating {
   @@unique([tournamentId, userId])
 }
 
+// کاتالوگ بازی‌های قابل‌مدیریت توسط مدیر (UC06).
+model Game {
+  id        String   @id @default(uuid())
+  slug      String   @unique
+  name      String
+  platforms Json
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+}
+
 // اعلان درون‌برنامه‌ای (UC15).
 model Notification {
   id           String   @id @default(uuid())

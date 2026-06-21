@@ -11,6 +11,7 @@ import { InMemoryTournamentRepository, TournamentService } from '@tournament/cor
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/prisma/prisma.service';
 import { JwtAuthGuard } from '../src/auth/guards/jwt-auth.guard';
+import { DomainExceptionFilter } from '../src/common/domain-exception.filter';
 
 /** Guard تستی: کاربر را از هدر x-test-user می‌سازد (جای JWT واقعی). */
 class TestAuthGuard implements CanActivate {
@@ -43,6 +44,7 @@ describe('Tournaments API (e2e, no DB)', () => {
     app.useGlobalPipes(
       new ValidationPipe({ whitelist: true, transform: true, forbidNonWhitelisted: true }),
     );
+    app.useGlobalFilters(new DomainExceptionFilter());
     await app.init();
   });
 
@@ -173,9 +175,7 @@ describe('Tournaments API (e2e, no DB)', () => {
       .post(`/api/tournaments/${id}/matches/${m0.id}/report`)
       .set('x-test-user', 'admin')
       .send({ winnerId: m0.participantIds[0] })
-      .expect((r) => {
-        if (r.status < 400) throw new Error('expected rejection before check-in');
-      });
+      .expect(400);
 
     // هر دو check-in، سپس گزارش
     await request(server)

@@ -7,6 +7,7 @@ import {
   ReadyMatch,
   Standing,
 } from '@tournament/engine';
+import { DomainError } from './errors';
 import { TournamentRecord, TournamentRepository } from './repository';
 import { WalletRepository } from './wallet';
 
@@ -37,7 +38,7 @@ export class TournamentService {
 
   async create(input: CreateTournamentInput): Promise<TournamentRecord> {
     const valid: Format[] = ['SINGLE_ELIM', 'DOUBLE_ELIM', 'ROUND_ROBIN', 'SWISS', 'FFA'];
-    if (!valid.includes(input.format)) throw new Error(`invalid format: ${input.format}`);
+    if (!valid.includes(input.format)) throw new DomainError(`invalid format: ${input.format}`);
     const rec: TournamentRecord = {
       id: this.idGen(),
       title: input.title,
@@ -60,8 +61,8 @@ export class TournamentService {
   /** ثبت‌نام یک کاربر (فقط در وضعیت DRAFT). */
   async register(id: string, p: Participant): Promise<void> {
     const rec = await this.mustGet(id);
-    if (rec.status !== 'DRAFT') throw new Error('registration is closed');
-    if (rec.participants.some((x) => x.id === p.id)) throw new Error('already registered');
+    if (rec.status !== 'DRAFT') throw new DomainError('registration is closed');
+    if (rec.participants.some((x) => x.id === p.id)) throw new DomainError('already registered');
     rec.participants.push({ ...p });
     await this.repo.update(rec);
   }
@@ -69,8 +70,8 @@ export class TournamentService {
   /** شروع تورنومنت: seeding بر اساس ترتیب ثبت‌نام، DRAFT → RUNNING. */
   async start(id: string): Promise<void> {
     const rec = await this.mustGet(id);
-    if (rec.status !== 'DRAFT') throw new Error('tournament already started');
-    if (rec.participants.length < 2) throw new Error('need at least 2 participants');
+    if (rec.status !== 'DRAFT') throw new DomainError('tournament already started');
+    if (rec.participants.length < 2) throw new DomainError('need at least 2 participants');
     rec.participants.forEach((p, i) => (p.seed = i + 1));
     rec.status = 'RUNNING';
     await this.repo.update(rec);
@@ -98,16 +99,16 @@ export class TournamentService {
 
   async reportDuel(id: string, matchId: string, winnerId: string): Promise<void> {
     const rec = await this.mustGet(id);
-    if (rec.status !== 'RUNNING') throw new Error('tournament is not running');
+    if (rec.status !== 'RUNNING') throw new DomainError('tournament is not running');
     const e = this.buildEngine(rec);
     const rm = e.ready().find((m) => m.id === matchId);
-    if (!rm) throw new Error('match not ready or does not exist');
-    if (rm.kind !== 'DUEL') throw new Error('this match is a lobby, not a duel');
-    if (!rm.participantIds.includes(winnerId)) throw new Error('winner is not in this match');
+    if (!rm) throw new DomainError('match not ready or does not exist');
+    if (rm.kind !== 'DUEL') throw new DomainError('this match is a lobby, not a duel');
+    if (!rm.participantIds.includes(winnerId)) throw new DomainError('winner is not in this match');
     if (rec.requireCheckIn) {
       const checked = this.checkInsFor(rec, matchId);
       if (!rm.participantIds.every((p) => checked.includes(p))) {
-        throw new Error('both participants must check in before reporting a result');
+        throw new DomainError('both participants must check in before reporting a result');
       }
     }
     e.reportDuel(matchId, winnerId);
@@ -122,12 +123,12 @@ export class TournamentService {
   /** اعلام حضور یک طرف برای یک مسابقه‌ی آماده. */
   async checkIn(id: string, matchId: string, participantId: string): Promise<void> {
     const rec = await this.mustGet(id);
-    if (rec.status !== 'RUNNING') throw new Error('tournament is not running');
+    if (rec.status !== 'RUNNING') throw new DomainError('tournament is not running');
     const rm = this.buildEngine(rec).ready().find((m) => m.id === matchId);
-    if (!rm) throw new Error('match not ready or does not exist');
-    if (rm.kind !== 'DUEL') throw new Error('check-in applies only to duels');
-    if (!rm.participantIds.includes(participantId)) throw new Error('participant is not in this match');
-    if (this.checkInsFor(rec, matchId).includes(participantId)) throw new Error('already checked in');
+    if (!rm) throw new DomainError('match not ready or does not exist');
+    if (rm.kind !== 'DUEL') throw new DomainError('check-in applies only to duels');
+    if (!rm.participantIds.includes(participantId)) throw new DomainError('participant is not in this match');
+    if (this.checkInsFor(rec, matchId).includes(participantId)) throw new DomainError('already checked in');
     rec.events.push({ kind: 'CHECKIN', matchId, participantId });
     await this.repo.update(rec);
   }
@@ -135,16 +136,16 @@ export class TournamentService {
   /** اعلام no-show: طرفِ حاضر (check-in‌کرده) برنده می‌شود چون حریف نیامده است. */
   async declareNoShow(id: string, matchId: string, presentId: string): Promise<void> {
     const rec = await this.mustGet(id);
-    if (rec.status !== 'RUNNING') throw new Error('tournament is not running');
+    if (rec.status !== 'RUNNING') throw new DomainError('tournament is not running');
     const e = this.buildEngine(rec);
     const rm = e.ready().find((m) => m.id === matchId);
-    if (!rm) throw new Error('match not ready or does not exist');
-    if (rm.kind !== 'DUEL') throw new Error('no-show applies only to duels');
-    if (!rm.participantIds.includes(presentId)) throw new Error('participant is not in this match');
+    if (!rm) throw new DomainError('match not ready or does not exist');
+    if (rm.kind !== 'DUEL') throw new DomainError('no-show applies only to duels');
+    if (!rm.participantIds.includes(presentId)) throw new DomainError('participant is not in this match');
     const checked = this.checkInsFor(rec, matchId);
-    if (!checked.includes(presentId)) throw new Error('the declarer must be checked in');
+    if (!checked.includes(presentId)) throw new DomainError('the declarer must be checked in');
     const opponent = rm.participantIds.find((p) => p !== presentId)!;
-    if (checked.includes(opponent)) throw new Error('opponent has checked in — not a no-show');
+    if (checked.includes(opponent)) throw new DomainError('opponent has checked in — not a no-show');
     e.reportDuel(matchId, presentId);
     rec.events.push({ kind: 'DUEL', matchId, winnerId: presentId, source: 'NO_SHOW' });
     if (e.isComplete()) {
@@ -167,11 +168,11 @@ export class TournamentService {
 
   async reportLobby(id: string, matchId: string, rankedIds: string[]): Promise<void> {
     const rec = await this.mustGet(id);
-    if (rec.status !== 'RUNNING') throw new Error('tournament is not running');
+    if (rec.status !== 'RUNNING') throw new DomainError('tournament is not running');
     const e = this.buildEngine(rec);
     const rm = e.ready().find((m) => m.id === matchId);
-    if (!rm) throw new Error('lobby not ready or does not exist');
-    if (rm.kind !== 'LOBBY') throw new Error('this match is a duel, not a lobby');
+    if (!rm) throw new DomainError('lobby not ready or does not exist');
+    if (rm.kind !== 'LOBBY') throw new DomainError('this match is a duel, not a lobby');
     e.reportLobby(matchId, rankedIds);
     rec.events.push({ kind: 'LOBBY', matchId, rankedIds: [...rankedIds] });
     if (e.isComplete()) {
@@ -212,7 +213,7 @@ export class TournamentService {
 
   private async mustGet(id: string): Promise<TournamentRecord> {
     const rec = await this.repo.get(id);
-    if (!rec) throw new Error(`tournament ${id} not found`);
+    if (!rec) throw new DomainError(`tournament ${id} not found`);
     return rec;
   }
 }

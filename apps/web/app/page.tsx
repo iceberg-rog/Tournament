@@ -21,6 +21,9 @@ export default function Home() {
           ورود
         </Link>
       </div>
+      <Link href="/tournaments" className="text-indigo-400 hover:text-indigo-300">
+        مشاهده‌ی تورنومنت‌ها ←
+      </Link>
     </main>
   );
 }

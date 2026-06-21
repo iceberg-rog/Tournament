@@ -63,7 +63,14 @@ export default function TournamentDetail() {
       setRec(t);
       if (t.status === 'RUNNING') {
         setReady(await publicGet<ReadyMatch[]>(`/tournaments/${id}/ready`));
-        setPendingConf(await publicGet(`/tournaments/${id}/pending-confirmations`));
+        // فقط داور/مدیر می‌تواند فهرستِ در انتظار تأیید را ببیند (۴۰۳ برای بقیه → خالی)
+        setPendingConf(
+          isLoggedIn()
+            ? await authedGet<{ matchId: string; winnerId: string; sides?: [string, string] }[]>(
+                `/tournaments/${id}/pending-confirmations`,
+              ).catch(() => [])
+            : [],
+        );
       } else {
         setReady([]);
         setPendingConf([]);
@@ -330,7 +337,10 @@ export default function TournamentDetail() {
           <ul className="space-y-2 text-sm">
             {pendingConf.map((p) => (
               <li key={p.matchId} className="flex items-center justify-between">
-                <span>برنده‌ی گزارش‌شده: {nameOf(p.winnerId)}</span>
+                <span>
+                  {p.sides ? `${nameOf(p.sides[0])} در برابر ${nameOf(p.sides[1])} — ` : ''}
+                  برنده‌ی گزارش‌شده: <b>{nameOf(p.winnerId)}</b>
+                </span>
                 <button
                   onClick={() => act(() => authedPost(`/tournaments/${id}/matches/${p.matchId}/confirm`, {}))}
                   className="rounded-lg bg-emerald-600 px-4 py-1.5 hover:bg-emerald-500"

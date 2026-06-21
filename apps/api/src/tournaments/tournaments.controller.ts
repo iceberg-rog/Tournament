@@ -201,6 +201,8 @@ export class TournamentsController {
 
   // ───────── گیتِ تأیید داور (UC11) ─────────
   @Get(':id/pending-confirmations')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'MAIN_ADMIN', 'REFEREE', 'GAME_ADMIN')
   pendingConfirmations(@Param('id') id: string) {
     return this.svc.pendingConfirmations(id);
   }
@@ -233,7 +235,8 @@ export class TournamentsController {
   }
 
   @Post(':id/matches/:matchId/resolve')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'MAIN_ADMIN', 'REFEREE', 'GAME_ADMIN')
   resolve(
     @Param('id') id: string,
     @Param('matchId') matchId: string,

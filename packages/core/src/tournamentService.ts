@@ -280,12 +280,9 @@ export class TournamentService {
       if (ev.kind === 'CHECKIN' || ev.kind === 'RESOLVE' || ev.kind === 'CONFIRM') continue;
       e.ready(); // تضمین تولید ساختارهای lazy (مثلاً راندهای Swiss)
       if (ev.kind === 'DUEL') {
-        // گیتِ تأیید داور (UC11): نتیجه‌ی REPORTِ تأییدنشده هنوز براکت را جلو نمی‌برد
-        if (
-          rec.requireResultConfirmation &&
-          ev.source === 'REPORT' &&
-          !confirmed.has(ev.matchId)
-        ) {
+        // گیتِ تأیید داور (UC11): هر نتیجه‌ی تأییدنشده (REPORT یا NO_SHOW) براکت را جلو نمی‌برد.
+        // RESOLVE خودش تأیید محسوب می‌شود (در confirmed قرار دارد).
+        if (rec.requireResultConfirmation && !confirmed.has(ev.matchId)) {
           continue;
         }
         e.reportDuel(ev.matchId, overrides.get(ev.matchId) ?? ev.winnerId);
@@ -318,14 +315,7 @@ export class TournamentService {
     }
     // گیتِ تأیید داور (UC11): نتیجه ثبت می‌شود ولی تا تأیید، براکت جلو نمی‌رود
     if (rec.requireResultConfirmation) {
-      const hasPending =
-        rec.events.some(
-          (ev) => ev.kind === 'DUEL' && ev.matchId === matchId && ev.source === 'REPORT',
-        ) &&
-        !rec.events.some(
-          (ev) => (ev.kind === 'CONFIRM' || ev.kind === 'RESOLVE') && ev.matchId === matchId,
-        );
-      if (hasPending) {
+      if (this.hasPendingConfirmation(rec, matchId)) {
         throw new DomainError('نتیجه‌ی این مسابقه گزارش شده و در انتظار تأیید داور است');
       }
       rec.events.push({
@@ -356,9 +346,7 @@ export class TournamentService {
   async confirmResult(id: string, matchId: string): Promise<void> {
     const rec = await this.mustGet(id);
     if (rec.status !== 'RUNNING') throw new DomainError('tournament is not running');
-    const reported = rec.events.some(
-      (ev) => ev.kind === 'DUEL' && ev.matchId === matchId && ev.source === 'REPORT',
-    );
+    const reported = rec.events.some((ev) => ev.kind === 'DUEL' && ev.matchId === matchId);
     if (!reported) throw new DomainError('نتیجه‌ای برای تأیید در این مسابقه وجود ندارد');
     const already = rec.events.some(
       (ev) => (ev.kind === 'CONFIRM' || ev.kind === 'RESOLVE') && ev.matchId === matchId,
@@ -381,15 +369,23 @@ export class TournamentService {
         .filter((ev) => ev.kind === 'CONFIRM' || ev.kind === 'RESOLVE')
         .map((ev) => (ev as { matchId: string }).matchId),
     );
-    const out: { matchId: string; winnerId: string; sides?: [string, string] }[] = [];
-    const seen = new Set<string>();
+    // آخرین DUELِ تأییدنشده per matchId (REPORT یا NO_SHOW)
+    const byMatch = new Map<string, { matchId: string; winnerId: string; sides?: [string, string] }>();
     for (const ev of rec.events) {
-      if (ev.kind === 'DUEL' && ev.source === 'REPORT' && !done.has(ev.matchId) && !seen.has(ev.matchId)) {
-        seen.add(ev.matchId);
-        out.push({ matchId: ev.matchId, winnerId: ev.winnerId, sides: ev.sides });
+      if (ev.kind === 'DUEL' && !done.has(ev.matchId)) {
+        byMatch.set(ev.matchId, { matchId: ev.matchId, winnerId: ev.winnerId, sides: ev.sides });
       }
     }
-    return out;
+    return [...byMatch.values()];
+  }
+
+  /** آیا برای این مسابقه نتیجه‌ای گزارش شده ولی هنوز تأیید/داوری نشده است؟ */
+  private hasPendingConfirmation(rec: TournamentRecord, matchId: string): boolean {
+    const reported = rec.events.some((ev) => ev.kind === 'DUEL' && ev.matchId === matchId);
+    const done = rec.events.some(
+      (ev) => (ev.kind === 'CONFIRM' || ev.kind === 'RESOLVE') && ev.matchId === matchId,
+    );
+    return reported && !done;
   }
 
   /** اعلام حضور یک طرف برای یک مسابقه‌ی آماده. */
@@ -418,6 +414,21 @@ export class TournamentService {
     if (!checked.includes(presentId)) throw new DomainError('the declarer must be checked in');
     const opponent = rm.participantIds.find((p) => p !== presentId)!;
     if (checked.includes(opponent)) throw new DomainError('opponent has checked in — not a no-show');
+    // گیتِ تأیید داور (UC11): no-show هم تا تأیید، براکت را جلو نمی‌برد
+    if (rec.requireResultConfirmation) {
+      if (this.hasPendingConfirmation(rec, matchId)) {
+        throw new DomainError('نتیجه‌ی این مسابقه گزارش شده و در انتظار تأیید داور است');
+      }
+      rec.events.push({
+        kind: 'DUEL',
+        matchId,
+        winnerId: presentId,
+        source: 'NO_SHOW',
+        sides: [rm.participantIds[0], rm.participantIds[1]],
+      });
+      await this.repo.update(rec);
+      return;
+    }
     e.reportDuel(matchId, presentId);
     rec.events.push({
       kind: 'DUEL',
@@ -457,10 +468,13 @@ export class TournamentService {
   async standings(id: string): Promise<Standing[]> {
     const rec = await this.mustGet(id);
     const st = this.buildEngine(rec).standings();
-    // قالب امتیازدهیِ سفارشی (UC14): بازمحاسبه‌ی points از برد/باخت (rank از موتور حفظ می‌شود).
-    if (rec.scoring) {
+    // قالب امتیازدهیِ سفارشی (UC14) فقط برای فرمت‌های امتیازمحور (rank = ترتیبِ points).
+    // در فرمت‌های حذفی/FFA رتبه از جایگاهِ براکت می‌آید و دست‌نخورده می‌ماند.
+    if (rec.scoring && (rec.format === 'ROUND_ROBIN' || rec.format === 'SWISS')) {
       const { win, loss } = rec.scoring;
-      return st.map((s) => ({ ...s, points: s.wins * win + s.losses * loss }));
+      const rescored = st.map((s) => ({ ...s, points: s.wins * win + s.losses * loss }));
+      rescored.sort((a, b) => b.points - a.points || a.rank - b.rank);
+      return rescored.map((s, i) => ({ ...s, rank: i + 1 }));
     }
     return st;
   }

@@ -3,17 +3,39 @@ import {
   IsBoolean,
   IsIn,
   IsInt,
-  IsObject,
   IsOptional,
   IsString,
   MaxLength,
   Min,
   MinLength,
+  ValidateNested,
 } from 'class-validator';
+import { Type } from 'class-transformer';
 import type { Format, Genre } from '@tournament/engine';
 
 const FORMATS = ['SINGLE_ELIM', 'DOUBLE_ELIM', 'ROUND_ROBIN', 'SWISS', 'FFA'];
 const GENRES = ['DUEL', 'TEAM', 'FFA'];
+
+export class PrizeDto {
+  @IsInt()
+  @Min(1)
+  rank!: number;
+
+  @IsInt()
+  @Min(0)
+  amount!: number;
+}
+
+export class ScoringDto {
+  @IsInt()
+  win!: number;
+
+  @IsInt()
+  draw!: number;
+
+  @IsInt()
+  loss!: number;
+}
 
 export class CreateTournamentDto {
   @IsString()
@@ -58,7 +80,9 @@ export class CreateTournamentDto {
 
   @IsOptional()
   @IsArray()
-  prizePool?: { rank: number; amount: number }[];
+  @ValidateNested({ each: true })
+  @Type(() => PrizeDto)
+  prizePool?: PrizeDto[];
 
   @IsOptional()
   @IsString()
@@ -70,8 +94,9 @@ export class CreateTournamentDto {
   requireResultConfirmation?: boolean;
 
   @IsOptional()
-  @IsObject()
-  scoring?: { win: number; draw: number; loss: number };
+  @ValidateNested()
+  @Type(() => ScoringDto)
+  scoring?: ScoringDto;
 }
 
 export class RegisterDto {

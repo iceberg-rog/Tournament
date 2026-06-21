@@ -10,6 +10,7 @@ import { InMemoryWalletRepository } from './wallet';
 import { InMemoryNotificationRepository } from './notifications';
 import { InMemorySeasonRepository, SeasonService } from './season';
 import { CommunityService, InMemorySpaceRepository } from './community';
+import { InMemoryLadderRepository, LadderService } from './ladder';
 
 interface Case {
   format: Format;
@@ -650,6 +651,50 @@ async function runCommunityScenario(): Promise<Outcome> {
   }
 }
 
+/** سناریوی matchmaking + ladder با ELO. */
+async function runLadderScenario(): Promise<Outcome> {
+  const base: Outcome = {
+    format: 'SINGLE_ELIM',
+    genre: 'DUEL',
+    n: 0,
+    ok: false,
+    champion: '-',
+    detail: '',
+  };
+  try {
+    let c = 0;
+    const svc = new LadderService(new InMemoryLadderRepository(), () => `l${++c}`);
+    const l = await svc.createLadder('Ranked Ladder');
+    for (const u of ['u0', 'u1', 'u2', 'u3']) await svc.join(l.id, u);
+
+    const p1 = await svc.matchmake(l.id);
+    if (!p1) throw new Error('matchmake returned null with 4 queued');
+    await svc.reportMatch(l.id, p1.a, p1.b, p1.a);
+    const p2 = await svc.matchmake(l.id);
+    if (!p2) throw new Error('second matchmake returned null');
+    await svc.reportMatch(l.id, p2.a, p2.b, p2.a);
+    if ((await svc.matchmake(l.id)) !== null) throw new Error('queue should be empty');
+
+    const st = await svc.standings(l.id);
+    if (st.length !== 4) throw new Error(`standings ${st.length} != 4`);
+    const winnerA = st.find((e) => e.userId === p1.a)!;
+    const loserB = st.find((e) => e.userId === p1.b)!;
+    if (winnerA.rating <= 1000) throw new Error('winner rating did not increase');
+    if (loserB.rating >= 1000) throw new Error('loser rating did not decrease');
+    const total = st.reduce((acc, e) => acc + e.rating, 0);
+    if (Math.abs(total - 4000) > 2) throw new Error(`total rating ${total} not ~4000 (zero-sum)`);
+    if (!st.every((e) => e.played === 1)) throw new Error('each should have played once');
+
+    await svc.join(l.id, 'u0');
+    await svc.join(l.id, 'u1');
+    const p3 = await svc.matchmake(l.id);
+    await expectThrow(() => svc.reportMatch(l.id, p3!.a, p3!.b, 'stranger'), 'invalid winner');
+    return { ...base, ok: true, detail: 'OK' };
+  } catch (e) {
+    return { ...base, detail: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 async function main(): Promise<void> {
   const cases: Case[] = [];
   for (const n of [2, 3, 5, 8, 16, 31]) cases.push({ format: 'SINGLE_ELIM', genre: 'DUEL', n });
@@ -673,6 +718,7 @@ async function main(): Promise<void> {
   const gamesCatalog = await runGamesCatalogScenario();
   const season = await runSeasonScenario();
   const community = await runCommunityScenario();
+  const ladder = await runLadderScenario();
 
   const pad = (s: string | number, w: number) => String(s).padEnd(w);
   console.log('\n🏆 تست چرخه‌ی کامل تورنومنت (سرویس + مخزن in-memory)');
@@ -701,6 +747,7 @@ async function main(): Promise<void> {
   console.log(`سناریوی کاتالوگ بازی‌ها: ${gamesCatalog.ok ? '✅ PASS' : '❌ FAIL: ' + gamesCatalog.detail}`);
   console.log(`سناریوی لیگ / فصل: ${season.ok ? '✅ PASS' : '❌ FAIL: ' + season.detail}`);
   console.log(`سناریوی کامیونیتی: ${community.ok ? '✅ PASS' : '❌ FAIL: ' + community.detail}`);
+  console.log(`سناریوی matchmaking / ladder: ${ladder.ok ? '✅ PASS' : '❌ FAIL: ' + ladder.detail}`);
 
   const passed =
     results.filter((r) => r.ok).length +
@@ -713,8 +760,9 @@ async function main(): Promise<void> {
     (resultsScenario.ok ? 1 : 0) +
     (gamesCatalog.ok ? 1 : 0) +
     (season.ok ? 1 : 0) +
-    (community.ok ? 1 : 0);
-  const total = results.length + 10;
+    (community.ok ? 1 : 0) +
+    (ladder.ok ? 1 : 0);
+  const total = results.length + 11;
   console.log(`\nنتیجه: ${passed}/${total} تست پاس شد.`);
   if (passed !== total) {
     console.log('❌ بعضی تست‌ها رد شدند.');

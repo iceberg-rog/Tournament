@@ -4,9 +4,10 @@ export type TournamentStatus = 'DRAFT' | 'RUNNING' | 'COMPLETED';
 
 /** رویدادِ لاگِ replay برای بازسازی قطعی وضعیت. */
 export type ReportEvent =
-  | { kind: 'DUEL'; matchId: string; winnerId: string; source?: 'REPORT' | 'NO_SHOW' }
+  | { kind: 'DUEL'; matchId: string; winnerId: string; source?: 'REPORT' | 'NO_SHOW'; sides?: [string, string] }
   | { kind: 'LOBBY'; matchId: string; rankedIds: string[] }
-  | { kind: 'CHECKIN'; matchId: string; participantId: string };
+  | { kind: 'CHECKIN'; matchId: string; participantId: string }
+  | { kind: 'RESOLVE'; matchId: string; winnerId: string };
 
 /** رکورد پایدارِ یک تورنومنت. */
 export interface TournamentRecord {

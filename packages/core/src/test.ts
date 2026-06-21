@@ -301,6 +301,74 @@ async function runCapacityScenario(): Promise<Outcome> {
   }
 }
 
+/** سناریوی داوری/اعتراض: overturn ایمن در round-robin، و محافظت cascade در حذفی. */
+async function runDisputeScenario(): Promise<Outcome> {
+  const base: Outcome = {
+    format: 'ROUND_ROBIN',
+    genre: 'DUEL',
+    n: 3,
+    ok: false,
+    champion: '',
+    detail: '',
+  };
+  const newSvc = (prefix: string): TournamentService => {
+    let c = 0;
+    return new TournamentService(
+      new InMemoryTournamentRepository(),
+      () => `${prefix}${++c}`,
+      () => '2026-01-01T00:00:00Z',
+    );
+  };
+  const mkP = (i: number) => ({ id: `u${i}`, name: `P${i}`, seed: 0, skill: 0.5 });
+  try {
+    // --- round-robin: overturn حین RUNNING، قهرمان عوض می‌شود ---
+    {
+      const svc = newSvc('rr');
+      const t = await svc.create({ title: 'RR Dispute', format: 'ROUND_ROBIN', genre: 'DUEL' });
+      for (let i = 0; i < 3; i++) await svc.register(t.id, mkP(i));
+      await svc.start(t.id);
+      const ready = await svc.ready(t.id);
+      const m01 = ready.find((m) => m.participantIds.includes('u0') && m.participantIds.includes('u1'))!;
+      const m02 = ready.find((m) => m.participantIds.includes('u0') && m.participantIds.includes('u2'))!;
+      await svc.reportDuel(t.id, m01.id, 'u0');
+      await svc.reportDuel(t.id, m02.id, 'u0');
+      await svc.resolveDispute(t.id, m01.id, 'u1'); // overturn: u1 beats u0
+      const last = (await svc.ready(t.id))[0];
+      await svc.reportDuel(t.id, last.id, 'u1');
+      const st = await svc.standings(t.id);
+      if (st[0].participantId !== 'u1') {
+        throw new Error(`RR champion ${st[0].participantId} != u1 after overturn`);
+      }
+    }
+    // --- حذفی: محافظت cascade ---
+    {
+      const svc = newSvc('se');
+      const t = await svc.create({ title: 'SE Dispute', format: 'SINGLE_ELIM', genre: 'DUEL' });
+      for (let i = 0; i < 8; i++) await svc.register(t.id, mkP(i));
+      await svc.start(t.id);
+      const r1 = await svc.ready(t.id);
+      for (const m of r1) await svc.reportDuel(t.id, m.id, m.participantIds[0]);
+      const r2 = await svc.ready(t.id);
+      await svc.reportDuel(t.id, r2[0].id, r2[0].participantIds[0]);
+      // overturn یک مسابقه که برنده‌اش قبلاً R2 بازی کرده → رد
+      await expectThrow(
+        () => svc.resolveDispute(t.id, r1[0].id, r1[0].participantIds[1]),
+        'overturn after winner advanced and played',
+      );
+      // overturn مسابقه‌ای که برنده‌اش هنوز R2 بازی نکرده → مجاز
+      await svc.resolveDispute(t.id, r1[2].id, r1[2].participantIds[1]);
+      // winner نامعتبر → رد
+      await expectThrow(
+        () => svc.resolveDispute(t.id, r1[3].id, 'stranger'),
+        'invalid dispute winner',
+      );
+    }
+    return { ...base, ok: true, champion: 'u1', detail: 'OK' };
+  } catch (e) {
+    return { ...base, detail: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 async function main(): Promise<void> {
   const cases: Case[] = [];
   for (const n of [2, 3, 5, 8, 16, 31]) cases.push({ format: 'SINGLE_ELIM', genre: 'DUEL', n });
@@ -317,6 +385,7 @@ async function main(): Promise<void> {
   const checkIn = await runCheckInScenario();
   const prize = await runPrizeScenario();
   const capacity = await runCapacityScenario();
+  const dispute = await runDisputeScenario();
 
   const pad = (s: string | number, w: number) => String(s).padEnd(w);
   console.log('\n🏆 تست چرخه‌ی کامل تورنومنت (سرویس + مخزن in-memory)');
@@ -338,13 +407,15 @@ async function main(): Promise<void> {
   );
   console.log(`سناریوی پرداخت جایزه: ${prize.ok ? '✅ PASS' : '❌ FAIL: ' + prize.detail}`);
   console.log(`سناریوی ظرفیت / waitlist: ${capacity.ok ? '✅ PASS' : '❌ FAIL: ' + capacity.detail}`);
+  console.log(`سناریوی اعتراض / داوری: ${dispute.ok ? '✅ PASS' : '❌ FAIL: ' + dispute.detail}`);
 
   const passed =
     results.filter((r) => r.ok).length +
     (checkIn.ok ? 1 : 0) +
     (prize.ok ? 1 : 0) +
-    (capacity.ok ? 1 : 0);
-  const total = results.length + 3;
+    (capacity.ok ? 1 : 0) +
+    (dispute.ok ? 1 : 0);
+  const total = results.length + 4;
   console.log(`\nنتیجه: ${passed}/${total} تست پاس شد.`);
   if (passed !== total) {
     console.log('❌ بعضی تست‌ها رد شدند.');

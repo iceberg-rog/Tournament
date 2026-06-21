@@ -112,4 +112,17 @@ export class TournamentsController {
   ) {
     return this.svc.declareNoShow(id, matchId, req.user.id);
   }
+
+  @Post(':id/matches/:matchId/resolve')
+  @UseGuards(JwtAuthGuard)
+  resolve(
+    @Param('id') id: string,
+    @Param('matchId') matchId: string,
+    @Body() dto: ReportDto,
+  ) {
+    if (!dto.winnerId) {
+      throw new BadRequestException('winnerId is required for dispute resolution');
+    }
+    return this.svc.resolveDispute(id, matchId, dto.winnerId);
+  }
 }

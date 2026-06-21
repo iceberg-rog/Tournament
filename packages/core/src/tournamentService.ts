@@ -8,7 +8,7 @@ import {
   Standing,
 } from '@tournament/engine';
 import { DomainError } from './errors';
-import { TournamentRecord, TournamentRepository } from './repository';
+import { ReportEvent, TournamentRecord, TournamentRepository } from './repository';
 import { WalletRepository } from './wallet';
 
 export interface CreateTournamentInput {
@@ -117,10 +117,15 @@ export class TournamentService {
       ffaRounds: rec.ffaRounds,
       swissRounds: rec.swissRounds,
     });
+    // RESOLVE‌ها برنده‌ی مؤثر هر مسابقه را override می‌کنند (داوری)
+    const overrides = new Map<string, string>();
     for (const ev of rec.events) {
-      if (ev.kind === 'CHECKIN') continue; // check-in بر موتور اثر ندارد (لایه‌ی بالاتر)
+      if (ev.kind === 'RESOLVE') overrides.set(ev.matchId, ev.winnerId);
+    }
+    for (const ev of rec.events) {
+      if (ev.kind === 'CHECKIN' || ev.kind === 'RESOLVE') continue;
       e.ready(); // تضمین تولید ساختارهای lazy (مثلاً راندهای Swiss)
-      if (ev.kind === 'DUEL') e.reportDuel(ev.matchId, ev.winnerId);
+      if (ev.kind === 'DUEL') e.reportDuel(ev.matchId, overrides.get(ev.matchId) ?? ev.winnerId);
       else e.reportLobby(ev.matchId, ev.rankedIds);
     }
     return e;
@@ -147,7 +152,13 @@ export class TournamentService {
       }
     }
     e.reportDuel(matchId, winnerId);
-    rec.events.push({ kind: 'DUEL', matchId, winnerId, source: 'REPORT' });
+    rec.events.push({
+      kind: 'DUEL',
+      matchId,
+      winnerId,
+      source: 'REPORT',
+      sides: [rm.participantIds[0], rm.participantIds[1]],
+    });
     if (e.isComplete()) {
       rec.status = 'COMPLETED';
       await this.payout(rec, e);
@@ -182,7 +193,13 @@ export class TournamentService {
     const opponent = rm.participantIds.find((p) => p !== presentId)!;
     if (checked.includes(opponent)) throw new DomainError('opponent has checked in — not a no-show');
     e.reportDuel(matchId, presentId);
-    rec.events.push({ kind: 'DUEL', matchId, winnerId: presentId, source: 'NO_SHOW' });
+    rec.events.push({
+      kind: 'DUEL',
+      matchId,
+      winnerId: presentId,
+      source: 'NO_SHOW',
+      sides: [rm.participantIds[0], rm.participantIds[1]],
+    });
     if (e.isComplete()) {
       rec.status = 'COMPLETED';
       await this.payout(rec, e);
@@ -231,6 +248,64 @@ export class TournamentService {
 
   async list(): Promise<TournamentRecord[]> {
     return this.repo.list();
+  }
+
+  /**
+   * داوری اعتراض: برنده‌ی یک مسابقه را تأیید یا overturn می‌کند.
+   * فقط حین RUNNING. در فرمت‌های حذفی، اگر برنده‌ی فعلی قبلاً به دور بعد رفته و بازی کرده،
+   * overturn رد می‌شود (محافظت در برابر cascade). یک تریجِ replay هم سازگاری ساختاری را تضمین می‌کند.
+   */
+  async resolveDispute(id: string, matchId: string, winnerId: string): Promise<void> {
+    const rec = await this.mustGet(id);
+    if (rec.status !== 'RUNNING') {
+      throw new DomainError('disputes can only be resolved while the tournament is running');
+    }
+    const duel = [...rec.events]
+      .reverse()
+      .find(
+        (ev): ev is Extract<ReportEvent, { kind: 'DUEL' }> =>
+          ev.kind === 'DUEL' && ev.matchId === matchId,
+      );
+    if (!duel) throw new DomainError('no reported result exists for this match');
+    if (!duel.sides || !duel.sides.includes(winnerId)) {
+      throw new DomainError('winner must be one of the two match participants');
+    }
+    const currentWinner = this.effectiveWinner(rec, matchId);
+    const isElim = rec.format === 'SINGLE_ELIM' || rec.format === 'DOUBLE_ELIM';
+    if (isElim && winnerId !== currentWinner) {
+      const idx = rec.events.indexOf(duel);
+      const advancedAndPlayed = rec.events
+        .slice(idx + 1)
+        .some((ev) => ev.kind === 'DUEL' && ev.sides?.includes(currentWinner ?? ''));
+      if (advancedAndPlayed) {
+        throw new DomainError('cannot overturn: the winner has already advanced to a later match');
+      }
+    }
+    const candidate: TournamentRecord = {
+      ...rec,
+      events: [...rec.events, { kind: 'RESOLVE', matchId, winnerId }],
+    };
+    let engine: Engine;
+    try {
+      engine = this.buildEngine(candidate);
+    } catch {
+      throw new DomainError('cannot overturn: it would invalidate later results');
+    }
+    rec.events.push({ kind: 'RESOLVE', matchId, winnerId });
+    if (engine.isComplete()) {
+      rec.status = 'COMPLETED';
+      await this.payout(rec, engine);
+    }
+    await this.repo.update(rec);
+  }
+
+  private effectiveWinner(rec: TournamentRecord, matchId: string): string | undefined {
+    let w: string | undefined;
+    for (const ev of rec.events) {
+      if (ev.kind === 'DUEL' && ev.matchId === matchId) w = ev.winnerId;
+      if (ev.kind === 'RESOLVE' && ev.matchId === matchId) w = ev.winnerId;
+    }
+    return w;
   }
 
   /** پرداخت جوایز per-rank به کیف پول برنده‌ها (یک‌بار، هنگام پایان). */

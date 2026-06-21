@@ -65,6 +65,15 @@ export default function DashboardPage() {
         <a href="/tournaments" className="rounded-lg bg-indigo-600 px-4 py-2 hover:bg-indigo-500">
           تورنومنت‌ها
         </a>
+        <a href="/seasons" className="rounded-lg border border-slate-700 px-4 py-2 hover:bg-slate-800">
+          فصل‌ها
+        </a>
+        <a href="/spaces" className="rounded-lg border border-slate-700 px-4 py-2 hover:bg-slate-800">
+          کامیونیتی‌ها
+        </a>
+        <a href="/ladders" className="rounded-lg border border-slate-700 px-4 py-2 hover:bg-slate-800">
+          نردبان رتبه‌بندی
+        </a>
         <a href="/settings" className="rounded-lg border border-slate-700 px-4 py-2 hover:bg-slate-800">
           تنظیمات مدیریت
         </a>

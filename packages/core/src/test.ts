@@ -994,6 +994,38 @@ async function runRatingScenario(): Promise<Outcome> {
   }
 }
 
+/** سناریوی ویرایش/کپی تورنومنت (UC09). */
+async function runEditCopyScenario(): Promise<Outcome> {
+  const base: Outcome = {
+    format: 'SINGLE_ELIM',
+    genre: 'DUEL',
+    n: 0,
+    ok: false,
+    champion: '-',
+    detail: '',
+  };
+  try {
+    const repo = new InMemoryTournamentRepository();
+    let c = 0;
+    const svc = new TournamentService(repo, () => `p${++c}`, () => '2026-01-01T00:00:00Z');
+    const t = await svc.create({ title: 'Original', format: 'SINGLE_ELIM', genre: 'DUEL', maxParticipants: 8 });
+    await svc.update(t.id, { title: 'Edited', maxParticipants: 16, prizePool: [{ rank: 1, amount: 1000 }] });
+    const after = await svc.get(t.id);
+    if (after.title !== 'Edited' || after.maxParticipants !== 16) throw new Error('update not applied');
+    const copy = await svc.copy(t.id);
+    if (copy.id === t.id) throw new Error('copy shares id');
+    if (!copy.title.includes('کپی') || copy.maxParticipants !== 16 || copy.status !== 'DRAFT')
+      throw new Error('copy config wrong');
+    await svc.register(t.id, { id: 'a', name: 'a', seed: 0, skill: 0.5 });
+    await svc.register(t.id, { id: 'b', name: 'b', seed: 0, skill: 0.5 });
+    await svc.start(t.id);
+    await expectThrow(() => svc.update(t.id, { title: 'x' }), 'edit after start blocked');
+    return { ...base, ok: true, detail: 'OK' };
+  } catch (e) {
+    return { ...base, detail: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 async function main(): Promise<void> {
   const cases: Case[] = [];
   for (const n of [2, 3, 5, 8, 16, 31]) cases.push({ format: 'SINGLE_ELIM', genre: 'DUEL', n });
@@ -1024,6 +1056,7 @@ async function main(): Promise<void> {
   const kycWithdrawal = await runKycWithdrawalScenario();
   const modSupport = await runModerationSupportScenario();
   const rating = await runRatingScenario();
+  const editCopy = await runEditCopyScenario();
 
   const pad = (s: string | number, w: number) => String(s).padEnd(w);
   console.log('\n🏆 تست چرخه‌ی کامل تورنومنت (سرویس + مخزن in-memory)');
@@ -1059,6 +1092,7 @@ async function main(): Promise<void> {
   console.log(`سناریوی KYC / برداشت: ${kycWithdrawal.ok ? '✅ PASS' : '❌ FAIL: ' + kycWithdrawal.detail}`);
   console.log(`سناریوی تعدیل / پشتیبانی: ${modSupport.ok ? '✅ PASS' : '❌ FAIL: ' + modSupport.detail}`);
   console.log(`سناریوی امتیازدهی به مسابقه: ${rating.ok ? '✅ PASS' : '❌ FAIL: ' + rating.detail}`);
+  console.log(`سناریوی ویرایش / کپی: ${editCopy.ok ? '✅ PASS' : '❌ FAIL: ' + editCopy.detail}`);
 
   const passed =
     results.filter((r) => r.ok).length +
@@ -1078,8 +1112,9 @@ async function main(): Promise<void> {
     (walletEscrow.ok ? 1 : 0) +
     (kycWithdrawal.ok ? 1 : 0) +
     (modSupport.ok ? 1 : 0) +
-    (rating.ok ? 1 : 0);
-  const total = results.length + 17;
+    (rating.ok ? 1 : 0) +
+    (editCopy.ok ? 1 : 0);
+  const total = results.length + 18;
   console.log(`\nنتیجه: ${passed}/${total} تست پاس شد.`);
   if (passed !== total) {
     console.log('❌ بعضی تست‌ها رد شدند.');

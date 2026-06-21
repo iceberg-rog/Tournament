@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { authedGet, authedPost, isLoggedIn, publicGet } from '@/lib/api';
 
@@ -36,12 +36,14 @@ interface Standing {
 
 export default function TournamentDetail() {
   const params = useParams();
+  const router = useRouter();
   const id = String(params.id);
   const [rec, setRec] = useState<TournamentRecord | null>(null);
   const [ready, setReady] = useState<ReadyMatch[]>([]);
   const [standings, setStandings] = useState<Standing[]>([]);
   const [rating, setRating] = useState<{ average: number; count: number }>({ average: 0, count: 0 });
   const [myScore, setMyScore] = useState(0);
+  const [editTitle, setEditTitle] = useState('');
   const [error, setError] = useState('');
   const loggedIn = isLoggedIn();
 
@@ -93,6 +95,41 @@ export default function TournamentDetail() {
       <p className="mb-4 text-slate-400">
         {rec.format} · {rec.genre} · وضعیت: <b>{rec.status}</b>
       </p>
+
+      {loggedIn && (
+        <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">
+          <button
+            onClick={() =>
+              act(async () => {
+                const copy = await authedPost<{ id: string }>(`/tournaments/${id}/copy`, {});
+                router.push(`/tournaments/${copy.id}`);
+              })
+            }
+            className="rounded-lg border border-slate-700 px-3 py-1.5 hover:bg-slate-800"
+          >
+            کپی
+          </button>
+          {rec.status === 'DRAFT' && (
+            <>
+              <input
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+                placeholder="عنوان جدید"
+                className="rounded-lg bg-slate-800 px-3 py-1.5"
+              />
+              <button
+                onClick={() => editTitle.trim() && act(() => authedPost(`/tournaments/${id}/update`, { title: editTitle }))}
+                className="rounded-lg border border-slate-700 px-3 py-1.5 hover:bg-slate-800"
+              >
+                ذخیره‌ی عنوان
+              </button>
+            </>
+          )}
+          <a href="/report" className="rounded-lg border border-slate-700 px-3 py-1.5 hover:bg-slate-800">
+            اعتراض / گزارش
+          </a>
+        </div>
+      )}
 
       {error && <p className="mb-4 text-red-400">{error}</p>}
 

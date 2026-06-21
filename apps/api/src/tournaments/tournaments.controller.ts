@@ -105,6 +105,29 @@ export class TournamentsController {
     return this.svc.cancel(id);
   }
 
+  @Post(':id/update')
+  @UseGuards(JwtAuthGuard)
+  update(
+    @Param('id') id: string,
+    @Body()
+    dto: {
+      title?: string;
+      game?: string;
+      maxParticipants?: number;
+      entryFee?: number;
+      prizePool?: { rank: number; amount: number }[];
+      requireCheckIn?: boolean;
+    },
+  ) {
+    return this.svc.update(id, dto);
+  }
+
+  @Post(':id/copy')
+  @UseGuards(JwtAuthGuard)
+  copy(@Param('id') id: string) {
+    return this.svc.copy(id);
+  }
+
   @Get(':id/ready')
   ready(@Param('id') id: string) {
     return this.svc.ready(id);

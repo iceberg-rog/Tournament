@@ -195,6 +195,50 @@ export class TournamentService {
     }
   }
 
+  /** ویرایش تورنومنت (فقط در DRAFT) — UC09. */
+  async update(
+    id: string,
+    patch: {
+      title?: string;
+      game?: string;
+      maxParticipants?: number;
+      entryFee?: number;
+      prizePool?: { rank: number; amount: number }[];
+      requireCheckIn?: boolean;
+    },
+  ): Promise<TournamentRecord> {
+    const rec = await this.mustGet(id);
+    if (rec.status !== 'DRAFT') throw new DomainError('فقط تورنومنتِ پیش‌نویس قابل ویرایش است');
+    if (patch.entryFee !== undefined && (rec.heldFees?.length ?? 0) > 0) {
+      throw new DomainError('پس از ثبت‌نام با هزینه‌ی ورودی نمی‌توان مبلغ را تغییر داد');
+    }
+    if (patch.title !== undefined) rec.title = patch.title;
+    if (patch.game !== undefined) rec.game = patch.game;
+    if (patch.maxParticipants !== undefined) rec.maxParticipants = patch.maxParticipants;
+    if (patch.entryFee !== undefined) rec.entryFee = patch.entryFee;
+    if (patch.prizePool !== undefined) rec.prizePool = patch.prizePool;
+    if (patch.requireCheckIn !== undefined) rec.requireCheckIn = patch.requireCheckIn;
+    await this.repo.update(rec);
+    return rec;
+  }
+
+  /** کپی‌کردن تنظیماتِ یک تورنومنت به‌صورت یک DRAFT جدید (بدون شرکت‌کننده/رویداد) — UC09. */
+  async copy(id: string): Promise<TournamentRecord> {
+    const src = await this.mustGet(id);
+    return this.create({
+      title: `${src.title} (کپی)`,
+      game: src.game,
+      format: src.format,
+      genre: src.genre,
+      ffaRounds: src.ffaRounds,
+      swissRounds: src.swissRounds,
+      requireCheckIn: src.requireCheckIn,
+      maxParticipants: src.maxParticipants,
+      prizePool: src.prizePool,
+      entryFee: src.entryFee,
+    });
+  }
+
   private buildEngine(rec: TournamentRecord): Engine {
     const e = createTournament(rec.format, rec.participants, {
       ffaRounds: rec.ffaRounds,

@@ -4,7 +4,14 @@ export type TournamentStatus = 'DRAFT' | 'RUNNING' | 'COMPLETED' | 'CANCELLED';
 
 /** رویدادِ لاگِ replay برای بازسازی قطعی وضعیت. */
 export type ReportEvent =
-  | { kind: 'DUEL'; matchId: string; winnerId: string; source?: 'REPORT' | 'NO_SHOW'; sides?: [string, string] }
+  | {
+      kind: 'DUEL';
+      matchId: string;
+      winnerId: string;
+      source?: 'REPORT' | 'NO_SHOW';
+      sides?: [string, string];
+      score?: string;
+    }
   | { kind: 'LOBBY'; matchId: string; rankedIds: string[] }
   | { kind: 'CHECKIN'; matchId: string; participantId: string }
   | { kind: 'RESOLVE'; matchId: string; winnerId: string };

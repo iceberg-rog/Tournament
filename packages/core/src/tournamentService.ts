@@ -24,6 +24,18 @@ export interface CreateTournamentInput {
   prizePool?: { rank: number; amount: number }[];
 }
 
+/** نتیجه‌ی یک مسابقه برای نمایش تاریخچه. */
+export type MatchResult =
+  | {
+      kind: 'DUEL';
+      matchId: string;
+      sides?: [string, string];
+      winner: string;
+      score?: string;
+      source: string;
+    }
+  | { kind: 'LOBBY'; matchId: string; ranking: string[] };
+
 /**
  * سرویس دامنه‌ی تورنومنت روی موتور.
  * مدل replay: وضعیت هر تورنومنت = شرکت‌کننده‌ها + لاگِ رویدادها؛
@@ -171,7 +183,7 @@ export class TournamentService {
     return this.buildEngine(rec).ready();
   }
 
-  async reportDuel(id: string, matchId: string, winnerId: string): Promise<void> {
+  async reportDuel(id: string, matchId: string, winnerId: string, score?: string): Promise<void> {
     const rec = await this.mustGet(id);
     if (rec.status !== 'RUNNING') throw new DomainError('tournament is not running');
     const e = this.buildEngine(rec);
@@ -192,6 +204,7 @@ export class TournamentService {
       winnerId,
       source: 'REPORT',
       sides: [rm.participantIds[0], rm.participantIds[1]],
+      score,
     });
     if (e.isComplete()) await this.complete(rec, e);
     await this.repo.update(rec);
@@ -265,6 +278,32 @@ export class TournamentService {
 
   async champion(id: string): Promise<string | null> {
     return this.buildEngine(await this.mustGet(id)).champion();
+  }
+
+  /** تاریخچه‌ی نتایج: برنده‌ی مؤثر (با اعمال داوری)، اسکور و منشأ هر مسابقه. */
+  async results(id: string): Promise<MatchResult[]> {
+    const rec = await this.mustGet(id);
+    const overrides = new Map<string, string>();
+    for (const ev of rec.events) {
+      if (ev.kind === 'RESOLVE') overrides.set(ev.matchId, ev.winnerId);
+    }
+    const out: MatchResult[] = [];
+    for (const ev of rec.events) {
+      if (ev.kind === 'DUEL') {
+        const overridden = overrides.has(ev.matchId);
+        out.push({
+          kind: 'DUEL',
+          matchId: ev.matchId,
+          sides: ev.sides,
+          winner: overridden ? overrides.get(ev.matchId)! : ev.winnerId,
+          score: ev.score,
+          source: overridden ? 'DISPUTE_RESOLUTION' : ev.source ?? 'REPORT',
+        });
+      } else if (ev.kind === 'LOBBY') {
+        out.push({ kind: 'LOBBY', matchId: ev.matchId, ranking: ev.rankedIds });
+      }
+    }
+    return out;
   }
 
   async get(id: string): Promise<TournamentRecord> {

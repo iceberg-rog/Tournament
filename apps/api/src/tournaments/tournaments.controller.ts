@@ -83,6 +83,11 @@ export class TournamentsController {
     return this.svc.standings(id);
   }
 
+  @Get(':id/results')
+  results(@Param('id') id: string) {
+    return this.svc.results(id);
+  }
+
   @Post(':id/matches/:matchId/report')
   @UseGuards(JwtAuthGuard)
   report(
@@ -96,7 +101,7 @@ export class TournamentsController {
     if (!dto.winnerId) {
       throw new BadRequestException('winnerId (DUEL) or rankedIds (LOBBY) is required');
     }
-    return this.svc.reportDuel(id, matchId, dto.winnerId);
+    return this.svc.reportDuel(id, matchId, dto.winnerId, dto.score);
   }
 
   @Post(':id/matches/:matchId/checkin')

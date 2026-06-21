@@ -62,4 +62,9 @@ export class ReportDto {
   @IsArray()
   @IsString({ each: true })
   rankedIds?: string[];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  score?: string;
 }

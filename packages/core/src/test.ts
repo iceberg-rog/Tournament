@@ -487,6 +487,41 @@ async function runCancelScenario(): Promise<Outcome> {
   }
 }
 
+/** سناریوی تاریخچه‌ی نتایج + اسکور هر مسابقه. */
+async function runResultsScenario(): Promise<Outcome> {
+  const base: Outcome = {
+    format: 'SINGLE_ELIM',
+    genre: 'DUEL',
+    n: 2,
+    ok: false,
+    champion: '-',
+    detail: '',
+  };
+  try {
+    let c = 0;
+    const svc = new TournamentService(
+      new InMemoryTournamentRepository(),
+      () => `res${++c}`,
+      () => '2026-01-01T00:00:00Z',
+    );
+    const t = await svc.create({ title: 'Results', format: 'SINGLE_ELIM', genre: 'DUEL' });
+    await svc.register(t.id, { id: 'a', name: 'A', seed: 0, skill: 0.5 });
+    await svc.register(t.id, { id: 'b', name: 'B', seed: 0, skill: 0.5 });
+    await svc.start(t.id);
+    const m = (await svc.ready(t.id))[0];
+    await svc.reportDuel(t.id, m.id, m.participantIds[0], '3-1');
+    const res = await svc.results(t.id);
+    const duel = res.find((r) => r.kind === 'DUEL');
+    if (!duel || duel.kind !== 'DUEL') throw new Error('no duel result recorded');
+    if (duel.score !== '3-1') throw new Error(`score ${duel.score} != 3-1`);
+    if (duel.winner !== m.participantIds[0]) throw new Error('wrong winner in results');
+    if (duel.source !== 'REPORT') throw new Error(`source ${duel.source} != REPORT`);
+    return { ...base, ok: true, detail: 'OK' };
+  } catch (e) {
+    return { ...base, detail: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 async function main(): Promise<void> {
   const cases: Case[] = [];
   for (const n of [2, 3, 5, 8, 16, 31]) cases.push({ format: 'SINGLE_ELIM', genre: 'DUEL', n });
@@ -506,6 +541,7 @@ async function main(): Promise<void> {
   const dispute = await runDisputeScenario();
   const notif = await runNotificationScenario();
   const cancel = await runCancelScenario();
+  const resultsScenario = await runResultsScenario();
 
   const pad = (s: string | number, w: number) => String(s).padEnd(w);
   console.log('\n🏆 تست چرخه‌ی کامل تورنومنت (سرویس + مخزن in-memory)');
@@ -530,6 +566,7 @@ async function main(): Promise<void> {
   console.log(`سناریوی اعتراض / داوری: ${dispute.ok ? '✅ PASS' : '❌ FAIL: ' + dispute.detail}`);
   console.log(`سناریوی اعلان‌ها: ${notif.ok ? '✅ PASS' : '❌ FAIL: ' + notif.detail}`);
   console.log(`سناریوی لغو: ${cancel.ok ? '✅ PASS' : '❌ FAIL: ' + cancel.detail}`);
+  console.log(`سناریوی نتایج / اسکور: ${resultsScenario.ok ? '✅ PASS' : '❌ FAIL: ' + resultsScenario.detail}`);
 
   const passed =
     results.filter((r) => r.ok).length +
@@ -538,8 +575,9 @@ async function main(): Promise<void> {
     (capacity.ok ? 1 : 0) +
     (dispute.ok ? 1 : 0) +
     (notif.ok ? 1 : 0) +
-    (cancel.ok ? 1 : 0);
-  const total = results.length + 6;
+    (cancel.ok ? 1 : 0) +
+    (resultsScenario.ok ? 1 : 0);
+  const total = results.length + 7;
   console.log(`\nنتیجه: ${passed}/${total} تست پاس شد.`);
   if (passed !== total) {
     console.log('❌ بعضی تست‌ها رد شدند.');

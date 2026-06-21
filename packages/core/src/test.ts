@@ -8,6 +8,7 @@ import { InMemoryTournamentRepository } from './memoryRepository';
 import { TournamentService } from './tournamentService';
 import { InMemoryWalletRepository } from './wallet';
 import { InMemoryNotificationRepository } from './notifications';
+import { InMemorySeasonRepository, SeasonService } from './season';
 
 interface Case {
   format: Format;
@@ -556,6 +557,59 @@ async function runGamesCatalogScenario(): Promise<Outcome> {
   }
 }
 
+/** سناریوی لیگ/فصل: گروه‌بندی دو تورنومنت و رده‌بندیِ تجمعی. */
+async function runSeasonScenario(): Promise<Outcome> {
+  const base: Outcome = {
+    format: 'SINGLE_ELIM',
+    genre: 'DUEL',
+    n: 4,
+    ok: false,
+    champion: '-',
+    detail: '',
+  };
+  try {
+    let tc = 0;
+    let sc = 0;
+    const tsvc = new TournamentService(
+      new InMemoryTournamentRepository(),
+      () => `t${++tc}`,
+      () => '2026-01-01T00:00:00Z',
+    );
+    const ssvc = new SeasonService(new InMemorySeasonRepository(), tsvc, () => `s${++sc}`);
+
+    const tids: string[] = [];
+    for (let k = 0; k < 2; k++) {
+      const t = await tsvc.create({ title: `T${k}`, format: 'SINGLE_ELIM', genre: 'DUEL' });
+      for (let i = 0; i < 4; i++) {
+        await tsvc.register(t.id, { id: `u${i}`, name: `P${i}`, seed: 0, skill: 0.5 });
+      }
+      await tsvc.start(t.id);
+      let guard = 0;
+      while ((await tsvc.get(t.id)).status !== 'COMPLETED') {
+        if (guard++ > 100) throw new Error('did not converge');
+        for (const m of await tsvc.ready(t.id)) await tsvc.reportDuel(t.id, m.id, m.participantIds[0]);
+      }
+      tids.push(t.id);
+    }
+
+    const season = await ssvc.create('Season 1');
+    await ssvc.addTournament(season.id, tids[0]);
+    await ssvc.addTournament(season.id, tids[1]);
+    await ssvc.addTournament(season.id, tids[1]); // تکراری → نباید دوبار اضافه شود
+    await expectThrow(() => ssvc.addTournament(season.id, 'nope'), 'add non-existent tournament');
+
+    const st = await ssvc.standings(season.id);
+    if (st.length !== 4) throw new Error(`season standings ${st.length} != 4`);
+    const total = st.reduce((a, s) => a + s.points, 0);
+    if (total !== 20) throw new Error(`total season points ${total} != 20 (2*(1+2+3+4))`);
+    if (!st.every((s) => s.tournamentsPlayed === 2)) throw new Error('tournamentsPlayed != 2');
+    if (st[0].rank !== 1 || st[0].points < st[1].points) throw new Error('season standings not ranked');
+    return { ...base, ok: true, champion: st[0].participantId, detail: 'OK' };
+  } catch (e) {
+    return { ...base, detail: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 async function main(): Promise<void> {
   const cases: Case[] = [];
   for (const n of [2, 3, 5, 8, 16, 31]) cases.push({ format: 'SINGLE_ELIM', genre: 'DUEL', n });
@@ -577,6 +631,7 @@ async function main(): Promise<void> {
   const cancel = await runCancelScenario();
   const resultsScenario = await runResultsScenario();
   const gamesCatalog = await runGamesCatalogScenario();
+  const season = await runSeasonScenario();
 
   const pad = (s: string | number, w: number) => String(s).padEnd(w);
   console.log('\n🏆 تست چرخه‌ی کامل تورنومنت (سرویس + مخزن in-memory)');
@@ -603,6 +658,7 @@ async function main(): Promise<void> {
   console.log(`سناریوی لغو: ${cancel.ok ? '✅ PASS' : '❌ FAIL: ' + cancel.detail}`);
   console.log(`سناریوی نتایج / اسکور: ${resultsScenario.ok ? '✅ PASS' : '❌ FAIL: ' + resultsScenario.detail}`);
   console.log(`سناریوی کاتالوگ بازی‌ها: ${gamesCatalog.ok ? '✅ PASS' : '❌ FAIL: ' + gamesCatalog.detail}`);
+  console.log(`سناریوی لیگ / فصل: ${season.ok ? '✅ PASS' : '❌ FAIL: ' + season.detail}`);
 
   const passed =
     results.filter((r) => r.ok).length +
@@ -613,8 +669,9 @@ async function main(): Promise<void> {
     (notif.ok ? 1 : 0) +
     (cancel.ok ? 1 : 0) +
     (resultsScenario.ok ? 1 : 0) +
-    (gamesCatalog.ok ? 1 : 0);
-  const total = results.length + 8;
+    (gamesCatalog.ok ? 1 : 0) +
+    (season.ok ? 1 : 0);
+  const total = results.length + 9;
   console.log(`\nنتیجه: ${passed}/${total} تست پاس شد.`);
   if (passed !== total) {
     console.log('❌ بعضی تست‌ها رد شدند.');

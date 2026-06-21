@@ -4,3 +4,4 @@ export * from './memoryRepository';
 export * from './tournamentService';
 export * from './wallet';
 export * from './notifications';
+export * from './season';

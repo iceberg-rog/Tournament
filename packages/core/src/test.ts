@@ -9,6 +9,7 @@ import { TournamentService } from './tournamentService';
 import { InMemoryWalletRepository } from './wallet';
 import { InMemoryNotificationRepository } from './notifications';
 import { InMemorySeasonRepository, SeasonService } from './season';
+import { CommunityService, InMemorySpaceRepository } from './community';
 
 interface Case {
   format: Format;
@@ -610,6 +611,45 @@ async function runSeasonScenario(): Promise<Outcome> {
   }
 }
 
+/** سناریوی کامیونیتی: ساخت فضا، عضویت، پست (فقط اعضا)، و خروج. */
+async function runCommunityScenario(): Promise<Outcome> {
+  const base: Outcome = {
+    format: 'SINGLE_ELIM',
+    genre: 'DUEL',
+    n: 0,
+    ok: false,
+    champion: '-',
+    detail: '',
+  };
+  try {
+    let c = 0;
+    const svc = new CommunityService(
+      new InMemorySpaceRepository(),
+      () => `sp${++c}`,
+      () => '2026-01-01T00:00:00Z',
+    );
+    const s = await svc.createSpace('FC26 Community', 'tour1');
+    await svc.join(s.id, 'u1');
+    await svc.join(s.id, 'u2');
+    await svc.join(s.id, 'u1'); // dedupe
+    await expectThrow(() => svc.post(s.id, 'u3', 'hi'), 'post by non-member');
+    await svc.post(s.id, 'u1', 'سلام');
+    await svc.post(s.id, 'u2', 'درود');
+    await expectThrow(() => svc.post(s.id, 'u1', '   '), 'empty post');
+
+    const got = await svc.get(s.id);
+    if (got.memberIds.length !== 2) throw new Error(`members ${got.memberIds.length} != 2`);
+    if (got.posts.length !== 2) throw new Error(`posts ${got.posts.length} != 2`);
+    if (got.tournamentId !== 'tour1') throw new Error('tournamentId not linked');
+
+    await svc.leave(s.id, 'u2');
+    if ((await svc.get(s.id)).memberIds.length !== 1) throw new Error('leave did not remove member');
+    return { ...base, ok: true, detail: 'OK' };
+  } catch (e) {
+    return { ...base, detail: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 async function main(): Promise<void> {
   const cases: Case[] = [];
   for (const n of [2, 3, 5, 8, 16, 31]) cases.push({ format: 'SINGLE_ELIM', genre: 'DUEL', n });
@@ -632,6 +672,7 @@ async function main(): Promise<void> {
   const resultsScenario = await runResultsScenario();
   const gamesCatalog = await runGamesCatalogScenario();
   const season = await runSeasonScenario();
+  const community = await runCommunityScenario();
 
   const pad = (s: string | number, w: number) => String(s).padEnd(w);
   console.log('\n🏆 تست چرخه‌ی کامل تورنومنت (سرویس + مخزن in-memory)');
@@ -659,6 +700,7 @@ async function main(): Promise<void> {
   console.log(`سناریوی نتایج / اسکور: ${resultsScenario.ok ? '✅ PASS' : '❌ FAIL: ' + resultsScenario.detail}`);
   console.log(`سناریوی کاتالوگ بازی‌ها: ${gamesCatalog.ok ? '✅ PASS' : '❌ FAIL: ' + gamesCatalog.detail}`);
   console.log(`سناریوی لیگ / فصل: ${season.ok ? '✅ PASS' : '❌ FAIL: ' + season.detail}`);
+  console.log(`سناریوی کامیونیتی: ${community.ok ? '✅ PASS' : '❌ FAIL: ' + community.detail}`);
 
   const passed =
     results.filter((r) => r.ok).length +
@@ -670,8 +712,9 @@ async function main(): Promise<void> {
     (cancel.ok ? 1 : 0) +
     (resultsScenario.ok ? 1 : 0) +
     (gamesCatalog.ok ? 1 : 0) +
-    (season.ok ? 1 : 0);
-  const total = results.length + 9;
+    (season.ok ? 1 : 0) +
+    (community.ok ? 1 : 0);
+  const total = results.length + 10;
   console.log(`\nنتیجه: ${passed}/${total} تست پاس شد.`);
   if (passed !== total) {
     console.log('❌ بعضی تست‌ها رد شدند.');

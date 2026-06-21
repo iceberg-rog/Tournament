@@ -16,6 +16,9 @@ interface TournamentRecord {
   genre: string;
   status: string;
   participants: Participant[];
+  waitlist?: Participant[];
+  requireCheckIn?: boolean;
+  maxParticipants?: number;
 }
 interface ReadyMatch {
   id: string;
@@ -91,6 +94,12 @@ export default function TournamentDetail() {
             ثبت‌نام من
           </button>
           <button
+            onClick={() => act(() => authedPost(`/tournaments/${id}/withdraw`, {}))}
+            className="rounded-lg border border-slate-700 px-4 py-2 hover:bg-slate-800"
+          >
+            انصراف
+          </button>
+          <button
             onClick={() => act(() => authedPost(`/tournaments/${id}/start`, {}))}
             className="rounded-lg border border-slate-700 px-4 py-2 hover:bg-slate-800"
           >
@@ -109,6 +118,16 @@ export default function TournamentDetail() {
           ))}
           {rec.participants.length === 0 && <span className="text-slate-500">هنوز کسی ثبت‌نام نکرده.</span>}
         </div>
+        {(rec.waitlist?.length ?? 0) > 0 && (
+          <div className="mt-3 text-sm">
+            <span className="text-slate-400">لیست انتظار: </span>
+            {rec.waitlist!.map((p) => (
+              <span key={p.id} className="ml-1 rounded bg-slate-700 px-2 py-1 text-xs">
+                {p.name}
+              </span>
+            ))}
+          </div>
+        )}
       </section>
 
       {rec.status === 'RUNNING' && (
@@ -125,6 +144,16 @@ export default function TournamentDetail() {
                   </span>
                   {loggedIn && (
                     <span className="flex gap-2">
+                      {rec.requireCheckIn && (
+                        <button
+                          onClick={() =>
+                            act(() => authedPost(`/tournaments/${id}/matches/${m.id}/checkin`, {}))
+                          }
+                          className="rounded bg-sky-600 px-3 py-1 text-sm hover:bg-sky-500"
+                        >
+                          check-in
+                        </button>
+                      )}
                       {m.participantIds.map((pid) => (
                         <button
                           key={pid}

@@ -18,7 +18,13 @@ const GENRES = ['DUEL', 'TEAM', 'FFA'];
 
 export default function TournamentsPage() {
   const [list, setList] = useState<TournamentRow[]>([]);
-  const [form, setForm] = useState({ title: '', format: 'SINGLE_ELIM', genre: 'DUEL' });
+  const [form, setForm] = useState({
+    title: '',
+    format: 'SINGLE_ELIM',
+    genre: 'DUEL',
+    maxParticipants: '',
+    requireCheckIn: false,
+  });
   const [error, setError] = useState('');
   const loggedIn = isLoggedIn();
 
@@ -38,7 +44,14 @@ export default function TournamentsPage() {
     e.preventDefault();
     setError('');
     try {
-      await authedPost('/tournaments', form);
+      const payload: Record<string, unknown> = {
+        title: form.title,
+        format: form.format,
+        genre: form.genre,
+        requireCheckIn: form.requireCheckIn,
+      };
+      if (form.maxParticipants) payload.maxParticipants = Number(form.maxParticipants);
+      await authedPost('/tournaments', payload);
       setForm({ ...form, title: '' });
       await load();
     } catch (err) {
@@ -86,6 +99,22 @@ export default function TournamentsPage() {
               </option>
             ))}
           </select>
+          <input
+            type="number"
+            min={2}
+            className="w-28 rounded-lg bg-slate-800 px-3 py-2"
+            placeholder="ظرفیت"
+            value={form.maxParticipants}
+            onChange={(e) => setForm({ ...form, maxParticipants: e.target.value })}
+          />
+          <label className="flex items-center gap-2 text-sm text-slate-300">
+            <input
+              type="checkbox"
+              checked={form.requireCheckIn}
+              onChange={(e) => setForm({ ...form, requireCheckIn: e.target.checked })}
+            />
+            check-in
+          </label>
           <button className="rounded-lg bg-indigo-600 px-4 py-2 font-medium hover:bg-indigo-500">
             ساخت
           </button>

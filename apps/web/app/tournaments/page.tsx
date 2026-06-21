@@ -14,6 +14,14 @@ interface TournamentRow {
   participants: { id: string; name: string }[];
 }
 
+interface GameCard {
+  game: string;
+  total: number;
+  upcoming: number;
+  running: number;
+  finished: number;
+}
+
 const FORMATS = ['SINGLE_ELIM', 'DOUBLE_ELIM', 'ROUND_ROBIN', 'SWISS', 'FFA'];
 const GENRES = ['DUEL', 'TEAM', 'FFA'];
 const STATUS: Record<string, string[]> = {
@@ -29,6 +37,8 @@ const TABS = [
 
 export default function TournamentsPage() {
   const [list, setList] = useState<TournamentRow[]>([]);
+  const [games, setGames] = useState<GameCard[]>([]);
+  const [selectedGame, setSelectedGame] = useState<string | null>(null);
   const [tab, setTab] = useState<'upcoming' | 'running' | 'finished'>('upcoming');
   const [form, setForm] = useState({
     title: '',
@@ -44,6 +54,7 @@ export default function TournamentsPage() {
   async function load() {
     try {
       setList(await publicGet<TournamentRow[]>('/tournaments'));
+      setGames(await publicGet<GameCard[]>('/tournaments/games'));
     } catch (e) {
       setError(e instanceof Error ? e.message : 'خطا');
     }
@@ -151,6 +162,26 @@ export default function TournamentsPage() {
 
       {error && <p className="mb-4 text-red-400">{error}</p>}
 
+      {games.length > 0 && (
+        <div className="mb-4 flex flex-wrap gap-2">
+          <button
+            onClick={() => setSelectedGame(null)}
+            className={`rounded-lg px-3 py-2 text-sm ${selectedGame === null ? 'bg-emerald-600' : 'bg-slate-800'}`}
+          >
+            همه‌ی بازی‌ها
+          </button>
+          {games.map((g) => (
+            <button
+              key={g.game}
+              onClick={() => setSelectedGame(g.game)}
+              className={`rounded-lg px-3 py-2 text-sm ${selectedGame === g.game ? 'bg-emerald-600' : 'bg-slate-800'}`}
+            >
+              {g.game} <span className="text-slate-400">({g.total})</span>
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="mb-4 flex gap-2">
         {TABS.map(([k, label]) => (
           <button
@@ -165,7 +196,7 @@ export default function TournamentsPage() {
 
       <ul className="flex flex-col gap-2">
         {list
-          .filter((t) => STATUS[tab].includes(t.status))
+          .filter((t) => STATUS[tab].includes(t.status) && (!selectedGame || t.game === selectedGame))
           .map((t) => (
             <li key={t.id}>
               <Link
@@ -180,7 +211,7 @@ export default function TournamentsPage() {
               </Link>
             </li>
           ))}
-        {list.filter((t) => STATUS[tab].includes(t.status)).length === 0 && (
+        {list.filter((t) => STATUS[tab].includes(t.status) && (!selectedGame || t.game === selectedGame)).length === 0 && (
           <li className="text-slate-500">موردی در این بخش نیست.</li>
         )}
       </ul>

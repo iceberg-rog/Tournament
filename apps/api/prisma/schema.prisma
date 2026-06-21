@@ -83,6 +83,31 @@ model Ledger {
   @@index([userId])
 }
 
+// احراز هویت (KYC) — یک پرونده per کاربر؛ پیش‌نیاز برداشت جایزه.
+model KycCase {
+  userId     String    @id
+  status     String    @default("PENDING")
+  fullName   String
+  nationalId String
+  reason     String?
+  createdAt  DateTime  @default(now())
+  reviewedAt DateTime?
+}
+
+// درخواست برداشت جایزه به حساب بانکی.
+model Withdrawal {
+  id         String    @id @default(uuid())
+  userId     String
+  amount     Decimal
+  iban       String
+  status     String    @default("PENDING")
+  reason     String?
+  createdAt  DateTime  @default(now())
+  reviewedAt DateTime?
+
+  @@index([userId])
+}
+
 model Season {
   id            String   @id @default(uuid())
   title         String

@@ -13,6 +13,12 @@ import { CommunityService, InMemorySpaceRepository } from './community';
 import { InMemoryLadderRepository, LadderService } from './ladder';
 import { InMemorySettingsRepository, SettingsService } from './settings';
 import { InMemoryPaymentRepository, PaymentGateway, PaymentService, SandboxGateway } from './payment';
+import {
+  InMemoryKycRepository,
+  InMemoryWithdrawalRepository,
+  KycService,
+  WithdrawalService,
+} from './payout';
 
 interface Case {
   format: Format;
@@ -856,6 +862,59 @@ async function runPaymentScenario(): Promise<Outcome> {
   }
 }
 
+/** سناریوی KYC + برداشت (UC29/UC30): نیاز به KYC، کسر فوری، رد→بازگشت وجه. */
+async function runKycWithdrawalScenario(): Promise<Outcome> {
+  const base: Outcome = {
+    format: 'SINGLE_ELIM',
+    genre: 'DUEL',
+    n: 0,
+    ok: false,
+    champion: '-',
+    detail: '',
+  };
+  try {
+    let c = 0;
+    const at = () => '2026-01-01T00:00:00Z';
+    const ledger = new InMemoryWalletRepository();
+    const wallet = new WalletService(ledger, () => `w${++c}`, at);
+    const kyc = new KycService(new InMemoryKycRepository(), at);
+    const wd = new WithdrawalService(
+      new InMemoryWithdrawalRepository(),
+      wallet,
+      kyc,
+      () => `wd${++c}`,
+      at,
+    );
+    const uid = 'u1';
+    const iban = 'IR' + '1'.repeat(24);
+    await wallet.deposit(uid, 100000, 'prize');
+
+    // بدون KYC → برداشت رد می‌شود
+    await expectThrow(() => wd.request(uid, 50000, iban), 'withdrawal blocked without KYC');
+    if ((await kyc.status(uid)) !== 'NONE') throw new Error('initial status not NONE');
+    await kyc.submit(uid, 'Ali Ahmadi', '1234567890');
+    if ((await kyc.status(uid)) !== 'PENDING') throw new Error('not PENDING after submit');
+    await kyc.approve(uid);
+    if ((await kyc.status(uid)) !== 'APPROVED') throw new Error('not APPROVED');
+
+    await expectThrow(() => wd.request(uid, 50000, 'BAD'), 'invalid IBAN');
+    const w1 = await wd.request(uid, 50000, iban);
+    if (w1.status !== 'PENDING') throw new Error('w1 not PENDING');
+    if ((await wallet.balance(uid)).available !== 50000) throw new Error('not debited on request');
+    await expectThrow(() => wd.request(uid, 999999, iban), 'insufficient balance');
+
+    const w2 = await wd.request(uid, 20000, iban); // available 30000
+    await wd.reject(w2.id, 'account mismatch'); // refund → 50000
+    if ((await wallet.balance(uid)).available !== 50000) throw new Error('reject did not refund');
+    const paid = await wd.markPaid(w1.id);
+    if (paid.status !== 'PAID') throw new Error('w1 not PAID');
+    if ((await wd.listForUser(uid)).length !== 2) throw new Error('history wrong');
+    return { ...base, ok: true, detail: 'OK' };
+  } catch (e) {
+    return { ...base, detail: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 async function main(): Promise<void> {
   const cases: Case[] = [];
   for (const n of [2, 3, 5, 8, 16, 31]) cases.push({ format: 'SINGLE_ELIM', genre: 'DUEL', n });
@@ -883,6 +942,7 @@ async function main(): Promise<void> {
   const settings = await runSettingsScenario();
   const payment = await runPaymentScenario();
   const walletEscrow = await runWalletEscrowScenario();
+  const kycWithdrawal = await runKycWithdrawalScenario();
 
   const pad = (s: string | number, w: number) => String(s).padEnd(w);
   console.log('\n🏆 تست چرخه‌ی کامل تورنومنت (سرویس + مخزن in-memory)');
@@ -915,6 +975,7 @@ async function main(): Promise<void> {
   console.log(`سناریوی تنظیمات پلتفرم: ${settings.ok ? '✅ PASS' : '❌ FAIL: ' + settings.detail}`);
   console.log(`سناریوی پرداخت: ${payment.ok ? '✅ PASS' : '❌ FAIL: ' + payment.detail}`);
   console.log(`سناریوی هزینه‌ی ورودی / escrow / کیف پول: ${walletEscrow.ok ? '✅ PASS' : '❌ FAIL: ' + walletEscrow.detail}`);
+  console.log(`سناریوی KYC / برداشت: ${kycWithdrawal.ok ? '✅ PASS' : '❌ FAIL: ' + kycWithdrawal.detail}`);
 
   const passed =
     results.filter((r) => r.ok).length +
@@ -931,8 +992,9 @@ async function main(): Promise<void> {
     (ladder.ok ? 1 : 0) +
     (settings.ok ? 1 : 0) +
     (payment.ok ? 1 : 0) +
-    (walletEscrow.ok ? 1 : 0);
-  const total = results.length + 14;
+    (walletEscrow.ok ? 1 : 0) +
+    (kycWithdrawal.ok ? 1 : 0);
+  const total = results.length + 15;
   console.log(`\nنتیجه: ${passed}/${total} تست پاس شد.`);
   if (passed !== total) {
     console.log('❌ بعضی تست‌ها رد شدند.');

@@ -9,3 +9,4 @@ export * from './community';
 export * from './ladder';
 export * from './settings';
 export * from './payment';
+export * from './payout';

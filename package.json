@@ -11,7 +11,8 @@
     "dev:web": "npm run dev -w @tournament/web",
     "build": "npm run build -w @tournament/api && npm run build -w @tournament/web",
     "prisma:generate": "npm run prisma:generate -w @tournament/api",
-    "prisma:migrate": "npm run prisma:migrate -w @tournament/api"
+    "prisma:migrate": "npm run prisma:migrate -w @tournament/api",
+    "demo": "node apps/api/scripts/live-demo.mjs"
   },
   "engines": {
     "node": ">=20"

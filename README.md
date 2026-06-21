@@ -51,28 +51,26 @@
 ## 🚀 شروع توسعه (Getting Started)
 
 ### پیش‌نیازها
-- Node.js ≥ ۲۰
-- PostgreSQL (یا `docker compose up -d` برای راه‌اندازی Postgres + Redis)
+- Node.js ≥ ۲۰ — دیتابیسِ پیش‌فرض **SQLite** است؛ به سرور دیتابیس یا Docker نیازی نیست.
 
 ### راه‌اندازی
 ```bash
-# ۱. نصب وابستگی‌ها (npm workspaces)
-npm install
-
-# ۲. کپی فایل محیط
-cp .env.example apps/api/.env
-
-# ۳. ساخت Prisma client + اعمال migration روی دیتابیس
-npm run prisma:generate
-npm run prisma:migrate
-
-# ۴. اجرای API (پورت 4000)
-npm run dev:api
-
-# ۵. در ترمینال دیگر، اجرای Web (پورت 3000)
-npm run dev:web
+npm install                              # نصب وابستگی‌ها (npm workspaces)
+cp apps/api/.env.example apps/api/.env   # فایل محیط (DATABASE_URL=file:./dev.db)
+npm run prisma:migrate                   # ساخت دیتابیس SQLite + جدول‌ها
+npm run dev:api                          # اجرای API روی پورت 4000
+npm run dev:web                          # (ترمینال دیگر) اجرای Web روی پورت 3000
 ```
-سپس http://localhost:3000 را باز کنید: ثبت‌نام → داشبورد.
+سپس http://localhost:3000 → ثبت‌نام → تورنومنت‌ها.
+
+### دموی زنده‌ی end-to-end
+با سرورِ در حال اجرا:
+```bash
+node apps/api/scripts/live-demo.mjs
+```
+ثبت‌نام ۴ کاربر → ساخت تورنومنت → بازی کامل → رده‌بندی — همه علیه دیتابیس واقعی.
+
+> **پروداکشن:** برای مقیاس‌پذیری، `provider` را در `apps/api/prisma/schema.prisma` به `postgresql` و `DATABASE_URL` را به Postgres تغییر دهید (`docker-compose.yml` برای Postgres + Redis آماده است).
 
 ### ساختار مخزن
 ```

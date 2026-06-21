@@ -17,6 +17,10 @@ export interface TournamentRecord {
   participants: Participant[];
   ffaRounds?: number;
   swissRounds?: number;
+  /** حداکثر ظرفیت شرکت‌کننده‌های تأییدشده؛ مازاد به waitlist می‌رود. */
+  maxParticipants?: number;
+  /** صف انتظار (وقتی ظرفیت پر است). با انصراف یک تأییدشده، اولین نفر promote می‌شود. */
+  waitlist?: Participant[];
   /** اگر true، پیش از ثبت نتیجه‌ی یک DUEL هر دو طرف باید check-in کنند (وگرنه no-show). */
   requireCheckIn?: boolean;
   /** جوایز per-rank؛ هنگام پایان تورنومنت به کیف پول برنده‌ها واریز می‌شود. */

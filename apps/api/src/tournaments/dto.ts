@@ -39,6 +39,11 @@ export class CreateTournamentDto {
   @IsOptional()
   @IsBoolean()
   requireCheckIn?: boolean;
+
+  @IsOptional()
+  @IsInt()
+  @Min(2)
+  maxParticipants?: number;
 }
 
 export class RegisterDto {

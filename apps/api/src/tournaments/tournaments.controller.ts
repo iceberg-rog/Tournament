@@ -26,6 +26,7 @@ export class TournamentsController {
       ffaRounds: dto.ffaRounds,
       swissRounds: dto.swissRounds,
       requireCheckIn: dto.requireCheckIn,
+      maxParticipants: dto.maxParticipants,
     });
   }
 
@@ -58,6 +59,12 @@ export class TournamentsController {
   @UseGuards(JwtAuthGuard)
   start(@Param('id') id: string) {
     return this.svc.start(id);
+  }
+
+  @Post(':id/withdraw')
+  @UseGuards(JwtAuthGuard)
+  withdraw(@Param('id') id: string, @Request() req: { user: { id: string } }) {
+    return this.svc.withdraw(id, req.user.id);
   }
 
   @Get(':id/ready')

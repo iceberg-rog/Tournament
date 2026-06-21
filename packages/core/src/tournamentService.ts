@@ -19,6 +19,7 @@ export interface CreateTournamentInput {
   ffaRounds?: number;
   swissRounds?: number;
   requireCheckIn?: boolean;
+  maxParticipants?: number;
   prizePool?: { rank: number; amount: number }[];
 }
 
@@ -48,6 +49,8 @@ export class TournamentService {
       ffaRounds: input.ffaRounds,
       swissRounds: input.swissRounds,
       requireCheckIn: input.requireCheckIn ?? false,
+      maxParticipants: input.maxParticipants,
+      waitlist: [],
       prizePool: input.prizePool,
       paidOut: false,
       status: 'DRAFT',
@@ -62,9 +65,41 @@ export class TournamentService {
   async register(id: string, p: Participant): Promise<void> {
     const rec = await this.mustGet(id);
     if (rec.status !== 'DRAFT') throw new DomainError('registration is closed');
-    if (rec.participants.some((x) => x.id === p.id)) throw new DomainError('already registered');
-    rec.participants.push({ ...p });
+    if (
+      rec.participants.some((x) => x.id === p.id) ||
+      (rec.waitlist ?? []).some((x) => x.id === p.id)
+    ) {
+      throw new DomainError('already registered');
+    }
+    if (rec.maxParticipants && rec.participants.length >= rec.maxParticipants) {
+      (rec.waitlist ??= []).push({ ...p }); // ظرفیت پر است → waitlist
+    } else {
+      rec.participants.push({ ...p });
+    }
     await this.repo.update(rec);
+  }
+
+  /** انصراف یک شرکت‌کننده (فقط در DRAFT)؛ با انصرافِ یک تأییدشده اولین waitlist promote می‌شود. */
+  async withdraw(id: string, participantId: string): Promise<void> {
+    const rec = await this.mustGet(id);
+    if (rec.status !== 'DRAFT') throw new DomainError('cannot withdraw after the tournament has started');
+    const ci = rec.participants.findIndex((x) => x.id === participantId);
+    if (ci >= 0) {
+      rec.participants.splice(ci, 1);
+      const wl = rec.waitlist ?? [];
+      const promoted = wl.shift();
+      if (promoted) rec.participants.push(promoted);
+      rec.waitlist = wl;
+      await this.repo.update(rec);
+      return;
+    }
+    const wi = (rec.waitlist ?? []).findIndex((x) => x.id === participantId);
+    if (wi >= 0) {
+      rec.waitlist!.splice(wi, 1);
+      await this.repo.update(rec);
+      return;
+    }
+    throw new DomainError('participant is not registered');
   }
 
   /** شروع تورنومنت: seeding بر اساس ترتیب ثبت‌نام، DRAFT → RUNNING. */

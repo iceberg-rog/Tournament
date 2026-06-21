@@ -243,6 +243,64 @@ async function runPrizeScenario(): Promise<Outcome> {
   }
 }
 
+/** سناریوی ظرفیت + waitlist + انصراف. */
+async function runCapacityScenario(): Promise<Outcome> {
+  const base: Outcome = {
+    format: 'SINGLE_ELIM',
+    genre: 'DUEL',
+    n: 2,
+    ok: false,
+    champion: '',
+    detail: '',
+  };
+  try {
+    const repo = new InMemoryTournamentRepository();
+    let c = 0;
+    const svc = new TournamentService(repo, () => `cap${++c}`, () => '2026-01-01T00:00:00Z');
+    const t = await svc.create({
+      title: 'Cap Cup',
+      format: 'SINGLE_ELIM',
+      genre: 'DUEL',
+      maxParticipants: 2,
+    });
+    for (let i = 0; i < 4; i++) {
+      await svc.register(t.id, { id: `u${i}`, name: `P${i}`, seed: 0, skill: 0.5 });
+    }
+    let rec = await svc.get(t.id);
+    if (rec.participants.length !== 2) throw new Error(`confirmed ${rec.participants.length} != 2`);
+    if ((rec.waitlist ?? []).length !== 2) throw new Error('waitlist != 2');
+
+    await expectThrow(
+      () => svc.register(t.id, { id: 'u1', name: 'dup', seed: 0, skill: 0.5 }),
+      'duplicate registration',
+    );
+
+    // انصراف یک تأییدشده → promote اولین waitlist
+    await svc.withdraw(t.id, 'u0');
+    rec = await svc.get(t.id);
+    if (!rec.participants.some((p) => p.id === 'u2')) throw new Error('u2 was not promoted');
+    if (rec.participants.length !== 2) throw new Error('confirmed != 2 after promote');
+    if ((rec.waitlist ?? []).length !== 1) throw new Error('waitlist != 1 after promote');
+
+    // انصراف یک waitlisted
+    await svc.withdraw(t.id, 'u3');
+    rec = await svc.get(t.id);
+    if ((rec.waitlist ?? []).length !== 0) throw new Error('waitlist != 0');
+
+    await svc.start(t.id);
+    let guard = 0;
+    while ((await svc.get(t.id)).status !== 'COMPLETED') {
+      if (guard++ > 100) throw new Error('did not converge');
+      for (const m of await svc.ready(t.id)) await svc.reportDuel(t.id, m.id, m.participantIds[0]);
+    }
+    const champ = await svc.champion(t.id);
+    if (!champ) throw new Error('no champion');
+    return { ...base, ok: true, champion: champ, detail: 'OK' };
+  } catch (e) {
+    return { ...base, detail: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 async function main(): Promise<void> {
   const cases: Case[] = [];
   for (const n of [2, 3, 5, 8, 16, 31]) cases.push({ format: 'SINGLE_ELIM', genre: 'DUEL', n });
@@ -258,6 +316,7 @@ async function main(): Promise<void> {
   }
   const checkIn = await runCheckInScenario();
   const prize = await runPrizeScenario();
+  const capacity = await runCapacityScenario();
 
   const pad = (s: string | number, w: number) => String(s).padEnd(w);
   console.log('\n🏆 تست چرخه‌ی کامل تورنومنت (سرویس + مخزن in-memory)');
@@ -278,10 +337,14 @@ async function main(): Promise<void> {
     `\nسناریوی check-in / no-show: ${checkIn.ok ? '✅ PASS' : '❌ FAIL: ' + checkIn.detail}`,
   );
   console.log(`سناریوی پرداخت جایزه: ${prize.ok ? '✅ PASS' : '❌ FAIL: ' + prize.detail}`);
+  console.log(`سناریوی ظرفیت / waitlist: ${capacity.ok ? '✅ PASS' : '❌ FAIL: ' + capacity.detail}`);
 
   const passed =
-    results.filter((r) => r.ok).length + (checkIn.ok ? 1 : 0) + (prize.ok ? 1 : 0);
-  const total = results.length + 2;
+    results.filter((r) => r.ok).length +
+    (checkIn.ok ? 1 : 0) +
+    (prize.ok ? 1 : 0) +
+    (capacity.ok ? 1 : 0);
+  const total = results.length + 3;
   console.log(`\nنتیجه: ${passed}/${total} تست پاس شد.`);
   if (passed !== total) {
     console.log('❌ بعضی تست‌ها رد شدند.');

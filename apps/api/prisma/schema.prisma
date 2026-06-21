@@ -152,6 +152,18 @@ model Rating {
   @@unique([tournamentId, userId])
 }
 
+// پیام چتِ زنده‌ی تورنومنت (UC17) — با polling در کلاینت.
+model ChatMessage {
+  id           String   @id @default(uuid())
+  tournamentId String
+  userId       String
+  displayName  String
+  text         String
+  createdAt    DateTime @default(now())
+
+  @@index([tournamentId])
+}
+
 // کاتالوگ بازی‌های قابل‌مدیریت توسط مدیر (UC06).
 model Game {
   id        String   @id @default(uuid())

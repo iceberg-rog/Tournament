@@ -58,6 +58,11 @@ export class CreateTournamentDto {
   @IsOptional()
   @IsArray()
   prizePool?: { rank: number; amount: number }[];
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  streamUrl?: string;
 }
 
 export class RegisterDto {

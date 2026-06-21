@@ -19,6 +19,12 @@ interface TournamentRecord {
   waitlist?: Participant[];
   requireCheckIn?: boolean;
   maxParticipants?: number;
+  streamUrl?: string;
+}
+interface ChatMessage {
+  id: string;
+  displayName: string;
+  text: string;
 }
 interface ReadyMatch {
   id: string;
@@ -44,6 +50,9 @@ export default function TournamentDetail() {
   const [rating, setRating] = useState<{ average: number; count: number }>({ average: 0, count: 0 });
   const [myScore, setMyScore] = useState(0);
   const [editTitle, setEditTitle] = useState('');
+  const [chat, setChat] = useState<ChatMessage[]>([]);
+  const [chatText, setChatText] = useState('');
+  const [streamInput, setStreamInput] = useState('');
   const [error, setError] = useState('');
   const loggedIn = isLoggedIn();
 
@@ -71,6 +80,22 @@ export default function TournamentDetail() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // چت زنده با polling (UC17)
+  useEffect(() => {
+    if (!id) return;
+    const tick = () => publicGet<ChatMessage[]>(`/tournaments/${id}/chat`).then(setChat).catch(() => {});
+    tick();
+    const h = setInterval(tick, 4000);
+    return () => clearInterval(h);
+  }, [id]);
+
+  async function sendChat() {
+    if (!chatText.trim()) return;
+    await authedPost(`/tournaments/${id}/chat`, { text: chatText });
+    setChatText('');
+    setChat(await publicGet<ChatMessage[]>(`/tournaments/${id}/chat`));
+  }
 
   const nameOf = (pid: string) => rec?.participants.find((p) => p.id === pid)?.name ?? pid;
 
@@ -292,6 +317,57 @@ export default function TournamentDetail() {
           )}
         </section>
       )}
+
+      {rec.streamUrl && (
+        <section className="mt-6">
+          <h2 className="mb-2 font-bold">پخش زنده 🔴</h2>
+          <div className="aspect-video w-full overflow-hidden rounded-lg bg-black">
+            <iframe src={rec.streamUrl} className="h-full w-full" allowFullScreen title="stream" />
+          </div>
+        </section>
+      )}
+      {loggedIn && rec.status !== 'CANCELLED' && (
+        <div className="mt-3 flex gap-2">
+          <input
+            value={streamInput}
+            onChange={(e) => setStreamInput(e.target.value)}
+            placeholder="آدرس embed استریم (Twitch/YouTube)"
+            className="flex-1 rounded-lg bg-slate-800 px-3 py-2 text-sm"
+          />
+          <button
+            onClick={() => streamInput.trim() && act(() => authedPost(`/tournaments/${id}/update`, { streamUrl: streamInput }))}
+            className="rounded-lg border border-slate-700 px-3 py-2 text-sm hover:bg-slate-800"
+          >
+            تنظیم استریم
+          </button>
+        </div>
+      )}
+
+      <section className="mt-6">
+        <h2 className="mb-2 font-bold">چت زنده</h2>
+        <div className="mb-2 max-h-60 space-y-1 overflow-y-auto rounded-lg bg-slate-900 p-3 text-sm">
+          {chat.map((m) => (
+            <p key={m.id}>
+              <b className="text-indigo-300">{m.displayName}:</b> {m.text}
+            </p>
+          ))}
+          {chat.length === 0 && <p className="text-slate-400">هنوز پیامی نیست.</p>}
+        </div>
+        {loggedIn && (
+          <div className="flex gap-2">
+            <input
+              value={chatText}
+              onChange={(e) => setChatText(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && sendChat()}
+              placeholder="پیام..."
+              className="flex-1 rounded-lg bg-slate-800 px-3 py-2"
+            />
+            <button onClick={sendChat} className="rounded-lg bg-indigo-600 px-5 py-2 hover:bg-indigo-500">
+              ارسال
+            </button>
+          </div>
+        )}
+      </section>
     </main>
   );
 }

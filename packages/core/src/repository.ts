@@ -37,6 +37,8 @@ export interface TournamentRecord {
   prizePool?: { rank: number; amount: number }[];
   /** هزینه‌ی ورودی (ریال)؛ هنگام ثبت‌نام از کیف پول کاربر در escrow مسدود می‌شود. */
   entryFee?: number;
+  /** آدرس استریم زنده (Twitch/YouTube) برای نمایش embed — UC16. */
+  streamUrl?: string;
   /** شناسه‌ی کاربرانی که هزینه‌ی ورودی‌شان اکنون در escrow مسدود است. */
   heldFees?: string[];
   /** آیا جوایز پرداخت شده‌اند (یک‌بار، هنگام COMPLETED). */

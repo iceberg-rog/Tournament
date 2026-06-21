@@ -24,6 +24,7 @@ export interface CreateTournamentInput {
   maxParticipants?: number;
   prizePool?: { rank: number; amount: number }[];
   entryFee?: number;
+  streamUrl?: string;
 }
 
 /** نتیجه‌ی یک مسابقه برای نمایش تاریخچه. */
@@ -79,6 +80,7 @@ export class TournamentService {
       waitlist: [],
       prizePool: input.prizePool,
       entryFee: input.entryFee,
+      streamUrl: input.streamUrl,
       heldFees: [],
       paidOut: false,
       status: 'DRAFT',
@@ -205,9 +207,18 @@ export class TournamentService {
       entryFee?: number;
       prizePool?: { rank: number; amount: number }[];
       requireCheckIn?: boolean;
+      streamUrl?: string;
     },
   ): Promise<TournamentRecord> {
     const rec = await this.mustGet(id);
+    // آدرس استریم در هر وضعیتی قابل تنظیم است (UC16)؛ بقیه‌ی فیلدها فقط در DRAFT.
+    if (patch.streamUrl !== undefined) {
+      rec.streamUrl = patch.streamUrl;
+      if (rec.status !== 'DRAFT' && Object.keys(patch).length === 1) {
+        await this.repo.update(rec);
+        return rec;
+      }
+    }
     if (rec.status !== 'DRAFT') throw new DomainError('فقط تورنومنتِ پیش‌نویس قابل ویرایش است');
     if (patch.entryFee !== undefined && (rec.heldFees?.length ?? 0) > 0) {
       throw new DomainError('پس از ثبت‌نام با هزینه‌ی ورودی نمی‌توان مبلغ را تغییر داد');

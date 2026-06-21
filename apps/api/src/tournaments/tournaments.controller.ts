@@ -10,6 +10,7 @@ import {
 } from '@nestjs/common';
 import { RatingService, TournamentService } from '@tournament/core';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { PrismaService } from '../prisma/prisma.service';
 import { CreateTournamentDto, RegisterDto, ReportDto } from './dto';
 
 @Controller('tournaments')
@@ -17,7 +18,38 @@ export class TournamentsController {
   constructor(
     private readonly svc: TournamentService,
     private readonly ratings: RatingService,
+    private readonly prisma: PrismaService,
   ) {}
+
+  // ───────── چت زنده‌ی تورنومنت (UC17) ─────────
+  @Get(':id/chat')
+  chat(@Param('id') id: string) {
+    return this.prisma.chatMessage.findMany({
+      where: { tournamentId: id },
+      orderBy: { createdAt: 'asc' },
+      take: 100,
+    });
+  }
+
+  @Post(':id/chat')
+  @UseGuards(JwtAuthGuard)
+  postChat(
+    @Param('id') id: string,
+    @Request() req: { user: { id: string; email: string } },
+    @Body() dto: { text: string },
+  ) {
+    if (!dto.text || dto.text.trim().length === 0) {
+      throw new BadRequestException('متن پیام خالی است');
+    }
+    return this.prisma.chatMessage.create({
+      data: {
+        tournamentId: id,
+        userId: req.user.id,
+        displayName: req.user.email.split('@')[0],
+        text: dto.text.slice(0, 500),
+      },
+    });
+  }
 
   @Post(':id/rate')
   @UseGuards(JwtAuthGuard)
@@ -54,6 +86,7 @@ export class TournamentsController {
       maxParticipants: dto.maxParticipants,
       entryFee: dto.entryFee,
       prizePool: dto.prizePool,
+      streamUrl: dto.streamUrl,
     });
   }
 
@@ -117,6 +150,7 @@ export class TournamentsController {
       entryFee?: number;
       prizePool?: { rank: number; amount: number }[];
       requireCheckIn?: boolean;
+      streamUrl?: string;
     },
   ) {
     return this.svc.update(id, dto);

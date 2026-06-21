@@ -31,6 +31,21 @@ model Wallet {
   updatedAt     DateTime @updatedAt
 }
 
+// تورنومنت با مدل replay: participants و events به‌صورت JSON ذخیره می‌شوند.
+model Tournament {
+  id          String   @id @default(uuid())
+  title       String
+  format      String
+  genre       String
+  status      String   @default("DRAFT")
+  ffaRounds   Int?
+  swissRounds Int?
+  participants Json
+  events       Json
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
 enum UserRole {
   USER
   GAME_ADMIN

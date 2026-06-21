@@ -6,7 +6,7 @@ import { apiPost } from '@/lib/api';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [form, setForm] = useState({ email: '', password: '' });
+  const [form, setForm] = useState({ email: '', password: '', code: '' });
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -15,13 +15,27 @@ export default function LoginPage() {
     setError('');
     setLoading(true);
     try {
-      const res = await apiPost<{ accessToken: string }>('/auth/login', form);
+      const body = form.code ? form : { email: form.email, password: form.password };
+      const res = await apiPost<{ accessToken: string }>('/auth/login', body);
       localStorage.setItem('accessToken', res.accessToken);
       router.push('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'خطایی رخ داد');
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function oauthGoogle() {
+    setError('');
+    const email = window.prompt('ایمیل حساب گوگل (حالت آزمایشی):');
+    if (!email) return;
+    try {
+      const res = await apiPost<{ accessToken: string }>('/auth/oauth/google', { email });
+      localStorage.setItem('accessToken', res.accessToken);
+      router.push('/dashboard');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'خطایی رخ داد');
     }
   }
 
@@ -43,6 +57,13 @@ export default function LoginPage() {
           value={form.password}
           onChange={(e) => setForm({ ...form, password: e.target.value })}
         />
+        <input
+          className="rounded-lg bg-slate-800 px-4 py-3 outline-none focus:ring-2 focus:ring-indigo-500"
+          placeholder="کد دومرحله‌ای (در صورت فعال‌بودن)"
+          inputMode="numeric"
+          value={form.code}
+          onChange={(e) => setForm({ ...form, code: e.target.value })}
+        />
         {error && <p className="text-red-400">{error}</p>}
         <button
           disabled={loading}
@@ -51,6 +72,12 @@ export default function LoginPage() {
           {loading ? '...' : 'ورود'}
         </button>
       </form>
+      <button
+        onClick={oauthGoogle}
+        className="mt-3 rounded-lg border border-slate-700 px-4 py-3 font-medium transition hover:bg-slate-800"
+      >
+        ورود با گوگل
+      </button>
       <a href="/register" className="mt-4 text-center text-sm text-slate-400 hover:text-slate-200">
         حساب ندارید؟ ثبت‌نام
       </a>

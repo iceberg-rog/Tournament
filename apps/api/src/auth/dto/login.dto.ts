@@ -1,4 +1,4 @@
-import { IsEmail, IsString } from 'class-validator';
+import { IsEmail, IsOptional, IsString } from 'class-validator';
 
 export class LoginDto {
   @IsEmail()
@@ -6,4 +6,9 @@ export class LoginDto {
 
   @IsString()
   password!: string;
+
+  /** کد TOTP در صورت فعال‌بودن احراز هویت دومرحله‌ای. */
+  @IsOptional()
+  @IsString()
+  code?: string;
 }

@@ -71,6 +71,9 @@ export default function DashboardPage() {
         <a href="/notifications" className="rounded-lg border border-slate-700 px-4 py-2 hover:bg-slate-800">
           اعلان‌ها
         </a>
+        <a href="/security" className="rounded-lg border border-slate-700 px-4 py-2 hover:bg-slate-800">
+          امنیت (2FA)
+        </a>
         <a href="/seasons" className="rounded-lg border border-slate-700 px-4 py-2 hover:bg-slate-800">
           فصل‌ها
         </a>

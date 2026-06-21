@@ -10,7 +10,8 @@
 ## اجزا
 - `TournamentRepository` — انتزاع پایداری (`create/get/update/list`).
 - `InMemoryTournamentRepository` — برای تست و توسعه‌ی محلی (بدون دیتابیس). نسخه‌ی Prisma بعداً افزوده می‌شود.
-- `TournamentService` — `create / register / start / ready / reportDuel / reportLobby / standings / champion`.
+- `TournamentService` — `create / register / start / ready / reportDuel / reportLobby / checkIn / declareNoShow / standings / champion`.
+- **check-in / no-show** (اختیاری per-tournament با `requireCheckIn`): پیش از ثبت نتیجه‌ی یک DUEL هر دو طرف باید check-in کنند؛ اگر یک طرف نیامد، طرفِ حاضر می‌تواند no-show اعلام کند و خودکار برنده شود (`source: 'NO_SHOW'`).
 
 ## تست
 ```bash

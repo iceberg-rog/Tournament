@@ -106,6 +106,87 @@ async function runCase(c: Case, seed: number): Promise<Outcome> {
   }
 }
 
+async function expectThrow(fn: () => Promise<unknown>, label: string): Promise<void> {
+  let threw = false;
+  try {
+    await fn();
+  } catch {
+    threw = true;
+  }
+  if (!threw) throw new Error(`expected throw but did not: ${label}`);
+}
+
+/** سناریوی check-in و no-show روی یک حذفی ۴ نفره. */
+async function runCheckInScenario(): Promise<Outcome> {
+  const base: Outcome = {
+    format: 'SINGLE_ELIM',
+    genre: 'DUEL',
+    n: 4,
+    ok: false,
+    champion: '',
+    detail: '',
+  };
+  try {
+    const repo = new InMemoryTournamentRepository();
+    let c = 0;
+    const svc = new TournamentService(repo, () => `c${++c}`, () => '2026-01-01T00:00:00Z');
+    const t = await svc.create({
+      title: 'CheckIn Cup',
+      format: 'SINGLE_ELIM',
+      genre: 'DUEL',
+      requireCheckIn: true,
+    });
+    for (let i = 0; i < 4; i++) {
+      await svc.register(t.id, { id: `u${i}`, name: `P${i}`, seed: 0, skill: 0.5 });
+    }
+    await svc.start(t.id);
+
+    let ready = await svc.ready(t.id);
+    if (ready.length !== 2) throw new Error(`expected 2 first-round matches, got ${ready.length}`);
+    const m0 = ready[0];
+    const m1 = ready[1];
+
+    // گزارش پیش از check-in باید رد شود
+    await expectThrow(() => svc.reportDuel(t.id, m0.id, m0.participantIds[0]), 'report before check-in');
+    // check-in توسط غیرشرکت‌کننده رد شود
+    await expectThrow(() => svc.checkIn(t.id, m0.id, 'stranger'), 'check-in by non-participant');
+
+    // m0: هر دو check-in، سپس گزارش عادی
+    await svc.checkIn(t.id, m0.id, m0.participantIds[0]);
+    await svc.checkIn(t.id, m0.id, m0.participantIds[1]);
+    await expectThrow(() => svc.checkIn(t.id, m0.id, m0.participantIds[0]), 'double check-in');
+    await svc.reportDuel(t.id, m0.id, m0.participantIds[0]);
+
+    // m1: فقط یک طرف check-in → no-show
+    await svc.checkIn(t.id, m1.id, m1.participantIds[0]);
+    await expectThrow(
+      () => svc.declareNoShow(t.id, m1.id, m1.participantIds[1]),
+      'no-show declared by non-checked-in side',
+    );
+    await svc.declareNoShow(t.id, m1.id, m1.participantIds[0]);
+
+    // ادامه تا پایان (فینال)
+    let guard = 0;
+    while ((await svc.get(t.id)).status !== 'COMPLETED') {
+      if (guard++ > 100) throw new Error('did not converge');
+      ready = await svc.ready(t.id);
+      if (ready.length === 0) throw new Error('stuck');
+      for (const m of ready) {
+        for (const p of m.participantIds) await svc.checkIn(t.id, m.id, p);
+        await svc.reportDuel(t.id, m.id, m.participantIds[0]);
+      }
+    }
+
+    const champ = await svc.champion(t.id);
+    if (!champ) throw new Error('no champion');
+    const st = await svc.standings(t.id);
+    if (st.length !== 4) throw new Error('standings != 4');
+    return { ...base, ok: true, champion: champ, detail: 'OK' };
+  } catch (e) {
+    return { ...base, detail: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 async function main(): Promise<void> {
   const cases: Case[] = [];
   for (const n of [2, 3, 5, 8, 16, 31]) cases.push({ format: 'SINGLE_ELIM', genre: 'DUEL', n });
@@ -119,6 +200,7 @@ async function main(): Promise<void> {
   for (let i = 0; i < cases.length; i++) {
     results.push(await runCase(cases[i], 5000 + i * 13));
   }
+  const checkIn = await runCheckInScenario();
 
   const pad = (s: string | number, w: number) => String(s).padEnd(w);
   console.log('\n🏆 تست چرخه‌ی کامل تورنومنت (سرویس + مخزن in-memory)');
@@ -135,9 +217,14 @@ async function main(): Promise<void> {
     );
   }
   console.log('─'.repeat(70));
-  const passed = results.filter((r) => r.ok).length;
-  console.log(`\nنتیجه: ${passed}/${results.length} تست پاس شد.`);
-  if (passed !== results.length) {
+  console.log(
+    `\nسناریوی check-in / no-show: ${checkIn.ok ? '✅ PASS' : '❌ FAIL: ' + checkIn.detail}`,
+  );
+
+  const passed = results.filter((r) => r.ok).length + (checkIn.ok ? 1 : 0);
+  const total = results.length + 1;
+  console.log(`\nنتیجه: ${passed}/${total} تست پاس شد.`);
+  if (passed !== total) {
     console.log('❌ بعضی تست‌ها رد شدند.');
     process.exit(1);
   }

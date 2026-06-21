@@ -25,6 +25,7 @@ export class TournamentsController {
       genre: dto.genre,
       ffaRounds: dto.ffaRounds,
       swissRounds: dto.swissRounds,
+      requireCheckIn: dto.requireCheckIn,
     });
   }
 
@@ -83,5 +84,25 @@ export class TournamentsController {
       throw new BadRequestException('winnerId (DUEL) or rankedIds (LOBBY) is required');
     }
     return this.svc.reportDuel(id, matchId, dto.winnerId);
+  }
+
+  @Post(':id/matches/:matchId/checkin')
+  @UseGuards(JwtAuthGuard)
+  checkin(
+    @Param('id') id: string,
+    @Param('matchId') matchId: string,
+    @Request() req: { user: { id: string } },
+  ) {
+    return this.svc.checkIn(id, matchId, req.user.id);
+  }
+
+  @Post(':id/matches/:matchId/no-show')
+  @UseGuards(JwtAuthGuard)
+  noShow(
+    @Param('id') id: string,
+    @Param('matchId') matchId: string,
+    @Request() req: { user: { id: string } },
+  ) {
+    return this.svc.declareNoShow(id, matchId, req.user.id);
   }
 }

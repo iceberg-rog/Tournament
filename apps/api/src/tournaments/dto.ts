@@ -1,5 +1,6 @@
 import {
   IsArray,
+  IsBoolean,
   IsIn,
   IsInt,
   IsOptional,
@@ -34,6 +35,10 @@ export class CreateTournamentDto {
   @IsInt()
   @Min(1)
   swissRounds?: number;
+
+  @IsOptional()
+  @IsBoolean()
+  requireCheckIn?: boolean;
 }
 
 export class RegisterDto {

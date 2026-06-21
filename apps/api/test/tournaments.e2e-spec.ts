@@ -144,4 +144,84 @@ describe('Tournaments API (e2e, no DB)', () => {
       .send({ title: 'Bad', format: 'NOPE', genre: 'DUEL' })
       .expect(400);
   });
+
+  it('enforces check-in and supports no-show over HTTP', async () => {
+    const server = app.getHttpServer();
+    const created = await request(server)
+      .post('/api/tournaments')
+      .set('x-test-user', 'admin')
+      .send({ title: 'CheckIn Cup', format: 'SINGLE_ELIM', genre: 'DUEL', requireCheckIn: true })
+      .expect(201);
+    const id = created.body.id as string;
+
+    for (const u of ['u0', 'u1', 'u2', 'u3']) {
+      await request(server)
+        .post(`/api/tournaments/${id}/register`)
+        .set('x-test-user', u)
+        .send({ name: u })
+        .expect(201);
+    }
+    await request(server).post(`/api/tournaments/${id}/start`).set('x-test-user', 'admin').expect(201);
+
+    const ready = (await request(server).get(`/api/tournaments/${id}/ready`).expect(200)).body;
+    expect(ready.length).toBe(2);
+    const m0 = ready[0];
+    const m1 = ready[1];
+
+    // گزارش پیش از check-in رد می‌شود
+    await request(server)
+      .post(`/api/tournaments/${id}/matches/${m0.id}/report`)
+      .set('x-test-user', 'admin')
+      .send({ winnerId: m0.participantIds[0] })
+      .expect((r) => {
+        if (r.status < 400) throw new Error('expected rejection before check-in');
+      });
+
+    // هر دو check-in، سپس گزارش
+    await request(server)
+      .post(`/api/tournaments/${id}/matches/${m0.id}/checkin`)
+      .set('x-test-user', m0.participantIds[0])
+      .expect(201);
+    await request(server)
+      .post(`/api/tournaments/${id}/matches/${m0.id}/checkin`)
+      .set('x-test-user', m0.participantIds[1])
+      .expect(201);
+    await request(server)
+      .post(`/api/tournaments/${id}/matches/${m0.id}/report`)
+      .set('x-test-user', 'admin')
+      .send({ winnerId: m0.participantIds[0] })
+      .expect(201);
+
+    // m1: یک طرف check-in → no-show
+    await request(server)
+      .post(`/api/tournaments/${id}/matches/${m1.id}/checkin`)
+      .set('x-test-user', m1.participantIds[0])
+      .expect(201);
+    await request(server)
+      .post(`/api/tournaments/${id}/matches/${m1.id}/no-show`)
+      .set('x-test-user', m1.participantIds[0])
+      .expect(201);
+
+    // اتمام فینال
+    for (let g = 0; g < 20; g++) {
+      const t = (await request(server).get(`/api/tournaments/${id}`).expect(200)).body;
+      if (t.status === 'COMPLETED') break;
+      const r = (await request(server).get(`/api/tournaments/${id}/ready`).expect(200)).body;
+      for (const m of r) {
+        for (const p of m.participantIds) {
+          await request(server)
+            .post(`/api/tournaments/${id}/matches/${m.id}/checkin`)
+            .set('x-test-user', p)
+            .expect(201);
+        }
+        await request(server)
+          .post(`/api/tournaments/${id}/matches/${m.id}/report`)
+          .set('x-test-user', 'admin')
+          .send({ winnerId: m.participantIds[0] })
+          .expect(201);
+      }
+    }
+    const fin = (await request(server).get(`/api/tournaments/${id}`).expect(200)).body;
+    expect(fin.status).toBe('COMPLETED');
+  });
 });

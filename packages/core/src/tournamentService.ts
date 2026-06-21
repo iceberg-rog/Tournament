@@ -16,6 +16,7 @@ export interface CreateTournamentInput {
   participants?: Participant[];
   ffaRounds?: number;
   swissRounds?: number;
+  requireCheckIn?: boolean;
 }
 
 /**
@@ -42,6 +43,7 @@ export class TournamentService {
       participants: input.participants ? input.participants.map((p) => ({ ...p })) : [],
       ffaRounds: input.ffaRounds,
       swissRounds: input.swissRounds,
+      requireCheckIn: input.requireCheckIn ?? false,
       status: 'DRAFT',
       events: [],
       createdAt: this.now(),
@@ -75,6 +77,7 @@ export class TournamentService {
       swissRounds: rec.swissRounds,
     });
     for (const ev of rec.events) {
+      if (ev.kind === 'CHECKIN') continue; // check-in بر موتور اثر ندارد (لایه‌ی بالاتر)
       e.ready(); // تضمین تولید ساختارهای lazy (مثلاً راندهای Swiss)
       if (ev.kind === 'DUEL') e.reportDuel(ev.matchId, ev.winnerId);
       else e.reportLobby(ev.matchId, ev.rankedIds);
@@ -96,10 +99,59 @@ export class TournamentService {
     if (!rm) throw new Error('match not ready or does not exist');
     if (rm.kind !== 'DUEL') throw new Error('this match is a lobby, not a duel');
     if (!rm.participantIds.includes(winnerId)) throw new Error('winner is not in this match');
+    if (rec.requireCheckIn) {
+      const checked = this.checkInsFor(rec, matchId);
+      if (!rm.participantIds.every((p) => checked.includes(p))) {
+        throw new Error('both participants must check in before reporting a result');
+      }
+    }
     e.reportDuel(matchId, winnerId);
-    rec.events.push({ kind: 'DUEL', matchId, winnerId });
+    rec.events.push({ kind: 'DUEL', matchId, winnerId, source: 'REPORT' });
     if (e.isComplete()) rec.status = 'COMPLETED';
     await this.repo.update(rec);
+  }
+
+  /** اعلام حضور یک طرف برای یک مسابقه‌ی آماده. */
+  async checkIn(id: string, matchId: string, participantId: string): Promise<void> {
+    const rec = await this.mustGet(id);
+    if (rec.status !== 'RUNNING') throw new Error('tournament is not running');
+    const rm = this.buildEngine(rec).ready().find((m) => m.id === matchId);
+    if (!rm) throw new Error('match not ready or does not exist');
+    if (rm.kind !== 'DUEL') throw new Error('check-in applies only to duels');
+    if (!rm.participantIds.includes(participantId)) throw new Error('participant is not in this match');
+    if (this.checkInsFor(rec, matchId).includes(participantId)) throw new Error('already checked in');
+    rec.events.push({ kind: 'CHECKIN', matchId, participantId });
+    await this.repo.update(rec);
+  }
+
+  /** اعلام no-show: طرفِ حاضر (check-in‌کرده) برنده می‌شود چون حریف نیامده است. */
+  async declareNoShow(id: string, matchId: string, presentId: string): Promise<void> {
+    const rec = await this.mustGet(id);
+    if (rec.status !== 'RUNNING') throw new Error('tournament is not running');
+    const e = this.buildEngine(rec);
+    const rm = e.ready().find((m) => m.id === matchId);
+    if (!rm) throw new Error('match not ready or does not exist');
+    if (rm.kind !== 'DUEL') throw new Error('no-show applies only to duels');
+    if (!rm.participantIds.includes(presentId)) throw new Error('participant is not in this match');
+    const checked = this.checkInsFor(rec, matchId);
+    if (!checked.includes(presentId)) throw new Error('the declarer must be checked in');
+    const opponent = rm.participantIds.find((p) => p !== presentId)!;
+    if (checked.includes(opponent)) throw new Error('opponent has checked in — not a no-show');
+    e.reportDuel(matchId, presentId);
+    rec.events.push({ kind: 'DUEL', matchId, winnerId: presentId, source: 'NO_SHOW' });
+    if (e.isComplete()) rec.status = 'COMPLETED';
+    await this.repo.update(rec);
+  }
+
+  /** فهرست شناسه‌ی طرف‌هایی که برای یک مسابقه check-in کرده‌اند. */
+  async checkIns(id: string, matchId: string): Promise<string[]> {
+    return this.checkInsFor(await this.mustGet(id), matchId);
+  }
+
+  private checkInsFor(rec: TournamentRecord, matchId: string): string[] {
+    return rec.events
+      .filter((ev) => ev.kind === 'CHECKIN' && ev.matchId === matchId)
+      .map((ev) => (ev as { participantId: string }).participantId);
   }
 
   async reportLobby(id: string, matchId: string, rankedIds: string[]): Promise<void> {

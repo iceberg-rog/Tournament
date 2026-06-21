@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import AppShell from '@/components/AppShell';
 import { apiGet, authedGet, publicGet, isLoggedIn } from '@/lib/api';
 
 interface Me {
@@ -90,7 +89,7 @@ export default function Dashboard() {
   const myList = (mine.length ? mine : tournaments).slice(0, 6);
 
   return (
-    <AppShell title="داشبورد">
+    <main className="mx-auto max-w-6xl p-4 md:p-7">
       <h2 className="mb-6 text-center text-2xl font-extrabold">
         به شلتر تورنومنت خوش آمدید! <span className="align-middle">👋</span>
       </h2>
@@ -180,6 +179,6 @@ export default function Dashboard() {
           </div>
         )}
       </section>
-    </AppShell>
+    </main>
   );
 }

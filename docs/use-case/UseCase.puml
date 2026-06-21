@@ -1,0 +1,125 @@
+@startuml
+left to right direction
+
+skinparam defaultFontName "Tahoma"
+skinparam handwritten false
+skinparam usecase{BackgroundColor #F7FBFF}
+
+' ==== اکتورهای اصلی (primary) - سمت چپ ====
+actor "مدیر کل\nMain Admin" as MainAdmin
+actor "ادمین بازی\nGame Admin" as GameAdmin
+actor "کاربر\nUser" as User
+actor "داور/ناظر\nReferee" as Referee
+actor "پشتیبانی\nSupport" as Support
+
+rectangle "پلتفرم برگزاری مسابقات آنلاین بازی‌های ویدیویی" {
+  usecase "ورود و ثبت‌نام در پلتفرم" as UC01
+  usecase "ورود از طریق OAuth" as UC02
+  usecase "انجام احراز هویت دو مرحله‌ای" as UC03
+  usecase "مدیریت ادمین‌ها" as UC04
+  usecase "تنظیم سطوح دسترسی" as UC05
+  usecase "مدیریت بازی‌ها" as UC06
+  usecase "تنظیم پیکربندی سیستم" as UC07
+  usecase "ایجاد مسابقه" as UC08
+  usecase "ویرایش یا حذف مسابقه" as UC09
+  usecase "ثبت و تأیید نتایج" as UC10
+  usecase "تأیید نتیجه‌ی بازی" as UC11
+  usecase "به‌روزرسانی رده‌بندی" as UC12
+  usecase "مدیریت جوایز" as UC13
+  usecase "مدیریت ماژول مسابقه" as UC14
+  usecase "ارسال اطلاع‌رسانی" as UC15
+  usecase "اجرای استریم زنده" as UC16
+  usecase "مدیریت چت مسابقه" as UC17
+  usecase "بررسی گزارش تخلف" as UC18
+  usecase "مشاهده مسابقات" as UC19
+  usecase "ثبت‌نام در مسابقه" as UC20
+  usecase "پرداخت هزینه‌ی ثبت‌نام" as UC21
+  usecase "پیگیری نتایج" as UC22
+  usecase "ثبت اعتراض به نتیجه" as UC23
+  usecase "حل اختلاف نتیجه" as UC24
+  usecase "امتیازدهی به مسابقه" as UC25
+  usecase "ارتباط با پشتیبانی" as UC26
+  usecase "گزارش تخلف" as UC27
+  usecase "مدیریت کیف پول" as UC28
+  usecase "برداشت جایزه" as UC29
+  usecase "انجام احراز هویت KYC" as UC30
+  usecase "نظارت بر گزارش‌ها" as UC31
+}
+
+' ==== اکتورهای ثانویه (secondary) - سمت راست ====
+actor "درگاه پرداخت\nPaymentGateway" as PaymentGateway
+actor "سرویس زمان‌بند\nScheduler" as Scheduler
+actor "ارائه‌دهنده‌ی احراز هویت (OAuth)\nOAuthProvider" as OAuthProvider
+
+' ==== اتصال اکتورهای اصلی ====
+MainAdmin --> UC01
+MainAdmin --> UC04
+MainAdmin --> UC05
+MainAdmin --> UC06
+MainAdmin --> UC07
+MainAdmin --> UC31
+
+GameAdmin --> UC01
+GameAdmin --> UC08
+GameAdmin --> UC09
+GameAdmin --> UC10
+GameAdmin --> UC12
+GameAdmin --> UC13
+GameAdmin --> UC14
+GameAdmin --> UC16
+GameAdmin --> UC17
+GameAdmin --> UC18
+
+User --> UC01
+User --> UC02
+User --> UC03
+User --> UC17
+User --> UC19
+User --> UC20
+User --> UC21
+User --> UC22
+User --> UC23
+User --> UC25
+User --> UC26
+User --> UC27
+User --> UC28
+User --> UC29
+User --> UC30
+
+Referee --> UC01
+Referee --> UC10
+Referee --> UC11
+Referee --> UC18
+Referee --> UC23
+Referee --> UC24
+
+Support --> UC01
+Support --> UC26
+
+' ==== اتصال اکتورهای ثانویه ====
+PaymentGateway --> UC21
+PaymentGateway --> UC29
+Scheduler --> UC15
+OAuthProvider --> UC02
+
+' ==== روابط include ====
+UC20 ..> UC21 : <<include>>
+UC10 ..> UC11 : <<include>>
+UC10 ..> UC12 : <<include>>
+UC29 ..> UC30 : <<include>>
+UC02 ..> UC01 : <<include>>
+UC24 ..> UC11 : <<include>>
+
+' ==== روابط extend ====
+UC03 ..> UC01 : <<extend>>
+UC27 ..> UC19 : <<extend>>
+UC23 ..> UC22 : <<extend>>
+UC16 ..> UC08 : <<extend>>
+UC27 ..> UC26 : <<extend>>
+
+legend right
+  <<include>> : پایه ..> واردشده (UCbase ..> UCincluded)
+  <<extend>> : گسترش‌دهنده ..> پایه (UCext ..> UCbase)
+endlegend
+
+@enduml

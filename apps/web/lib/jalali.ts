@@ -1,9 +1,10 @@
 // تبدیل تقویمِ جلالی ↔ میلادی (الگوریتمِ jalaali-js، MIT).
+// برشِ به‌سمتِ صفر (مطابقِ ~~ در jalaali-js) — نه Math.floor (که برای منفی‌ها خراب می‌شود).
 function div(a: number, b: number) {
-  return Math.floor(a / b);
+  return Math.trunc(a / b);
 }
 function mod(a: number, b: number) {
-  return a - Math.floor(a / b) * b;
+  return a - Math.trunc(a / b) * b;
 }
 
 function jalCal(jy: number) {

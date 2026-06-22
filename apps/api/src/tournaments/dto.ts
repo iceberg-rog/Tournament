@@ -115,7 +115,6 @@ export class CreateTournamentDto {
 
   @IsOptional()
   @IsString()
-  @MaxLength(400)
   coverImage?: string;
 }
 

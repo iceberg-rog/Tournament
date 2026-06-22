@@ -3,7 +3,7 @@
 import { useRef, useState } from 'react';
 import { CoverBanner } from './CoverBanner';
 
-function downscale(file: File, maxW = 900): Promise<string> {
+function downscale(file: File, maxW = 720): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => {
@@ -18,7 +18,7 @@ function downscale(file: File, maxW = 900): Promise<string> {
         const ctx = canvas.getContext('2d');
         if (!ctx) return reject(new Error('no ctx'));
         ctx.drawImage(img, 0, 0, w, h);
-        resolve(canvas.toDataURL('image/jpeg', 0.82));
+        resolve(canvas.toDataURL('image/jpeg', 0.78));
       };
       img.onerror = reject;
       img.src = reader.result as string;

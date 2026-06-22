@@ -307,8 +307,20 @@ export class TournamentService {
       }
       if (ev.kind === 'CONFIRM') confirmed.add(ev.matchId);
     }
+    // مسابقه‌هایی که اصلاً گزارش‌نشده‌اند (برای داوریِ مستقیم؛ مثلاً no-show دوطرفه)
+    const reportedMatches = new Set(
+      rec.events.filter((ev) => ev.kind === 'DUEL').map((ev) => (ev as { matchId: string }).matchId),
+    );
     for (const ev of rec.events) {
-      if (ev.kind === 'CHECKIN' || ev.kind === 'RESOLVE' || ev.kind === 'CONFIRM') continue;
+      if (ev.kind === 'CHECKIN' || ev.kind === 'CONFIRM') continue;
+      if (ev.kind === 'RESOLVE') {
+        // داوریِ مسابقه‌ی هرگز‌گزارش‌نشده: داور مستقیماً برنده را تعیین می‌کند
+        if (!reportedMatches.has(ev.matchId)) {
+          e.ready();
+          e.reportDuel(ev.matchId, ev.winnerId);
+        }
+        continue;
+      }
       e.ready(); // تضمین تولید ساختارهای lazy (مثلاً راندهای Swiss)
       if (ev.kind === 'DUEL') {
         // گیتِ تأیید داور (UC11): هر نتیجه‌ی تأییدنشده (REPORT یا NO_SHOW) براکت را جلو نمی‌برد.
@@ -626,19 +638,34 @@ export class TournamentService {
         (ev): ev is Extract<ReportEvent, { kind: 'DUEL' }> =>
           ev.kind === 'DUEL' && ev.matchId === matchId,
       );
-    if (!duel) throw new DomainError('no reported result exists for this match');
-    if (!duel.sides || !duel.sides.includes(winnerId)) {
+    let sides: string[] | undefined;
+    if (duel) {
+      sides = duel.sides;
+    } else {
+      // نتیجه‌ای گزارش نشده (no-show دوطرفه/رهاشده): داور روی مسابقه‌ی معلقِ فعلی نتیجه را تعیین می‌کند
+      const rm = this.buildEngine(rec)
+        .ready()
+        .find((m) => m.id === matchId);
+      if (!rm) {
+        throw new DomainError('no reported result exists and this match is not currently pending');
+      }
+      if (rm.kind !== 'DUEL') throw new DomainError('resolve applies only to duels');
+      sides = [rm.participantIds[0], rm.participantIds[1]];
+    }
+    if (!sides || !sides.includes(winnerId)) {
       throw new DomainError('winner must be one of the two match participants');
     }
-    const currentWinner = this.effectiveWinner(rec, matchId);
-    const isElim = rec.format === 'SINGLE_ELIM' || rec.format === 'DOUBLE_ELIM';
-    if (isElim && winnerId !== currentWinner) {
-      const idx = rec.events.indexOf(duel);
-      const advancedAndPlayed = rec.events
-        .slice(idx + 1)
-        .some((ev) => ev.kind === 'DUEL' && ev.sides?.includes(currentWinner ?? ''));
-      if (advancedAndPlayed) {
-        throw new DomainError('cannot overturn: the winner has already advanced to a later match');
+    if (duel) {
+      const currentWinner = this.effectiveWinner(rec, matchId);
+      const isElim = rec.format === 'SINGLE_ELIM' || rec.format === 'DOUBLE_ELIM';
+      if (isElim && winnerId !== currentWinner) {
+        const idx = rec.events.indexOf(duel);
+        const advancedAndPlayed = rec.events
+          .slice(idx + 1)
+          .some((ev) => ev.kind === 'DUEL' && ev.sides?.includes(currentWinner ?? ''));
+        if (advancedAndPlayed) {
+          throw new DomainError('cannot overturn: the winner has already advanced to a later match');
+        }
       }
     }
     const candidate: TournamentRecord = {

@@ -67,27 +67,33 @@ export function CoverUpload({
           handle(e.dataTransfer.files?.[0]);
         }}
         onClick={() => inputRef.current?.click()}
-        className={`relative cursor-pointer overflow-hidden rounded-2xl border-2 border-dashed transition ${
-          drag ? 'border-fuchsia-500 bg-fuchsia-500/10' : 'border-white/15 hover:border-white/30'
+        className={`relative cursor-pointer overflow-hidden rounded-[18px] border-2 border-dashed transition ${
+          drag ? 'border-accent bg-accent/10' : 'border-line hover:border-accent-dim'
         }`}
       >
         {value ? (
           <CoverBanner coverImage={value} game={game} className="h-44 w-full" rounded="rounded-xl" />
         ) : (
-          <div className="flex h-44 flex-col items-center justify-center gap-2 text-slate-400">
-            <span className="text-3xl">🖼️</span>
+          <div className="flex h-44 flex-col items-center justify-center gap-2 text-muted">
+            <span className="grid h-12 w-12 place-items-center rounded-[11px] bg-accent/10 text-accent">
+              <svg width={24} height={24} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <path d="M21 15l-5-5L5 21" />
+              </svg>
+            </span>
             <p className="text-sm">عکسِ کاور را اینجا بکش و رها کن، یا کلیک کن</p>
-            <p className="text-xs text-slate-500">JPG / PNG — به‌صورت خودکار بهینه می‌شود</p>
+            <p className="text-xs text-faint">JPG / PNG — به‌صورت خودکار بهینه می‌شود</p>
           </div>
         )}
         <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handle(e.target.files?.[0])} />
       </div>
       {value && (
-        <button type="button" onClick={() => onChange('')} className="mt-2 text-xs text-red-300 hover:underline">
+        <button type="button" onClick={() => onChange('')} className="mt-2 text-xs text-bad hover:underline">
           حذفِ عکس و استفاده از کاورِ خودکار
         </button>
       )}
-      {err && <p className="mt-1 text-xs text-red-400">{err}</p>}
+      {err && <p className="mt-1 text-xs text-bad">{err}</p>}
     </div>
   );
 }

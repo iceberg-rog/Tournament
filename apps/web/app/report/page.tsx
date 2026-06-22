@@ -12,6 +12,10 @@ const CATEGORIES = [
   { v: 'OTHER', fa: 'سایر' },
 ];
 
+const I = {
+  flag: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 22V4M4 4h13l-2 4 2 4H4" /></svg>,
+};
+
 export default function ReportPage() {
   const [category, setCategory] = useState('CHEAT');
   const [targetUserId, setTargetUserId] = useState('');
@@ -22,13 +26,13 @@ export default function ReportPage() {
 
   if (!isLoggedIn())
     return (
-      <main className="p-8">
+      <div className="card mx-auto max-w-xl p-6 text-sm text-muted">
         برای گزارش تخلف{' '}
-        <Link href="/login" className="text-indigo-400">
+        <Link href="/login" className="font-semibold text-accent">
           وارد شوید
         </Link>
         .
-      </main>
+      </div>
     );
 
   async function submit() {
@@ -48,15 +52,32 @@ export default function ReportPage() {
   }
 
   return (
-    <main className="mx-auto max-w-xl p-8">
-      <h1 className="mb-6 text-2xl font-bold">گزارش تخلف</h1>
-      {done && <p className="mb-3 text-emerald-400">گزارش شما ثبت شد و توسط تیم بررسی می‌شود. ✅</p>}
-      {error && <p className="mb-3 text-red-400">{error}</p>}
+    <div className="mx-auto max-w-xl space-y-4">
+      <div className="flex items-center gap-3">
+        <span className="grid h-10 w-10 flex-none place-items-center rounded-[11px] bg-accent/10 text-accent">{I.flag}</span>
+        <div>
+          <h1 className="text-[clamp(18px,2.4vw,24px)] font-semibold">گزارش تخلف</h1>
+          <p className="mt-0.5 text-[12.5px] text-faint">تخلف را گزارش کنید تا توسط تیم بررسی شود</p>
+        </div>
+      </div>
 
-      <div className="space-y-3 rounded-lg bg-slate-900 p-5">
+      {done && (
+        <p className="rounded-xl border border-good/30 bg-good/10 px-4 py-2 text-sm text-good">
+          گزارش شما ثبت شد و توسط تیم بررسی می‌شود.
+        </p>
+      )}
+      {error && (
+        <p className="rounded-xl border border-bad/30 bg-bad/10 px-4 py-2 text-sm text-bad">{error}</p>
+      )}
+
+      <div className="card space-y-3 p-5">
         <label className="block text-sm">
-          <span className="text-slate-400">دسته</span>
-          <select className="mt-1 w-full rounded-lg bg-slate-800 px-3 py-2" value={category} onChange={(e) => setCategory(e.target.value)}>
+          <span className="text-muted">دسته</span>
+          <select
+            className="mt-1.5 w-full rounded-xl border border-line bg-tile2 px-3 py-2.5 text-sm outline-none transition focus:border-accent-dim"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+          >
             {CATEGORIES.map((c) => (
               <option key={c.v} value={c.v}>
                 {c.fa}
@@ -64,13 +85,29 @@ export default function ReportPage() {
             ))}
           </select>
         </label>
-        <input className="w-full rounded-lg bg-slate-800 px-3 py-2" placeholder="شناسه‌ی کاربر متخلف (اختیاری)" value={targetUserId} onChange={(e) => setTargetUserId(e.target.value)} />
-        <input className="w-full rounded-lg bg-slate-800 px-3 py-2" placeholder="شناسه‌ی تورنومنت (اختیاری)" value={tournamentId} onChange={(e) => setTournamentId(e.target.value)} />
-        <textarea className="w-full rounded-lg bg-slate-800 px-3 py-2" rows={4} placeholder="شرح تخلف..." value={reason} onChange={(e) => setReason(e.target.value)} />
-        <button onClick={submit} className="rounded-lg bg-indigo-600 px-6 py-2 hover:bg-indigo-500">
+        <input
+          className="w-full rounded-xl border border-line bg-tile2 px-3 py-2.5 text-sm outline-none transition placeholder:text-faint focus:border-accent-dim"
+          placeholder="شناسه‌ی کاربر متخلف (اختیاری)"
+          value={targetUserId}
+          onChange={(e) => setTargetUserId(e.target.value)}
+        />
+        <input
+          className="w-full rounded-xl border border-line bg-tile2 px-3 py-2.5 text-sm outline-none transition placeholder:text-faint focus:border-accent-dim"
+          placeholder="شناسه‌ی تورنومنت (اختیاری)"
+          value={tournamentId}
+          onChange={(e) => setTournamentId(e.target.value)}
+        />
+        <textarea
+          className="w-full rounded-xl border border-line bg-tile2 px-3 py-2.5 text-sm outline-none transition placeholder:text-faint focus:border-accent-dim"
+          rows={4}
+          placeholder="شرح تخلف..."
+          value={reason}
+          onChange={(e) => setReason(e.target.value)}
+        />
+        <button onClick={submit} className="btn-primary px-6">
           ثبت گزارش
         </button>
       </div>
-    </main>
+    </div>
   );
 }

@@ -4,6 +4,12 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { authedPost, isLoggedIn } from '@/lib/api';
 
+const I = {
+  shield: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2 4 6v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V6z" /><path d="m9 12 2 2 4-4" /></svg>,
+  key: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="7.5" cy="15.5" r="4.5" /><path d="M10.7 12.3 19 4M16 7l3 3M14 9l2 2" /></svg>,
+  check: <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>,
+};
+
 export default function SecurityPage() {
   const [secret, setSecret] = useState('');
   const [uri, setUri] = useState('');
@@ -13,13 +19,13 @@ export default function SecurityPage() {
 
   if (!isLoggedIn())
     return (
-      <main className="p-8">
+      <div className="card p-6 text-sm text-muted">
         برای امنیت{' '}
-        <Link href="/login" className="text-indigo-400">
+        <Link href="/login" className="text-accent">
           وارد شوید
         </Link>
         .
-      </main>
+      </div>
     );
 
   async function setup() {
@@ -44,34 +50,49 @@ export default function SecurityPage() {
   }
 
   return (
-    <main className="mx-auto max-w-xl p-8">
-      <h1 className="mb-6 text-2xl font-bold">امنیت — احراز هویت دومرحله‌ای</h1>
-      {error && <p className="mb-3 text-red-400">{error}</p>}
+    <div className="mx-auto max-w-xl space-y-4">
+      <div className="card p-5">
+        <div className="tile-head !mb-0">
+          <span className="tile-ic">{I.shield}</span>
+          <span className="tile-title">امنیت — احراز هویت دومرحله‌ای</span>
+        </div>
+      </div>
+
+      {error && (
+        <p className="rounded-xl border border-bad/30 bg-bad/10 px-4 py-2.5 text-sm text-bad">{error}</p>
+      )}
 
       {enabled ? (
-        <p className="text-emerald-400">✅ احراز هویت دومرحله‌ای فعال شد.</p>
+        <div className="card flex items-center gap-3 p-5">
+          <span className="grid h-10 w-10 flex-none place-items-center rounded-xl bg-good/15 text-good">
+            {I.check}
+          </span>
+          <p className="text-sm font-semibold text-good">احراز هویت دومرحله‌ای فعال شد.</p>
+        </div>
       ) : (
-        <div className="space-y-4 rounded-lg bg-slate-900 p-5">
+        <div className="card space-y-4 p-5">
           {!secret ? (
-            <button onClick={setup} className="rounded-lg bg-indigo-600 px-5 py-2 hover:bg-indigo-500">
+            <button onClick={setup} className="btn-primary">
+              <span>{I.key}</span>
               شروع راه‌اندازی 2FA
             </button>
           ) : (
             <>
-              <p className="text-sm text-slate-400">
+              <p className="text-sm text-muted">
                 این رمز را در اپلیکیشن Authenticator (Google Authenticator، …) وارد کنید:
               </p>
-              <p className="break-all rounded-lg bg-slate-800 p-3 font-mono text-sm">{secret}</p>
-              <p className="break-all text-xs text-slate-500">{uri}</p>
-              <div className="flex gap-2">
+              <p className="break-all rounded-xl border border-line bg-tile2 p-3 font-mono text-sm text-[#5eead4]">{secret}</p>
+              <p className="break-all text-xs text-faint">{uri}</p>
+              <div className="flex flex-wrap gap-2">
                 <input
-                  className="w-40 rounded-lg bg-slate-800 px-3 py-2"
+                  className="w-40 rounded-xl border border-line bg-tile2 px-3 py-2.5 text-sm tnum text-text outline-none transition placeholder:text-faint focus:border-accent-dim"
                   inputMode="numeric"
                   placeholder="کد ۶ رقمی"
                   value={code}
                   onChange={(e) => setCode(e.target.value)}
                 />
-                <button onClick={enable} className="rounded-lg bg-indigo-600 px-5 py-2 hover:bg-indigo-500">
+                <button onClick={enable} className="btn-primary">
+                  <span>{I.check}</span>
                   فعال‌سازی
                 </button>
               </div>
@@ -79,6 +100,6 @@ export default function SecurityPage() {
           )}
         </div>
       )}
-    </main>
+    </div>
   );
 }

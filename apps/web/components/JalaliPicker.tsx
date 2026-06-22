@@ -27,6 +27,8 @@ export default function JalaliPicker({ value, onChange }: { value?: string; onCh
   const [h, setH] = useState(init.h);
   const [min, setMin] = useState(init.min);
 
+  const today = jToday();
+
   const emit = (s: { jy: number; jm: number; jd: number }, hh: number, mm: number) =>
     onChange(jalaliToISO(s.jy, s.jm, s.jd, hh, mm));
   const pickDay = (d: number) => {
@@ -46,19 +48,29 @@ export default function JalaliPicker({ value, onChange }: { value?: string; onCh
   const pad = (n: number) => String(n).padStart(2, '0');
 
   return (
-    <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+    <div className="rounded-[18px] border border-line bg-tile2 p-3 shadow-[var(--shadow)]">
       <div className="mb-2 flex items-center justify-between">
-        <button type="button" onClick={() => setView((v) => (v.jm === 1 ? { jy: v.jy - 1, jm: 12 } : { jy: v.jy, jm: v.jm - 1 }))} className="rounded-lg px-3 py-1 hover:bg-white/10">
+        <button
+          type="button"
+          onClick={() => setView((v) => (v.jm === 1 ? { jy: v.jy - 1, jm: 12 } : { jy: v.jy, jm: v.jm - 1 }))}
+          className="grid h-8 w-8 place-items-center rounded-lg border border-line bg-tile text-muted transition hover:border-accent-dim hover:text-accent"
+          aria-label="ماه قبل"
+        >
           ‹
         </button>
-        <span className="font-semibold">
+        <span className="font-display font-semibold">
           {J_MONTHS[view.jm - 1]} {view.jy}
         </span>
-        <button type="button" onClick={() => setView((v) => (v.jm === 12 ? { jy: v.jy + 1, jm: 1 } : { jy: v.jy, jm: v.jm + 1 }))} className="rounded-lg px-3 py-1 hover:bg-white/10">
+        <button
+          type="button"
+          onClick={() => setView((v) => (v.jm === 12 ? { jy: v.jy + 1, jm: 1 } : { jy: v.jy, jm: v.jm + 1 }))}
+          className="grid h-8 w-8 place-items-center rounded-lg border border-line bg-tile text-muted transition hover:border-accent-dim hover:text-accent"
+          aria-label="ماه بعد"
+        >
           ›
         </button>
       </div>
-      <div className="grid grid-cols-7 gap-1 text-center text-[11px] text-slate-400">
+      <div className="grid grid-cols-7 gap-1 text-center text-[11px] text-faint">
         {J_WEEKDAYS.map((w) => (
           <div key={w}>{w}</div>
         ))}
@@ -72,10 +84,12 @@ export default function JalaliPicker({ value, onChange }: { value?: string; onCh
               key={i}
               type="button"
               onClick={() => pickDay(d)}
-              className={`rounded-lg py-1.5 text-sm transition ${
+              className={`tnum rounded-lg py-1.5 text-sm transition ${
                 sel.jy === view.jy && sel.jm === view.jm && sel.jd === d
-                  ? 'bg-gradient-to-l from-violet-600 to-fuchsia-500 font-bold'
-                  : 'hover:bg-white/10'
+                  ? 'bg-accent font-bold text-[#06231f]'
+                  : today.jy === view.jy && today.jm === view.jm && today.jd === d
+                    ? 'text-accent ring-1 ring-accent/50 hover:bg-accent/10'
+                    : 'hover:bg-accent/10'
               }`}
             >
               {d}
@@ -83,9 +97,13 @@ export default function JalaliPicker({ value, onChange }: { value?: string; onCh
           ),
         )}
       </div>
-      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-white/10 pt-3 text-sm">
-        <span className="text-slate-400">ساعت:</span>
-        <select value={h} onChange={(e) => setTime(Number(e.target.value), min)} className="rounded-lg bg-slate-800 px-2 py-1 [color-scheme:dark]">
+      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-line pt-3 text-sm">
+        <span className="text-faint">ساعت:</span>
+        <select
+          value={h}
+          onChange={(e) => setTime(Number(e.target.value), min)}
+          className="tnum rounded-lg border border-line bg-tile px-2 py-1 [color-scheme:dark]"
+        >
           {Array.from({ length: 24 }, (_, i) => (
             <option key={i} value={i}>
               {pad(i)}
@@ -93,14 +111,18 @@ export default function JalaliPicker({ value, onChange }: { value?: string; onCh
           ))}
         </select>
         <span>:</span>
-        <select value={min} onChange={(e) => setTime(h, Number(e.target.value))} className="rounded-lg bg-slate-800 px-2 py-1 [color-scheme:dark]">
+        <select
+          value={min}
+          onChange={(e) => setTime(h, Number(e.target.value))}
+          className="tnum rounded-lg border border-line bg-tile px-2 py-1 [color-scheme:dark]"
+        >
           {[0, 15, 30, 45].map((m) => (
             <option key={m} value={m}>
               {pad(m)}
             </option>
           ))}
         </select>
-        <span className="mr-auto text-xs text-fuchsia-300">
+        <span className="tnum ms-auto text-xs text-accent">
           {J_MONTHS[sel.jm - 1]} {sel.jd}، {sel.jy} — {pad(h)}:{pad(min)}
         </span>
       </div>

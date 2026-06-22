@@ -3,6 +3,7 @@ import {
   Engine,
   Format,
   Genre,
+  Match,
   Participant,
   ReadyMatch,
   Standing,
@@ -522,6 +523,11 @@ export class TournamentService {
     rec.events.push({ kind: 'LOBBY', matchId, rankedIds: [...rankedIds] });
     if (e.isComplete()) await this.complete(rec, e);
     await this.repo.update(rec);
+  }
+
+  /** کلِ ساختارِ براکت/گروه (همه‌ی دورها با برنده/بازنده) — برای نمایشِ درختی. */
+  async bracket(id: string): Promise<Match[]> {
+    return this.buildEngine(await this.mustGet(id)).bracket();
   }
 
   async standings(id: string): Promise<Standing[]> {

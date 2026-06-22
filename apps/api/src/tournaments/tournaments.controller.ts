@@ -195,6 +195,11 @@ export class TournamentsController {
     return this.svc.standings(id);
   }
 
+  @Get(':id/bracket')
+  bracket(@Param('id') id: string) {
+    return this.svc.bracket(id);
+  }
+
   @Get(':id/results')
   results(@Param('id') id: string) {
     return this.svc.results(id);

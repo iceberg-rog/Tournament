@@ -1,4 +1,4 @@
-import { Engine, Participant, ReadyMatch, Standing } from './types';
+import { Engine, Match, Participant, ReadyMatch, Standing } from './types';
 
 /**
  * موتور FFA / Battle Royale: چند راند لابی، امتیازدهی بر اساس رتبه (placement).
@@ -36,6 +36,10 @@ export class FfaEngine implements Engine {
 
   reportDuel(): void {
     throw new Error('FFA uses lobbies, not duels');
+  }
+
+  bracket(): Match[] {
+    return []; // FFA لابی‌محور است؛ ساختارِ درختی ندارد (نمایش با رده‌بندیِ راندها)
   }
 
   reportLobby(matchId: string, rankedIds: string[]): void {

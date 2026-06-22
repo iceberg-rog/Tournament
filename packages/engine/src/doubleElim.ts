@@ -256,6 +256,10 @@ export class DoubleElimEngine implements Engine {
     throw new Error('DOUBLE_ELIM does not use lobbies');
   }
 
+  bracket(): Match[] {
+    return this.matches.map((m) => ({ ...m }));
+  }
+
   isComplete(): boolean {
     return this.championId !== null;
   }

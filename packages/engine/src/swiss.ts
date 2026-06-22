@@ -114,6 +114,10 @@ export class SwissEngine implements Engine {
     throw new Error('SWISS does not use lobbies');
   }
 
+  bracket(): Match[] {
+    return this.rounds.flat().map((m) => ({ ...m }));
+  }
+
   isComplete(): boolean {
     return this.cur >= this.R && this.roundComplete(this.R);
   }

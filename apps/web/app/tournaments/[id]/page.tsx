@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { apiGet, authedGet, authedPost, isLoggedIn } from '@/lib/api';
 import { publicGet } from '@/lib/api';
 import { CoverBanner } from '@/components/CoverBanner';
+import { Bracket, type BMatch } from '@/components/Bracket';
 
 interface Participant { id: string; name: string }
 interface TournamentRecord {
@@ -70,6 +71,7 @@ export default function TournamentDetail() {
   const [me, setMe] = useState<Me | null>(null);
   const [ready, setReady] = useState<ReadyMatch[]>([]);
   const [standings, setStandings] = useState<Standing[]>([]);
+  const [bracket, setBracket] = useState<BMatch[]>([]);
   const [rating, setRating] = useState<{ average: number; count: number }>({ average: 0, count: 0 });
   const [myScore, setMyScore] = useState(0);
   const [editTitle, setEditTitle] = useState('');
@@ -78,7 +80,7 @@ export default function TournamentDetail() {
   const [streamInput, setStreamInput] = useState('');
   const [pendingConf, setPendingConf] = useState<{ matchId: string; winnerId: string; sides?: [string, string] }[]>([]);
   const [error, setError] = useState('');
-  const [tab, setTab] = useState<'overview' | 'players' | 'matches' | 'standings' | 'chat'>('overview');
+  const [tab, setTab] = useState<'overview' | 'bracket' | 'players' | 'matches' | 'standings' | 'chat'>('overview');
   const [selected, setSelected] = useState<Participant | null>(null);
   const [msgText, setMsgText] = useState('');
   const [drawerNote, setDrawerNote] = useState('');
@@ -92,8 +94,13 @@ export default function TournamentDetail() {
         setReady(await publicGet<ReadyMatch[]>(`/tournaments/${id}/ready`));
         setPendingConf(isLoggedIn() ? await authedGet<{ matchId: string; winnerId: string; sides?: [string, string] }[]>(`/tournaments/${id}/pending-confirmations`).catch(() => []) : []);
       } else { setReady([]); setPendingConf([]); }
-      if (t.status !== 'DRAFT') setStandings(await publicGet<Standing[]>(`/tournaments/${id}/standings`));
-      else setStandings([]);
+      if (t.status !== 'DRAFT') {
+        setStandings(await publicGet<Standing[]>(`/tournaments/${id}/standings`));
+        setBracket(await publicGet<BMatch[]>(`/tournaments/${id}/bracket`).catch(() => []));
+      } else {
+        setStandings([]);
+        setBracket([]);
+      }
       if (t.status === 'COMPLETED') {
         setRating(await publicGet(`/tournaments/${id}/rating`));
         if (isLoggedIn()) setMyScore((await authedGet<{ score: number } | null>(`/tournaments/${id}/my-rating`).catch(() => null))?.score ?? 0);
@@ -132,6 +139,10 @@ export default function TournamentDetail() {
     try { await authedPost(`/tournaments/${id}/participants/${pid}/message`, { text: msgText }); setMsgText(''); setDrawerNote('پیام ارسال شد ✓'); }
     catch (e) { setDrawerNote(e instanceof Error ? e.message : 'خطا'); }
   }
+  const openPlayer = (pid: string) => {
+    const p = rec?.participants.find((x) => x.id === pid);
+    if (p) { setSelected(p); setMsgText(''); setDrawerNote(''); }
+  };
 
   if (!rec) return <div className="py-16 text-center text-sm text-muted">{error || 'در حال بارگذاری...'}</div>;
 
@@ -144,6 +155,7 @@ export default function TournamentDetail() {
 
   const tabs: { k: typeof tab; label: string }[] = [
     { k: 'overview', label: 'نمای کلی' },
+    ...(rec.status !== 'DRAFT' && rec.format !== 'FFA' ? [{ k: 'bracket' as const, label: 'جدولِ مسابقات' }] : []),
     { k: 'players', label: `شرکت‌کننده‌ها (${rec.participants.length})` },
     ...(rec.status === 'RUNNING' ? [{ k: 'matches' as const, label: 'مسابقات' }] : []),
     ...(standings.length ? [{ k: 'standings' as const, label: 'رده‌بندی' }] : []),
@@ -244,6 +256,13 @@ export default function TournamentDetail() {
           )}
           <a href="/report" className="inline-block text-xs text-muted hover:text-accent">اعتراض / گزارشِ تخلف</a>
         </div>
+      )}
+
+      {activeTab === 'bracket' && (
+        <section className="card p-5">
+          <div className="tile-head"><span className="tile-ic"><Icon name="swords" size={15} /></span><span className="tile-title">جدولِ مسابقات</span><span className="ms-auto text-[11px] text-faint">روی هر بازیکن کلیک کن</span></div>
+          <Bracket format={rec.format} matches={bracket} nameOf={(pid) => short(nameOf(pid))} onPlayer={openPlayer} />
+        </section>
       )}
 
       {activeTab === 'players' && (

@@ -109,6 +109,10 @@ export class SingleElimEngine implements Engine {
     throw new Error('SINGLE_ELIM does not use lobbies');
   }
 
+  bracket(): Match[] {
+    return this.matches.map((m) => ({ ...m }));
+  }
+
   isComplete(): boolean {
     return !!this.byId.get(this.finalId)?.winner;
   }

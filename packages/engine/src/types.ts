@@ -59,4 +59,6 @@ export interface Engine {
   isComplete(): boolean;
   standings(): Standing[];
   champion(): string | null;
+  /** کلِ مسابقاتِ ساختار (براکت/گروه) — خالی برای فرمت‌های لابی‌محور (FFA). */
+  bracket(): Match[];
 }

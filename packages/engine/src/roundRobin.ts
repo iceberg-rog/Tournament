@@ -61,6 +61,10 @@ export class RoundRobinEngine implements Engine {
     throw new Error('ROUND_ROBIN does not use lobbies');
   }
 
+  bracket(): Match[] {
+    return this.matches.map((m) => ({ ...m }));
+  }
+
   isComplete(): boolean {
     return this.matches.every((m) => !!m.winner);
   }

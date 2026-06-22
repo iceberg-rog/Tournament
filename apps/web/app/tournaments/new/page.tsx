@@ -62,6 +62,7 @@ const FORMATS: { v: string; name: string; icon: ReactNode; desc: string; best: s
   { v: 'ROUND_ROBIN', name: 'دوره‌ای (لیگ)', icon: <Ico><path d="M17 2v6h-6M7 22v-6h6" /><path d="M20 11a8 8 0 0 0-14-4M4 13a8 8 0 0 0 14 4" /></Ico>, desc: 'همه با همه بازی می‌کنند؛ امتیازی.', best: 'گروه‌های کوچک' },
   { v: 'SWISS', name: 'سوئیسی', icon: <Ico><path d="M4 7h16M4 12h16M4 17h16M8 4v16" /></Ico>, desc: 'چند دور با حریفِ هم‌سطح، بدونِ حذف.', best: 'تعداد زیاد' },
   { v: 'FFA', name: 'Battle Royale', icon: <Ico><circle cx="12" cy="8" r="3" /><path d="M5 21a7 7 0 0 1 14 0" /><circle cx="5" cy="11" r="1.5" /><circle cx="19" cy="11" r="1.5" /></Ico>, desc: 'چندنفره؛ رتبه بر اساس جایگاه.', best: 'Warzone / PUBG / Apex' },
+  { v: 'GROUP_STAGE', name: 'گروهی + پلی‌آف', icon: <Ico><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><path d="M14 17h7M18 14l3 3-3 3" /></Ico>, desc: 'تقسیم به چند گروه؛ نفراتِ برترِ هر گروه به براکتِ نهایی صعود می‌کنند.', best: 'تورنومنت‌های بزرگ (سبکِ جام‌جهانی)' },
 ];
 const formatName = (v: string) => FORMATS.find((x) => x.v === v)?.name ?? v;
 const fmtMoney = (n: number) => n.toLocaleString('en-US');
@@ -104,6 +105,8 @@ export default function WizardPage() {
     genre: 'DUEL',
     ffaRounds: 3,
     swissRounds: 0,
+    groupSize: 4,
+    advancePerGroup: 2,
     startAt: '',
     durationHours: 3,
     maxParticipants: 0,
@@ -179,6 +182,10 @@ export default function WizardPage() {
       if (f.startAt) body.startAt = f.startAt;
       if (f.format === 'FFA') body.ffaRounds = f.ffaRounds;
       if (f.format === 'SWISS' && f.swissRounds) body.swissRounds = f.swissRounds;
+      if (f.format === 'GROUP_STAGE') {
+        body.groupSize = f.groupSize;
+        body.advancePerGroup = f.advancePerGroup;
+      }
       if (f.maxParticipants) body.maxParticipants = f.maxParticipants;
       if (f.entryFee) body.entryFee = f.entryFee;
       if (prizePool.length) body.prizePool = prizePool;
@@ -408,6 +415,12 @@ export default function WizardPage() {
               {Num('حداکثر ظرفیت (۰ = نامحدود)', 'maxParticipants', 'مازادِ ظرفیت به لیست انتظار می‌رود')}
               {f.format === 'FFA' && Num('تعداد راند FFA', 'ffaRounds')}
               {f.format === 'SWISS' && Num('تعداد راند سوئیسی (۰ = خودکار)', 'swissRounds')}
+              {f.format === 'GROUP_STAGE' && (
+                <div className="grid grid-cols-2 gap-2">
+                  {Num('اعضای هر گروه', 'groupSize', 'مثلاً ۴')}
+                  {Num('صعود از هر گروه', 'advancePerGroup', 'مثلاً ۲')}
+                </div>
+              )}
               <label className="flex items-start gap-2 text-sm">
                 <input type="checkbox" className="mt-1 accent-[#2dd4bf]" checked={f.requireCheckIn} onChange={(e) => set({ requireCheckIn: e.target.checked })} />
                 <span>

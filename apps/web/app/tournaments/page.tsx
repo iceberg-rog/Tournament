@@ -39,6 +39,7 @@ const fmtFa: Record<string, string> = {
   ROUND_ROBIN: 'دوره‌ای',
   SWISS: 'سوئیسی',
   FFA: 'Battle Royale',
+  GROUP_STAGE: 'گروهی + پلی‌آف',
 };
 const stFa: Record<string, string> = { DRAFT: 'پیش‌نویس', RUNNING: 'در حال اجرا', COMPLETED: 'پایان‌یافته', CANCELLED: 'لغوشده' };
 const stColor: Record<string, string> = {

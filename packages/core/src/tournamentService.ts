@@ -21,6 +21,8 @@ export interface CreateTournamentInput {
   participants?: Participant[];
   ffaRounds?: number;
   swissRounds?: number;
+  groupSize?: number;
+  advancePerGroup?: number;
   requireCheckIn?: boolean;
   maxParticipants?: number;
   prizePool?: { rank: number; amount: number }[];
@@ -84,7 +86,7 @@ export class TournamentService {
   }
 
   async create(input: CreateTournamentInput): Promise<TournamentRecord> {
-    const valid: Format[] = ['SINGLE_ELIM', 'DOUBLE_ELIM', 'ROUND_ROBIN', 'SWISS', 'FFA'];
+    const valid: Format[] = ['SINGLE_ELIM', 'DOUBLE_ELIM', 'ROUND_ROBIN', 'SWISS', 'FFA', 'GROUP_STAGE'];
     if (!valid.includes(input.format)) throw new DomainError(`invalid format: ${input.format}`);
     const rec: TournamentRecord = {
       id: this.idGen(),
@@ -95,6 +97,8 @@ export class TournamentService {
       participants: input.participants ? input.participants.map((p) => ({ ...p })) : [],
       ffaRounds: input.ffaRounds,
       swissRounds: input.swissRounds,
+      groupSize: input.groupSize,
+      advancePerGroup: input.advancePerGroup,
       requireCheckIn: input.requireCheckIn ?? false,
       maxParticipants: input.maxParticipants,
       waitlist: [],
@@ -300,6 +304,8 @@ export class TournamentService {
       genre: src.genre,
       ffaRounds: src.ffaRounds,
       swissRounds: src.swissRounds,
+      groupSize: src.groupSize,
+      advancePerGroup: src.advancePerGroup,
       requireCheckIn: src.requireCheckIn,
       maxParticipants: src.maxParticipants,
       prizePool: src.prizePool,
@@ -313,6 +319,8 @@ export class TournamentService {
     const e = createTournament(rec.format, rec.participants, {
       ffaRounds: rec.ffaRounds,
       swissRounds: rec.swissRounds,
+      groupSize: rec.groupSize,
+      advancePerGroup: rec.advancePerGroup,
     });
     // RESOLVE‌ها برنده‌ی مؤثر هر مسابقه را override می‌کنند (داوری)
     const overrides = new Map<string, string>();

@@ -9,6 +9,7 @@ export interface BMatch {
   winner: string | null;
   loser: string | null;
   isBye: boolean;
+  group?: number;
 }
 
 function Slot({
@@ -107,6 +108,69 @@ function Columns({
   );
 }
 
+/** جدولِ گروه‌ها (مرحله‌ی گروهی): رتبه‌بندیِ هر گروه از روی نتایجِ مسابقات. */
+function GroupTables({
+  matches,
+  nameOf,
+  onPlayer,
+  highlightId,
+  qualifiers,
+}: {
+  matches: BMatch[];
+  nameOf: (id: string) => string;
+  onPlayer?: (id: string) => void;
+  highlightId?: string;
+  qualifiers: Set<string>;
+}) {
+  const groups = [...new Set(matches.map((m) => m.group ?? 0))].sort((a, b) => a - b);
+  return (
+    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {groups.map((g) => {
+        const gm = matches.filter((m) => (m.group ?? 0) === g);
+        const ids = new Set<string>();
+        gm.forEach((m) => {
+          if (m.a) ids.add(m.a);
+          if (m.b) ids.add(m.b);
+        });
+        const wl = new Map<string, { w: number; l: number }>();
+        ids.forEach((id) => wl.set(id, { w: 0, l: 0 }));
+        gm.forEach((m) => {
+          if (m.winner) {
+            wl.get(m.winner)!.w++;
+            const loser = m.winner === m.a ? m.b : m.a;
+            if (loser) wl.get(loser)!.l++;
+          }
+        });
+        const rows = [...ids]
+          .map((id) => ({ id, w: wl.get(id)!.w, l: wl.get(id)!.l, pts: wl.get(id)!.w * 3 }))
+          .sort((a, b) => b.pts - a.pts || b.w - a.w);
+        return (
+          <div key={g} className="rounded-xl border border-line bg-tile2 p-3">
+            <p className="mb-2 text-xs font-bold text-accent">گروه {String.fromCharCode(65 + g)}</p>
+            <div className="space-y-0.5">
+              {rows.map((r, i) => {
+                const q = qualifiers.has(r.id);
+                return (
+                  <button
+                    key={r.id}
+                    onClick={() => onPlayer?.(r.id)}
+                    className={`flex w-full items-center gap-2 rounded-md px-2 py-1 text-xs transition hover:bg-white/[.05] ${r.id === highlightId ? 'ring-1 ring-accent/40' : ''}`}
+                  >
+                    <span className={`w-4 text-center font-bold ${q ? 'text-accent' : 'text-faint'}`}>{i + 1}</span>
+                    <span className="min-w-0 flex-1 truncate text-right" title={nameOf(r.id)}>{nameOf(r.id)}</span>
+                    <span className="text-faint tnum">{r.w}-{r.l}</span>
+                    <span className="w-6 text-left font-display font-bold text-accent tnum">{r.pts}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 /** جدولِ درختیِ مسابقات (براکت/گروه) بسته به فرمت. */
 export function Bracket({
   format,
@@ -122,6 +186,33 @@ export function Bracket({
   highlightId?: string;
 }) {
   if (!matches.length) return <p className="text-sm text-faint">جدولی برای نمایش نیست.</p>;
+
+  if (format === 'GROUP_STAGE') {
+    const groupM = matches.filter((m) => m.bracket === 'RR');
+    const playoffM = matches.filter((m) => m.bracket !== 'RR');
+    const qualifiers = new Set<string>();
+    playoffM.forEach((m) => {
+      if (m.a) qualifiers.add(m.a);
+      if (m.b) qualifiers.add(m.b);
+    });
+    return (
+      <div className="space-y-5">
+        <div>
+          <p className="mb-2 text-sm font-bold text-accent">مرحله‌ی گروهی</p>
+          <GroupTables matches={groupM} nameOf={nameOf} onPlayer={onPlayer} highlightId={highlightId} qualifiers={qualifiers} />
+          <p className="mt-2 text-[11px] text-faint">نفراتِ سبزرنگ به پلی‌آف صعود می‌کنند.</p>
+        </div>
+        {playoffM.length > 0 ? (
+          <div>
+            <p className="mb-2 text-sm font-bold text-accent">پلی‌آف (حذفی)</p>
+            <Columns matches={playoffM} nameOf={nameOf} onPlayer={onPlayer} highlightId={highlightId} titleFn={elimTitle} />
+          </div>
+        ) : (
+          <p className="text-sm text-faint">پلی‌آف پس از پایانِ مرحله‌ی گروهی مشخص می‌شود.</p>
+        )}
+      </div>
+    );
+  }
 
   if (format === 'DOUBLE_ELIM') {
     const groups: { title: string; b: BMatch['bracket'] }[] = [

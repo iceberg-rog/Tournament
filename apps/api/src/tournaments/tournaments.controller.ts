@@ -88,6 +88,8 @@ export class TournamentsController {
       genre: dto.genre,
       ffaRounds: dto.ffaRounds,
       swissRounds: dto.swissRounds,
+      groupSize: dto.groupSize,
+      advancePerGroup: dto.advancePerGroup,
       requireCheckIn: dto.requireCheckIn,
       maxParticipants: dto.maxParticipants,
       entryFee: dto.entryFee,

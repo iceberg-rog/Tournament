@@ -59,7 +59,7 @@ function Icon({ name, size = 16 }: { name: string; size?: number }) {
 }
 
 const STAFF = ['ADMIN', 'MAIN_ADMIN', 'REFEREE', 'GAME_ADMIN'];
-const fmtFa: Record<string, string> = { SINGLE_ELIM: 'تک‌حذفی', DOUBLE_ELIM: 'دوحذفی', ROUND_ROBIN: 'دوره‌ای', SWISS: 'سوئیسی', FFA: 'Battle Royale' };
+const fmtFa: Record<string, string> = { SINGLE_ELIM: 'تک‌حذفی', DOUBLE_ELIM: 'دوحذفی', ROUND_ROBIN: 'دوره‌ای', SWISS: 'سوئیسی', FFA: 'Battle Royale', GROUP_STAGE: 'گروهی + پلی‌آف' };
 const stFa: Record<string, string> = { DRAFT: 'پیش‌نویس', RUNNING: 'در حال اجرا', COMPLETED: 'پایان‌یافته', CANCELLED: 'لغوشده' };
 const stColor: Record<string, string> = { DRAFT: 'bg-tile2 text-muted', RUNNING: 'bg-good/15 text-good', COMPLETED: 'bg-accent/15 text-[#5eead4]', CANCELLED: 'bg-bad/15 text-bad' };
 

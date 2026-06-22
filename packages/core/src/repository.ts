@@ -28,6 +28,9 @@ export interface TournamentRecord {
   participants: Participant[];
   ffaRounds?: number;
   swissRounds?: number;
+  /** مرحله‌ی گروهی: حداکثر اعضای هر گروه و تعداد صعودکننده از هر گروه. */
+  groupSize?: number;
+  advancePerGroup?: number;
   /** حداکثر ظرفیت شرکت‌کننده‌های تأییدشده؛ مازاد به waitlist می‌رود. */
   maxParticipants?: number;
   /** صف انتظار (وقتی ظرفیت پر است). با انصراف یک تأییدشده، اولین نفر promote می‌شود. */

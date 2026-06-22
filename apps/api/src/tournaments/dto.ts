@@ -13,7 +13,7 @@ import {
 import { Type } from 'class-transformer';
 import type { Format, Genre } from '@tournament/engine';
 
-const FORMATS = ['SINGLE_ELIM', 'DOUBLE_ELIM', 'ROUND_ROBIN', 'SWISS', 'FFA'];
+const FORMATS = ['SINGLE_ELIM', 'DOUBLE_ELIM', 'ROUND_ROBIN', 'SWISS', 'FFA', 'GROUP_STAGE'];
 const GENRES = ['DUEL', 'TEAM', 'FFA'];
 
 export class PrizeDto {
@@ -63,6 +63,16 @@ export class CreateTournamentDto {
   @IsInt()
   @Min(1)
   swissRounds?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(2)
+  groupSize?: number;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  advancePerGroup?: number;
 
   @IsOptional()
   @IsBoolean()

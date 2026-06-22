@@ -7,7 +7,8 @@ export type Format =
   | 'DOUBLE_ELIM'
   | 'ROUND_ROBIN'
   | 'SWISS'
-  | 'FFA';
+  | 'FFA'
+  | 'GROUP_STAGE';
 
 export interface Participant {
   id: string;
@@ -20,7 +21,7 @@ export interface Participant {
 
 export type Slot = 'a' | 'b';
 
-/** یک مسابقه‌ی دوطرفه (برای elimination / round-robin / swiss). */
+/** یک مسابقه‌ی دوطرفه (برای elimination / round-robin / swiss / group-stage). */
 export interface Match {
   id: string;
   bracket: 'W' | 'L' | 'GF' | 'RR' | 'SW';
@@ -32,6 +33,8 @@ export interface Match {
   isBye: boolean;
   winnerTo: { matchId: string; slot: Slot } | null;
   loserTo: { matchId: string; slot: Slot } | null;
+  /** شماره‌ی گروه (فقط در مرحله‌ی گروهی). */
+  group?: number;
 }
 
 /** مسابقه‌ی آماده‌ی اجرا که شبیه‌ساز/کاربر نتیجه‌اش را می‌دهد. */

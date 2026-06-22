@@ -18,7 +18,7 @@ interface T {
 
 const fmt = (n: number) => n.toLocaleString('fa-IR');
 const formatFa: Record<string, string> = {
-  SINGLE_ELIM: 'تک‌حذفی', DOUBLE_ELIM: 'دوحذفی', ROUND_ROBIN: 'دوره‌ای', SWISS: 'سوئیسی', FFA: 'Battle Royale',
+  SINGLE_ELIM: 'تک‌حذفی', DOUBLE_ELIM: 'دوحذفی', ROUND_ROBIN: 'دوره‌ای', SWISS: 'سوئیسی', FFA: 'Battle Royale', GROUP_STAGE: 'گروهی + پلی‌آف',
 };
 
 const CRESTS = ['#2dd4bf', '#fbbf24', '#818cf8', '#34d399', '#f472b6', '#60a5fa', '#fb7185'];

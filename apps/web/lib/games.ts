@@ -5,6 +5,8 @@ export interface GameDef {
   emoji: string;
   c1: string; // رنگِ برندِ ۱
   c2: string; // رنگِ برندِ ۲
+  image?: string; // کاورِ واقعیِ لوکال (landscape) — public/games/<slug>.jpg
+  poster?: string; // پوسترِ عمودیِ واقعی — public/games/<slug>-p.jpg
 }
 
 /** کاتالوگِ ۴۰ بازیِ معروف با دسته‌بندی و رنگِ برند برای کاورِ حرفه‌ای. */
@@ -65,6 +67,21 @@ export const GAMES: GameDef[] = [
   { slug: 'fall-guys', name: 'Fall Guys', category: 'موبایل/پارتی', emoji: '🫘', c1: '#ff6fb5', c2: '#7b2ff7' },
   { slug: 'minecraft', name: 'Minecraft', category: 'موبایل/پارتی', emoji: '🟩', c1: '#5d8f3a', c2: '#3b2a1a' },
 ];
+
+// کاورهای واقعیِ لوکال (دانلودشده در public/games). بقیه‌ی بازی‌ها از کاورِ ساختگی استفاده می‌کنند.
+const REAL_IMAGE = new Set([
+  'aoe4', 'apex', 'battlefield', 'cod', 'cs2', 'dota-2', 'ea-fc-25', 'efootball', 'fall-guys', 'fortnite',
+  'forza', 'halo', 'hearthstone', 'lol', 'mk1', 'nba-2k', 'nfs', 'overwatch-2', 'r6', 'rocket-league',
+  'sf6', 'tekken-8', 'tft', 'warzone',
+]);
+const REAL_POSTER = new Set([
+  'aoe4', 'apex', 'battlefield', 'cod', 'cs2', 'dota-2', 'ea-fc-25', 'efootball', 'fall-guys', 'forza',
+  'halo', 'mk1', 'nba-2k', 'nfs', 'overwatch-2', 'pubg', 'r6', 'rocket-league', 'sf6', 'tekken-8',
+]);
+for (const g of GAMES) {
+  if (REAL_IMAGE.has(g.slug)) g.image = `/games/${g.slug}.jpg`;
+  if (REAL_POSTER.has(g.slug)) g.poster = `/games/${g.slug}-p.jpg`;
+}
 
 export const GAME_CATEGORIES = ['ورزشی', 'تیراندازی', 'بتل‌رویال', 'MOBA', 'مبارزه‌ای', 'مسابقه‌ای', 'استراتژی', 'موبایل/پارتی'];
 

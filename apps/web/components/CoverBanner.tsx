@@ -133,10 +133,12 @@ export function CoverBanner({
 }) {
   const g = findGame(game);
   const name = g?.name ?? game ?? 'تورنومنت';
+  // عکسِ آپلودیِ کاربر، یا کاورِ واقعیِ لوکالِ بازی (در صورت وجود)
+  const realImage = coverImage || g?.image;
 
-  if (coverImage) {
+  if (realImage) {
     return (
-      <div className={`relative ${rounded} ${className} overflow-hidden bg-slate-800 bg-cover bg-center`} style={{ backgroundImage: `url(${coverImage})` }}>
+      <div className={`relative ${rounded} ${className} overflow-hidden bg-slate-800 bg-cover bg-center`} style={{ backgroundImage: `url(${realImage})` }}>
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
         {showName && (
           <span className="absolute bottom-2.5 left-3 text-sm font-extrabold text-white drop-shadow" dir="ltr">

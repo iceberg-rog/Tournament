@@ -71,32 +71,31 @@ export default function GamesPage() {
         ))}
       </div>
 
-      {/* games grid */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-4">
+      {/* games grid — پوسترِ عمودیِ واقعی (سبکِ toornament) */}
+      <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7">
         {filtered.map((g) => {
           const n = counts[g.name] ?? 0;
           return (
             <Link
               key={g.slug}
               href={`/tournaments?game=${encodeURIComponent(g.name)}`}
-              className="group overflow-hidden rounded-2xl border border-line bg-tile transition hover:-translate-y-0.5 hover:border-accent/40"
+              className="group overflow-hidden rounded-xl border border-line bg-tile transition hover:-translate-y-1 hover:border-accent/50"
             >
-              <div className="relative">
-                <CoverBanner game={g.name} rounded="rounded-none" className="h-36 w-full" />
-                {n > 0 && (
-                  <span className="absolute right-2 top-2 rounded-md bg-accent/90 px-2 py-0.5 text-[10px] font-bold text-[#06231f]">
-                    {fmt(n)} تورنومنت
-                  </span>
+              <div className="relative aspect-[3/4] w-full overflow-hidden">
+                {g.poster ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={g.poster} alt={g.name} loading="lazy" className="h-full w-full object-cover transition duration-300 group-hover:scale-105" />
+                ) : (
+                  <CoverBanner game={g.name} rounded="rounded-none" className="h-full w-full" showName={false} />
                 )}
-              </div>
-              <div className="flex items-center justify-between gap-2 px-3 py-2.5">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-bold" title={g.name}>{g.name}</p>
-                  <p className="text-[11px] text-faint">{g.category}</p>
+                <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/85 via-black/10 to-transparent" />
+                {n > 0 && (
+                  <span className="absolute right-1.5 top-1.5 rounded-md bg-accent px-1.5 py-0.5 text-[10px] font-bold text-[#06231f] tnum">{fmt(n)}</span>
+                )}
+                <div className="absolute inset-x-0 bottom-0 p-2.5">
+                  <p className="truncate text-[13px] font-bold text-white drop-shadow" title={g.name}>{g.name}</p>
+                  <p className="text-[10px] text-slate-300">{g.category}</p>
                 </div>
-                <span className="shrink-0 text-faint transition group-hover:text-accent">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M19 12H5M11 18l-6-6 6-6" /></svg>
-                </span>
               </div>
             </Link>
           );

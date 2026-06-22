@@ -138,8 +138,13 @@ export function CoverBanner({
 
   if (realImage) {
     return (
-      <div className={`relative ${rounded} ${className} overflow-hidden bg-slate-800 bg-cover bg-center`} style={{ backgroundImage: `url(${realImage})` }}>
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/10 to-transparent" />
+      <div className={`relative ${rounded} ${className} overflow-hidden bg-[#0b0d12]`}>
+        {/* پس‌زمینه‌ی محو (پرکننده‌ی نسبت‌های مختلف) + تصویرِ کاملِ contain روی آن */}
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={realImage} alt="" aria-hidden="true" className="absolute inset-0 h-full w-full scale-110 object-cover opacity-40 blur-xl" />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={realImage} alt={name} className="absolute inset-0 h-full w-full object-contain" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/80 via-black/5 to-transparent" />
         {showName && (
           <span className="absolute bottom-2.5 left-3 text-sm font-extrabold text-white drop-shadow" dir="ltr">
             {game}

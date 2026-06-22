@@ -3,9 +3,9 @@ import { CoverBanner } from './CoverBanner';
 import { TournamentStatusBadge } from './TournamentStatusBadge';
 import { FORMAT_FA, PLATFORM_FA, fmt, topPrize, type TournamentRow } from '@/lib/tournaments';
 
-const Ico = ({ d, children, size = 13 }: { d?: string; children?: React.ReactNode; size?: number }) => (
+const Ico = ({ children, size = 13 }: { children: React.ReactNode; size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
-    {d ? <path d={d} /> : children}
+    {children}
   </svg>
 );
 
@@ -13,7 +13,13 @@ function Chip({ children }: { children: React.ReactNode }) {
   return <span className="inline-flex items-center gap-1 rounded-md bg-tile2 px-2 py-1 text-[11px] text-muted">{children}</span>;
 }
 
-export function TournamentCard({ t }: { t: TournamentRow }) {
+function ctaLabel(status: string, guest: boolean): string {
+  if (status === 'DRAFT') return guest ? 'ورود برای ثبت‌نام' : 'ثبت‌نام / مشاهده';
+  if (status === 'COMPLETED') return 'مشاهده‌ی نتایج';
+  return 'مشاهده‌ی جزئیات';
+}
+
+export function TournamentCard({ t, guest = true }: { t: TournamentRow; guest?: boolean }) {
   const prize = topPrize(t);
   const open = t.status === 'DRAFT';
   const date = t.startAt ? new Date(t.startAt).toLocaleDateString('fa-IR') : null;
@@ -21,9 +27,9 @@ export function TournamentCard({ t }: { t: TournamentRow }) {
   return (
     <Link
       href={`/tournaments/${t.id}`}
-      className="group flex flex-col overflow-hidden rounded-2xl border border-line bg-tile transition duration-200 hover:-translate-y-1 hover:border-accent/40 hover:shadow-[0_18px_44px_-22px_rgba(0,0,0,.85)]"
+      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-line bg-tile transition duration-200 hover:-translate-y-1 hover:border-accent/40 hover:shadow-[0_18px_44px_-22px_rgba(0,0,0,.85)]"
     >
-      {/* کاور با نسبتِ ثابت + overlay */}
+      {/* کاور با نسبتِ ثابت */}
       <div className="relative aspect-[16/9] w-full overflow-hidden">
         <CoverBanner
           game={t.game}
@@ -32,7 +38,7 @@ export function TournamentCard({ t }: { t: TournamentRow }) {
           className="absolute inset-0 h-full w-full transition duration-500 group-hover:scale-105"
           showName={false}
         />
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-black/15 to-black/10" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-black/15 to-black/5" />
         <div className="absolute right-3 top-3">
           <TournamentStatusBadge status={t.status} />
         </div>
@@ -70,9 +76,7 @@ export function TournamentCard({ t }: { t: TournamentRow }) {
             <b className="text-gold tnum">{fmt(prize)}</b>
             <span className="text-xs text-faint">تومان</span>
           </div>
-        ) : (
-          <div className="text-xs text-faint">بدون جایزه‌ی نقدی</div>
-        )}
+        ) : null}
 
         <div className="mt-auto pt-1">
           <span
@@ -82,8 +86,9 @@ export function TournamentCard({ t }: { t: TournamentRow }) {
                 : 'border border-line text-slate-200 group-hover:border-accent/40'
             }`}
           >
-            {open ? 'ثبت‌نام / مشاهده' : 'مشاهده‌ی جزئیات'}
+            {ctaLabel(t.status, guest)}
           </span>
+          {open && guest && <span className="mt-1.5 block text-center text-[11px] text-faint">یا مشاهده‌ی جزئیات بدونِ ورود</span>}
         </div>
       </div>
     </Link>

@@ -1,10 +1,9 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import { isLoggedIn, publicGet } from '@/lib/api';
 import { GameFilterStrip, type GameCount } from '@/components/GameFilterStrip';
-import { TournamentFilters } from '@/components/TournamentFilters';
+import { TournamentToolbar } from '@/components/TournamentToolbar';
 import { TournamentGrid } from '@/components/TournamentGrid';
 import { TournamentHero } from '@/components/TournamentHero';
 import { EmptyState } from '@/components/EmptyState';
@@ -48,7 +47,6 @@ export default function TournamentsPage() {
         setLoading(false);
       }
     })();
-    // اگر از هابِ دیسیپلین‌ها با ?game= آمده‌ایم
     const g = new URLSearchParams(window.location.search).get('game');
     if (g) setGame(g);
   }, []);
@@ -67,11 +65,39 @@ export default function TournamentsPage() {
     );
   }, [list, statusMatch, game, platform, type, search]);
 
-  const liveCount = useMemo(() => list.filter((t) => t.status === 'RUNNING').length, [list]);
+  // آمارِ محاسبه‌شده از داده‌ی واقعی (نه hardcoded)
+  const stats = useMemo(
+    () => ({
+      open: list.filter((t) => t.status === 'DRAFT').length,
+      live: list.filter((t) => t.status === 'RUNNING').length,
+      done: list.filter((t) => t.status === 'COMPLETED' || t.status === 'CANCELLED').length,
+    }),
+    [list],
+  );
+
+  // تورنومنتِ منتخب: اولین در‌حال‌انجام، وگرنه اولین ثبت‌نام‌بازِ جایزه‌دار، وگرنه اولین.
+  const featured = useMemo(() => {
+    const withPrize = (t: TournamentRow) => (t.prizePool?.length ?? 0) > 0;
+    return (
+      list.find((t) => t.status === 'RUNNING' && withPrize(t)) ??
+      list.find((t) => t.status === 'RUNNING') ??
+      list.find((t) => t.status === 'DRAFT' && withPrize(t)) ??
+      list[0]
+    );
+  }, [list]);
+
+  const filtersActive = status !== 'all' || !!game || platform !== 'all' || type !== 'all' || !!search;
+  const clearFilters = () => {
+    setStatus('all');
+    setGame(null);
+    setPlatform('all');
+    setType('all');
+    setSearch('');
+  };
 
   return (
     <div className="space-y-6">
-      {guest && <TournamentHero liveCount={liveCount} />}
+      {guest && <TournamentHero stats={stats} featured={featured} />}
 
       <section className="space-y-4">
         <div>
@@ -83,7 +109,7 @@ export default function TournamentsPage() {
 
         <GameFilterStrip games={games} selected={game} onSelect={setGame} />
 
-        <TournamentFilters
+        <TournamentToolbar
           status={status}
           setStatus={setStatus}
           platform={platform}
@@ -93,6 +119,7 @@ export default function TournamentsPage() {
           types={types}
           search={search}
           setSearch={setSearch}
+          count={filtered.length}
         />
 
         {loading ? (
@@ -102,18 +129,15 @@ export default function TournamentsPage() {
             ))}
           </div>
         ) : filtered.length ? (
-          <>
-            <p className="text-xs text-faint">{filtered.length.toLocaleString('fa-IR')} تورنومنت</p>
-            <TournamentGrid items={filtered} />
-          </>
+          <TournamentGrid items={filtered} guest={guest} />
         ) : (
           <EmptyState
-            title="هنوز تورنومنتی برای این فیلتر وجود ندارد."
-            hint="فیلترها را تغییر بده یا یک بازیِ دیگر انتخاب کن."
+            title="تورنومنتی با این فیلتر پیدا نشد"
+            hint="فیلترها را تغییر بده یا همه را پاک کن تا همه‌ی تورنومنت‌ها را ببینی."
             action={
-              <Link href="/games" className="btn-ghost px-4 py-2 text-sm">
-                مرورِ همه‌ی بازی‌ها
-              </Link>
+              filtersActive ? (
+                <button onClick={clearFilters} className="btn-primary px-5 py-2 text-sm">پاک کردنِ فیلترها</button>
+              ) : undefined
             }
           />
         )}

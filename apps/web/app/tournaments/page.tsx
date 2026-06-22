@@ -93,18 +93,6 @@ export default function TournamentsPage() {
       </div>
       {error && <p className="rounded-xl border border-bad/30 bg-bad/10 px-4 py-2 text-sm text-bad">{error}</p>}
 
-      {/* discipline header (وقتی از هابِ بازی‌ها آمده‌ایم) */}
-      {selectedGame && (
-        <div className="flex items-center gap-3 rounded-2xl border border-line bg-tile p-3">
-          <CoverBanner game={selectedGame} rounded="rounded-xl" className="h-14 w-24 shrink-0" showName={false} />
-          <div className="min-w-0 flex-1">
-            <p className="text-[11px] uppercase tracking-wider text-faint">دیسیپلین</p>
-            <p className="truncate font-bold">{selectedGame}</p>
-          </div>
-          <Link href="/games" className="shrink-0 text-sm font-semibold text-accent">همه‌ی دیسیپلین‌ها</Link>
-        </div>
-      )}
-
       {/* فیلترِ بصریِ بازی‌ها (تامنیلِ کاورِ واقعی) */}
       {games.length > 0 && (
         <div className="flex flex-wrap gap-2.5">

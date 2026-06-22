@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { apiPost } from '@/lib/api';
+import { apiPost, saveTokens } from '@/lib/api';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -16,8 +16,8 @@ export default function RegisterPage() {
     setError('');
     setLoading(true);
     try {
-      const res = await apiPost<{ accessToken: string }>('/auth/register', form);
-      localStorage.setItem('accessToken', res.accessToken);
+      const res = await apiPost<{ accessToken: string; refreshToken: string }>('/auth/register', form);
+      saveTokens(res.accessToken, res.refreshToken);
       router.push('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'خطایی رخ داد');

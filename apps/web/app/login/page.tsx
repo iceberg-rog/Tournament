@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { apiPost } from '@/lib/api';
+import { apiPost, saveTokens } from '@/lib/api';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -17,8 +17,8 @@ export default function LoginPage() {
     setLoading(true);
     try {
       const body = form.code ? form : { email: form.email, password: form.password };
-      const res = await apiPost<{ accessToken: string }>('/auth/login', body);
-      localStorage.setItem('accessToken', res.accessToken);
+      const res = await apiPost<{ accessToken: string; refreshToken: string }>('/auth/login', body);
+      saveTokens(res.accessToken, res.refreshToken);
       router.push('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'خطایی رخ داد');
@@ -32,8 +32,8 @@ export default function LoginPage() {
     const email = window.prompt('ایمیل حساب گوگل (حالت آزمایشی):');
     if (!email) return;
     try {
-      const res = await apiPost<{ accessToken: string }>('/auth/oauth/google', { email });
-      localStorage.setItem('accessToken', res.accessToken);
+      const res = await apiPost<{ accessToken: string; refreshToken: string }>('/auth/oauth/google', { email });
+      saveTokens(res.accessToken, res.refreshToken);
       router.push('/dashboard');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'خطایی رخ داد');

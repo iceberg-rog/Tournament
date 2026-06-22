@@ -97,6 +97,26 @@ export class CreateTournamentDto {
   @ValidateNested()
   @Type(() => ScoringDto)
   scoring?: ScoringDto;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(20)
+  platform?: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  startAt?: string;
+
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  durationHours?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(400)
+  coverImage?: string;
 }
 
 export class RegisterDto {

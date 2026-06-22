@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { authedGet, authedPost, isLoggedIn, publicGet } from '@/lib/api';
+import { CoverBanner } from '@/components/CoverBanner';
 
 interface Participant {
   id: string;
@@ -12,6 +13,7 @@ interface Participant {
 interface TournamentRecord {
   id: string;
   title: string;
+  game?: string;
   format: string;
   genre: string;
   status: string;
@@ -20,6 +22,11 @@ interface TournamentRecord {
   requireCheckIn?: boolean;
   maxParticipants?: number;
   streamUrl?: string;
+  platform?: string;
+  startAt?: string;
+  durationHours?: number;
+  coverImage?: string;
+  organizerName?: string;
 }
 interface ChatMessage {
   id: string;
@@ -124,15 +131,62 @@ export default function TournamentDetail() {
 
   if (!rec) return <main className="p-8">{error || 'در حال بارگذاری...'}</main>;
 
+  const fmtFa: Record<string, string> = {
+    SINGLE_ELIM: 'تک‌حذفی',
+    DOUBLE_ELIM: 'دوحذفی',
+    ROUND_ROBIN: 'دوره‌ای',
+    SWISS: 'سوئیسی',
+    FFA: 'Battle Royale',
+  };
+  const stFa: Record<string, string> = {
+    DRAFT: 'پیش‌نویس',
+    RUNNING: 'در حال اجرا',
+    COMPLETED: 'پایان‌یافته',
+    CANCELLED: 'لغوشده',
+  };
+  const stColor: Record<string, string> = {
+    DRAFT: 'bg-slate-500/20 text-slate-300',
+    RUNNING: 'bg-emerald-500/20 text-emerald-300',
+    COMPLETED: 'bg-violet-500/20 text-violet-300',
+    CANCELLED: 'bg-red-500/20 text-red-300',
+  };
+  const startFa = rec.startAt ? new Date(rec.startAt).toLocaleString('fa-IR') : null;
+  const endFa =
+    rec.startAt && rec.durationHours
+      ? new Date(new Date(rec.startAt).getTime() + rec.durationHours * 3600_000).toLocaleString('fa-IR')
+      : null;
+
   return (
-    <main className="mx-auto max-w-2xl p-8">
-      <Link href="/tournaments" className="text-sm text-indigo-400">
+    <main className="mx-auto max-w-3xl p-4 md:p-7">
+      <Link href="/tournaments" className="text-sm text-fuchsia-300">
         ← همه‌ی تورنومنت‌ها
       </Link>
-      <h1 className="mb-1 mt-3 text-2xl font-bold">{rec.title}</h1>
-      <p className="mb-4 text-slate-400">
-        {rec.format} · {rec.genre} · وضعیت: <b>{rec.status}</b>
-      </p>
+
+      <div className="card mt-3 overflow-hidden">
+        <CoverBanner coverImage={rec.coverImage} game={rec.game} rounded="rounded-none" className="h-44 w-full md:h-56" />
+        <div className="p-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h1 className="text-2xl font-extrabold">{rec.title}</h1>
+              <p className="mt-1 text-sm text-slate-400">
+                {rec.game ?? 'بدون بازی'} · {fmtFa[rec.format] ?? rec.format}
+                {rec.organizerName && <> · سازنده: <b className="text-slate-300">{rec.organizerName}</b></>}
+              </p>
+            </div>
+            <span className={`chip ${stColor[rec.status] ?? 'bg-slate-500/20 text-slate-300'}`}>
+              {stFa[rec.status] ?? rec.status}
+            </span>
+          </div>
+          <div className="mt-4 flex flex-wrap gap-2 text-xs">
+            {rec.platform && <span className="chip bg-white/5 text-slate-200">🕹️ {rec.platform}</span>}
+            <span className="chip bg-white/5 text-slate-200">👥 {rec.participants.length} شرکت‌کننده</span>
+            {startFa && <span className="chip bg-white/5 text-slate-200">📅 شروع: {startFa}</span>}
+            {rec.durationHours ? <span className="chip bg-white/5 text-slate-200">⏱️ {rec.durationHours} ساعت</span> : null}
+            {endFa && <span className="chip bg-white/5 text-slate-200">🏁 پایان: {endFa}</span>}
+          </div>
+        </div>
+      </div>
+      <div className="h-4" />
 
       {loggedIn && (
         <div className="mb-4 flex flex-wrap items-center gap-2 text-sm">

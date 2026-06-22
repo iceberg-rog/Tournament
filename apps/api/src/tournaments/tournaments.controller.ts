@@ -76,7 +76,10 @@ export class TournamentsController {
 
   @Post()
   @UseGuards(JwtAuthGuard)
-  create(@Body() dto: CreateTournamentDto) {
+  create(
+    @Body() dto: CreateTournamentDto,
+    @Request() req: { user: { id: string; email: string } },
+  ) {
     return this.svc.create({
       title: dto.title,
       game: dto.game,
@@ -91,6 +94,12 @@ export class TournamentsController {
       streamUrl: dto.streamUrl,
       requireResultConfirmation: dto.requireResultConfirmation,
       scoring: dto.scoring,
+      platform: dto.platform,
+      startAt: dto.startAt,
+      durationHours: dto.durationHours,
+      coverImage: dto.coverImage,
+      organizerId: req.user.id,
+      organizerName: req.user.email.split('@')[0],
     });
   }
 
@@ -157,6 +166,10 @@ export class TournamentsController {
       streamUrl?: string;
       requireResultConfirmation?: boolean;
       scoring?: { win: number; draw: number; loss: number };
+      platform?: string;
+      startAt?: string;
+      durationHours?: number;
+      coverImage?: string;
     },
   ) {
     return this.svc.update(id, dto);

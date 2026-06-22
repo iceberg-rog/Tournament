@@ -27,6 +27,12 @@ export interface CreateTournamentInput {
   streamUrl?: string;
   requireResultConfirmation?: boolean;
   scoring?: { win: number; draw: number; loss: number };
+  platform?: string;
+  startAt?: string;
+  durationHours?: number;
+  coverImage?: string;
+  organizerId?: string;
+  organizerName?: string;
 }
 
 /** آمار تجمیعیِ یک کاربر برای داشبورد (UC22/پروفایل). */
@@ -96,6 +102,12 @@ export class TournamentService {
       streamUrl: input.streamUrl,
       requireResultConfirmation: input.requireResultConfirmation ?? false,
       scoring: input.scoring,
+      platform: input.platform,
+      startAt: input.startAt,
+      durationHours: input.durationHours,
+      coverImage: input.coverImage,
+      organizerId: input.organizerId,
+      organizerName: input.organizerName,
       heldFees: [],
       paidOut: false,
       status: 'DRAFT',
@@ -225,6 +237,10 @@ export class TournamentService {
       streamUrl?: string;
       requireResultConfirmation?: boolean;
       scoring?: { win: number; draw: number; loss: number };
+      platform?: string;
+      startAt?: string;
+      durationHours?: number;
+      coverImage?: string;
     },
   ): Promise<TournamentRecord> {
     const rec = await this.mustGet(id);
@@ -249,6 +265,10 @@ export class TournamentService {
     if (patch.requireResultConfirmation !== undefined)
       rec.requireResultConfirmation = patch.requireResultConfirmation;
     if (patch.scoring !== undefined) rec.scoring = patch.scoring;
+    if (patch.platform !== undefined) rec.platform = patch.platform;
+    if (patch.startAt !== undefined) rec.startAt = patch.startAt;
+    if (patch.durationHours !== undefined) rec.durationHours = patch.durationHours;
+    if (patch.coverImage !== undefined) rec.coverImage = patch.coverImage;
     await this.repo.update(rec);
     return rec;
   }

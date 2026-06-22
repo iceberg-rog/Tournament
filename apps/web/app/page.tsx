@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import LiveTournaments from '@/components/LiveTournaments';
 
 const FEATURES = [
   { icon: '🎮', title: '۵ فرمت حرفه‌ای', desc: 'تک‌حذفی، دوحذفی، دوره‌ای، سوئیسی و Battle Royale' },
@@ -86,6 +87,9 @@ export default function Home() {
           ))}
         </div>
       </section>
+
+      {/* live tournaments */}
+      <LiveTournaments />
 
       {/* features */}
       <section className="relative z-10 mx-auto max-w-6xl px-6 pb-20">

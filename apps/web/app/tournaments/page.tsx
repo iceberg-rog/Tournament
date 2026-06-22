@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { authedPost, isLoggedIn, publicGet } from '@/lib/api';
+import { isLoggedIn, publicGet } from '@/lib/api';
+import { CoverBanner } from '@/components/CoverBanner';
 
 interface TournamentRow {
   id: string;
@@ -11,19 +12,17 @@ interface TournamentRow {
   format: string;
   genre: string;
   status: string;
-  participants: { id: string; name: string }[];
+  participants: { id: string }[];
+  platform?: string;
+  coverImage?: string;
+  organizerName?: string;
+  startAt?: string;
 }
-
 interface GameCard {
   game: string;
   total: number;
-  upcoming: number;
-  running: number;
-  finished: number;
 }
 
-const FORMATS = ['SINGLE_ELIM', 'DOUBLE_ELIM', 'ROUND_ROBIN', 'SWISS', 'FFA'];
-const GENRES = ['DUEL', 'TEAM', 'FFA'];
 const STATUS: Record<string, string[]> = {
   upcoming: ['DRAFT'],
   running: ['RUNNING'],
@@ -34,139 +33,63 @@ const TABS = [
   ['running', 'در حال انجام'],
   ['finished', 'اتمام‌یافته'],
 ] as const;
+const fmtFa: Record<string, string> = {
+  SINGLE_ELIM: 'تک‌حذفی',
+  DOUBLE_ELIM: 'دوحذفی',
+  ROUND_ROBIN: 'دوره‌ای',
+  SWISS: 'سوئیسی',
+  FFA: 'Battle Royale',
+};
+const stFa: Record<string, string> = { DRAFT: 'پیش‌نویس', RUNNING: 'در حال اجرا', COMPLETED: 'پایان‌یافته', CANCELLED: 'لغوشده' };
+const stColor: Record<string, string> = {
+  DRAFT: 'bg-slate-500/20 text-slate-300',
+  RUNNING: 'bg-emerald-500/20 text-emerald-300',
+  COMPLETED: 'bg-violet-500/20 text-violet-300',
+  CANCELLED: 'bg-red-500/20 text-red-300',
+};
+const fmt = (n: number) => n.toLocaleString('fa-IR');
 
 export default function TournamentsPage() {
   const [list, setList] = useState<TournamentRow[]>([]);
   const [games, setGames] = useState<GameCard[]>([]);
   const [selectedGame, setSelectedGame] = useState<string | null>(null);
   const [tab, setTab] = useState<'upcoming' | 'running' | 'finished'>('upcoming');
-  const [form, setForm] = useState({
-    title: '',
-    game: '',
-    format: 'SINGLE_ELIM',
-    genre: 'DUEL',
-    maxParticipants: '',
-    requireCheckIn: false,
-  });
   const [error, setError] = useState('');
-  const loggedIn = isLoggedIn();
-
-  async function load() {
-    try {
-      setList(await publicGet<TournamentRow[]>('/tournaments'));
-      setGames(await publicGet<GameCard[]>('/tournaments/games'));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'خطا');
-    }
-  }
 
   useEffect(() => {
-    load();
+    (async () => {
+      try {
+        setList(await publicGet<TournamentRow[]>('/tournaments'));
+        setGames(await publicGet<GameCard[]>('/tournaments/games'));
+      } catch (e) {
+        setError(e instanceof Error ? e.message : 'خطا');
+      }
+    })();
   }, []);
 
-  async function create(e: React.FormEvent) {
-    e.preventDefault();
-    setError('');
-    try {
-      const payload: Record<string, unknown> = {
-        title: form.title,
-        format: form.format,
-        genre: form.genre,
-        requireCheckIn: form.requireCheckIn,
-      };
-      if (form.game) payload.game = form.game;
-      if (form.maxParticipants) payload.maxParticipants = Number(form.maxParticipants);
-      await authedPost('/tournaments', payload);
-      setForm({ ...form, title: '' });
-      await load();
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'خطا');
-    }
-  }
+  const filtered = list.filter((t) => STATUS[tab].includes(t.status) && (!selectedGame || t.game === selectedGame));
 
   return (
-    <main className="mx-auto max-w-3xl p-8">
+    <main className="mx-auto max-w-6xl p-4 md:p-7">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">تورنومنت‌ها</h1>
-        <Link href="/dashboard" className="text-sm text-indigo-400">
-          داشبورد
-        </Link>
-      </div>
-
-      {loggedIn ? (
-        <form onSubmit={create} className="mb-8 flex flex-wrap gap-3 rounded-lg bg-slate-900 p-4">
-          <input
-            className="flex-1 rounded-lg bg-slate-800 px-3 py-2"
-            placeholder="عنوان تورنومنت"
-            value={form.title}
-            onChange={(e) => setForm({ ...form, title: e.target.value })}
-            required
-          />
-          <input
-            className="w-36 rounded-lg bg-slate-800 px-3 py-2"
-            placeholder="بازی (مثلاً FC26)"
-            value={form.game}
-            onChange={(e) => setForm({ ...form, game: e.target.value })}
-          />
-          <select
-            className="rounded-lg bg-slate-800 px-3 py-2"
-            value={form.format}
-            onChange={(e) => setForm({ ...form, format: e.target.value })}
+        <h1 className="text-2xl font-extrabold">تورنومنت‌ها</h1>
+        {isLoggedIn() && (
+          <Link
+            href="/tournaments/new"
+            className="rounded-xl bg-gradient-to-l from-violet-600 to-fuchsia-500 px-5 py-2.5 text-sm font-bold shadow-lg shadow-fuchsia-600/25"
           >
-            {FORMATS.map((f) => (
-              <option key={f} value={f}>
-                {f}
-              </option>
-            ))}
-          </select>
-          <select
-            className="rounded-lg bg-slate-800 px-3 py-2"
-            value={form.genre}
-            onChange={(e) => setForm({ ...form, genre: e.target.value })}
-          >
-            {GENRES.map((g) => (
-              <option key={g} value={g}>
-                {g}
-              </option>
-            ))}
-          </select>
-          <input
-            type="number"
-            min={2}
-            className="w-28 rounded-lg bg-slate-800 px-3 py-2"
-            placeholder="ظرفیت"
-            value={form.maxParticipants}
-            onChange={(e) => setForm({ ...form, maxParticipants: e.target.value })}
-          />
-          <label className="flex items-center gap-2 text-sm text-slate-300">
-            <input
-              type="checkbox"
-              checked={form.requireCheckIn}
-              onChange={(e) => setForm({ ...form, requireCheckIn: e.target.checked })}
-            />
-            check-in
-          </label>
-          <button className="rounded-lg bg-indigo-600 px-4 py-2 font-medium hover:bg-indigo-500">
-            ساخت
-          </button>
-        </form>
-      ) : (
-        <p className="mb-6 text-slate-400">
-          برای ساخت تورنومنت{' '}
-          <Link href="/login" className="text-indigo-400">
-            وارد شوید
+            ➕ ساخت تورنومنت
           </Link>
-          .
-        </p>
-      )}
-
+        )}
+      </div>
       {error && <p className="mb-4 text-red-400">{error}</p>}
 
+      {/* category chips */}
       {games.length > 0 && (
         <div className="mb-4 flex flex-wrap gap-2">
           <button
             onClick={() => setSelectedGame(null)}
-            className={`rounded-lg px-3 py-2 text-sm ${selectedGame === null ? 'bg-emerald-600' : 'bg-slate-800'}`}
+            className={`rounded-xl px-3 py-2 text-sm transition ${selectedGame === null ? 'bg-gradient-to-l from-violet-600 to-fuchsia-500 font-semibold' : 'bg-white/5 hover:bg-white/10'}`}
           >
             همه‌ی بازی‌ها
           </button>
@@ -174,47 +97,60 @@ export default function TournamentsPage() {
             <button
               key={g.game}
               onClick={() => setSelectedGame(g.game)}
-              className={`rounded-lg px-3 py-2 text-sm ${selectedGame === g.game ? 'bg-emerald-600' : 'bg-slate-800'}`}
+              className={`rounded-xl px-3 py-2 text-sm transition ${selectedGame === g.game ? 'bg-gradient-to-l from-violet-600 to-fuchsia-500 font-semibold' : 'bg-white/5 hover:bg-white/10'}`}
             >
-              {g.game} <span className="text-slate-400">({g.total})</span>
+              {g.game} <span className="opacity-60">({fmt(g.total)})</span>
             </button>
           ))}
         </div>
       )}
 
-      <div className="mb-4 flex gap-2">
+      {/* status tabs */}
+      <div className="mb-6 inline-flex gap-1 rounded-2xl bg-white/5 p-1">
         {TABS.map(([k, label]) => (
           <button
             key={k}
             onClick={() => setTab(k)}
-            className={`rounded-lg px-4 py-2 text-sm ${tab === k ? 'bg-indigo-600' : 'bg-slate-800'}`}
+            className={`rounded-xl px-4 py-2 text-sm transition ${tab === k ? 'bg-white/10 font-semibold' : 'text-slate-400 hover:text-slate-200'}`}
           >
             {label}
           </button>
         ))}
       </div>
 
-      <ul className="flex flex-col gap-2">
-        {list
-          .filter((t) => STATUS[tab].includes(t.status) && (!selectedGame || t.game === selectedGame))
-          .map((t) => (
-            <li key={t.id}>
-              <Link
-                href={`/tournaments/${t.id}`}
-                className="flex items-center justify-between rounded-lg bg-slate-800 p-4 hover:bg-slate-700"
-              >
-                <span className="font-medium">{t.title}</span>
-                <span className="text-sm text-slate-400">
-                  {t.game ? `${t.game} · ` : ''}
-                  {t.format} · {t.genre} · {t.participants.length} نفر · {t.status}
-                </span>
-              </Link>
-            </li>
-          ))}
-        {list.filter((t) => STATUS[tab].includes(t.status) && (!selectedGame || t.game === selectedGame)).length === 0 && (
-          <li className="text-slate-500">موردی در این بخش نیست.</li>
-        )}
-      </ul>
+      {/* grid */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {filtered.map((t) => (
+          <Link key={t.id} href={`/tournaments/${t.id}`} className="card overflow-hidden transition hover:border-fuchsia-500/30 hover:-translate-y-0.5">
+            <CoverBanner coverImage={t.coverImage} game={t.game} rounded="rounded-none" className="h-32 w-full" />
+            <div className="p-4">
+              <div className="flex items-start justify-between gap-2">
+                <h3 className="truncate font-bold">{t.title}</h3>
+                <span className={`chip shrink-0 ${stColor[t.status] ?? 'bg-slate-500/20 text-slate-300'}`}>{stFa[t.status] ?? t.status}</span>
+              </div>
+              <p className="mt-1 text-xs text-slate-400">
+                {t.game ?? 'بدون بازی'} · {fmtFa[t.format] ?? t.format}
+              </p>
+              <div className="mt-3 flex flex-wrap gap-1.5 text-[11px]">
+                {t.platform && <span className="chip bg-white/5 text-slate-300">🕹️ {t.platform}</span>}
+                <span className="chip bg-white/5 text-slate-300">👥 {fmt(t.participants.length)}</span>
+                {t.startAt && <span className="chip bg-white/5 text-slate-300">📅 {new Date(t.startAt).toLocaleDateString('fa-IR')}</span>}
+              </div>
+              {t.organizerName && <p className="mt-2 text-[11px] text-slate-500">سازنده: {t.organizerName}</p>}
+            </div>
+          </Link>
+        ))}
+      </div>
+      {filtered.length === 0 && (
+        <p className="py-16 text-center text-slate-500">
+          موردی در این بخش نیست.{' '}
+          {isLoggedIn() && (
+            <Link href="/tournaments/new" className="text-fuchsia-300">
+              یکی بساز
+            </Link>
+          )}
+        </p>
+      )}
     </main>
   );
 }

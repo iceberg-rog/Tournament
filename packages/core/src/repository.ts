@@ -44,6 +44,16 @@ export interface TournamentRecord {
   requireResultConfirmation?: boolean;
   /** قالب امتیازدهیِ سفارشی برای رده‌بندی — UC14. */
   scoring?: { win: number; draw: number; loss: number };
+  /** پلتفرم: PC | PS5 | PS4 | XBOX | SWITCH | MOBILE | CROSS */
+  platform?: string;
+  /** زمان‌بندی: شروع (ISO) و مدت به ساعت؛ پایان = شروع + مدت. */
+  startAt?: string;
+  durationHours?: number;
+  /** آدرس عکس کاور (اختیاری؛ در نبودش کاورِ گرادیانیِ پیش‌فرض). */
+  coverImage?: string;
+  /** سازنده‌ی تورنومنت. */
+  organizerId?: string;
+  organizerName?: string;
   /** شناسه‌ی کاربرانی که هزینه‌ی ورودی‌شان اکنون در escrow مسدود است. */
   heldFees?: string[];
   /** آیا جوایز پرداخت شده‌اند (یک‌بار، هنگام COMPLETED). */

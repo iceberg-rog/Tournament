@@ -29,6 +29,17 @@ export interface CreateTournamentInput {
   scoring?: { win: number; draw: number; loss: number };
 }
 
+/** آمار تجمیعیِ یک کاربر برای داشبورد (UC22/پروفایل). */
+export interface UserStats {
+  joined: number;
+  completed: number;
+  wins: number;
+  podiums: number;
+  winRate: number; // درصد
+  byGame: { game: string; played: number; wins: number }[];
+  timeline: { id: string; title: string; game: string; rank: number; total: number; createdAt: string }[];
+}
+
 /** نتیجه‌ی یک مسابقه برای نمایش تاریخچه. */
 export type MatchResult =
   | {
@@ -515,6 +526,47 @@ export class TournamentService {
 
   async list(): Promise<TournamentRecord[]> {
     return this.repo.list();
+  }
+
+  /** آمار تجمیعیِ یک کاربر: تعداد شرکت، برد، رتبه‌ها، تفکیک بازی و تایم‌لاین. */
+  async userStats(userId: string): Promise<UserStats> {
+    const all = await this.repo.list();
+    let joined = 0;
+    let completed = 0;
+    let wins = 0;
+    let podiums = 0;
+    const byGame = new Map<string, { game: string; played: number; wins: number }>();
+    const timeline: UserStats['timeline'] = [];
+    for (const rec of all) {
+      if (!rec.participants.some((p) => p.id === userId)) continue;
+      joined++;
+      const game = rec.game ?? 'سایر';
+      const g = byGame.get(game) ?? { game, played: 0, wins: 0 };
+      g.played++;
+      if (rec.status === 'COMPLETED') {
+        completed++;
+        const st = this.buildEngine(rec).standings();
+        const mine = st.find((s) => s.participantId === userId);
+        const rank = mine?.rank ?? 0;
+        if (rank === 1) {
+          wins++;
+          g.wins++;
+        }
+        if (rank > 0 && rank <= 3) podiums++;
+        timeline.push({ id: rec.id, title: rec.title, game, rank, total: st.length, createdAt: rec.createdAt });
+      }
+      byGame.set(game, g);
+    }
+    timeline.sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1));
+    return {
+      joined,
+      completed,
+      wins,
+      podiums,
+      winRate: completed ? Math.round((wins / completed) * 100) : 0,
+      byGame: [...byGame.values()].sort((a, b) => b.played - a.played),
+      timeline: timeline.slice(0, 12),
+    };
   }
 
   /** کاتالوگ بازی‌ها: گروه‌بندی تورنومنت‌ها بر اساس بازی، با شمارش هر وضعیت. */

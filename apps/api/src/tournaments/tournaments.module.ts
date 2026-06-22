@@ -7,9 +7,10 @@ import { PrismaNotificationRepository } from '../notifications/prisma-notificati
 import { PrismaTournamentRepository } from './prisma-tournament.repository';
 import { PrismaRatingRepository } from './prisma-rating.repository';
 import { TournamentsController } from './tournaments.controller';
+import { MeController } from './me.controller';
 
 @Module({
-  controllers: [TournamentsController],
+  controllers: [TournamentsController, MeController],
   providers: [
     {
       provide: TournamentService,

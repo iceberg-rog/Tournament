@@ -1100,6 +1100,51 @@ async function runScoringScenario(): Promise<Outcome> {
   }
 }
 
+/** سناریوی آمار کاربر (UC22): برد/شرکت/تفکیک بازی. */
+async function runUserStatsScenario(): Promise<Outcome> {
+  const base: Outcome = { format: 'SINGLE_ELIM', genre: 'DUEL', n: 0, ok: false, champion: '-', detail: '' };
+  try {
+    const repo = new InMemoryTournamentRepository();
+    let c = 0;
+    const svc = new TournamentService(repo, () => `p${++c}`, () => `2026-01-0${(c % 9) + 1}T00:00:00Z`);
+    for (let k = 0; k < 2; k++) {
+      const t = await svc.create({
+        title: `T${k}`,
+        game: k === 0 ? 'FC26' : 'Warzone',
+        format: 'SINGLE_ELIM',
+        genre: 'DUEL',
+      });
+      for (let i = 0; i < 4; i++) await svc.register(t.id, { id: `u${i}`, name: `u${i}`, seed: 0, skill: 0.5 });
+      await svc.start(t.id);
+      let g = 0;
+      while ((await svc.get(t.id)).status !== 'COMPLETED') {
+        if (g++ > 50) throw new Error('did not converge');
+        for (const m of await svc.ready(t.id)) {
+          // k=0: u0 همیشه می‌برد (قهرمان)؛ k=1: حریفِ u0 می‌برد (u0 حذف می‌شود)
+          const winner =
+            k === 0
+              ? m.participantIds.includes('u0')
+                ? 'u0'
+                : m.participantIds[0]
+              : m.participantIds.includes('u0')
+                ? m.participantIds.find((x) => x !== 'u0')!
+                : m.participantIds[0];
+          await svc.reportDuel(t.id, m.id, winner);
+        }
+      }
+    }
+    const stats = await svc.userStats('u0');
+    if (stats.joined !== 2) throw new Error(`joined ${stats.joined} != 2`);
+    if (stats.completed !== 2) throw new Error('completed != 2');
+    if (stats.wins !== 1) throw new Error(`wins ${stats.wins} != 1`);
+    if (stats.byGame.length !== 2) throw new Error('byGame length');
+    if (stats.timeline.length !== 2) throw new Error('timeline length');
+    return { ...base, ok: true, detail: 'OK' };
+  } catch (e) {
+    return { ...base, detail: e instanceof Error ? e.message : String(e) };
+  }
+}
+
 async function main(): Promise<void> {
   const cases: Case[] = [];
   for (const n of [2, 3, 5, 8, 16, 31]) cases.push({ format: 'SINGLE_ELIM', genre: 'DUEL', n });
@@ -1133,6 +1178,7 @@ async function main(): Promise<void> {
   const editCopy = await runEditCopyScenario();
   const confirmGate = await runConfirmationGateScenario();
   const scoring = await runScoringScenario();
+  const userStats = await runUserStatsScenario();
 
   const pad = (s: string | number, w: number) => String(s).padEnd(w);
   console.log('\n🏆 تست چرخه‌ی کامل تورنومنت (سرویس + مخزن in-memory)');
@@ -1171,6 +1217,7 @@ async function main(): Promise<void> {
   console.log(`سناریوی ویرایش / کپی: ${editCopy.ok ? '✅ PASS' : '❌ FAIL: ' + editCopy.detail}`);
   console.log(`سناریوی گیتِ تأیید داور: ${confirmGate.ok ? '✅ PASS' : '❌ FAIL: ' + confirmGate.detail}`);
   console.log(`سناریوی قالب امتیازدهی: ${scoring.ok ? '✅ PASS' : '❌ FAIL: ' + scoring.detail}`);
+  console.log(`سناریوی آمار کاربر: ${userStats.ok ? '✅ PASS' : '❌ FAIL: ' + userStats.detail}`);
 
   const passed =
     results.filter((r) => r.ok).length +
@@ -1193,8 +1240,9 @@ async function main(): Promise<void> {
     (rating.ok ? 1 : 0) +
     (editCopy.ok ? 1 : 0) +
     (confirmGate.ok ? 1 : 0) +
-    (scoring.ok ? 1 : 0);
-  const total = results.length + 20;
+    (scoring.ok ? 1 : 0) +
+    (userStats.ok ? 1 : 0);
+  const total = results.length + 21;
   console.log(`\nنتیجه: ${passed}/${total} تست پاس شد.`);
   if (passed !== total) {
     console.log('❌ بعضی تست‌ها رد شدند.');

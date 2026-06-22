@@ -35,7 +35,7 @@ export default function LandingPage() {
     <div className="min-h-screen">
       <PublicNavbar />
       <HeroSection featured={featured} />
-      <main className="mx-auto max-w-[1280px] space-y-20 px-4 pb-24 md:space-y-28 md:px-6">
+      <main className="mx-auto max-w-[1280px] space-y-24 px-4 pb-24 md:space-y-32 md:px-6">
         <StatPillGrid />
         <LiveTournamentsShowcase />
         <FeatureStorySection />

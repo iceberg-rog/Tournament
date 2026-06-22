@@ -5,10 +5,26 @@ import type { TournamentRow } from '@/lib/tournaments';
 export function HeroSection({ featured }: { featured?: TournamentRow }) {
   return (
     <section className="relative overflow-hidden">
-      {/* پس‌زمینه‌ی سینماتیک: گرادیانِ شعاعی + گریدِ ظریف + خطِ نوری */}
+      {/* پس‌زمینه‌ی سینماتیک: گرادیانِ شعاعی + گریدِ آرنا + مسیرهای محوِ براکت + noise + vignette */}
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 bg-[radial-gradient(58%_48%_at_85%_-8%,rgba(45,212,191,.18),transparent_60%),radial-gradient(48%_48%_at_-6%_112%,rgba(251,191,36,.12),transparent_55%)]" />
-        <div className="absolute inset-0 opacity-[.05] [background-image:linear-gradient(#fff_1px,transparent_1px),linear-gradient(90deg,#fff_1px,transparent_1px)] [background-size:46px_46px] [mask-image:radial-gradient(70%_60%_at_50%_30%,#000,transparent)]" />
+        {/* درخششِ teal (بالا-راست) + درخششِ طلاییِ ملایم (پایین، نزدیکِ جایزه) */}
+        <div className="absolute inset-0 bg-[radial-gradient(56%_46%_at_84%_-8%,rgba(45,212,191,.2),transparent_60%),radial-gradient(44%_44%_at_-6%_112%,rgba(251,191,36,.1),transparent_55%)]" />
+        {/* گریدِ آرنا */}
+        <div className="absolute inset-0 opacity-[.05] [background-image:linear-gradient(#fff_1px,transparent_1px),linear-gradient(90deg,#fff_1px,transparent_1px)] [background-size:46px_46px] [mask-image:radial-gradient(72%_62%_at_50%_28%,#000,transparent)]" />
+        {/* مسیرهای محوِ براکت در پس‌زمینه */}
+        <svg className="absolute inset-0 h-full w-full opacity-[.07]" viewBox="0 0 1200 600" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+          <g fill="none" stroke="#2dd4bf" strokeWidth="1.5">
+            <path d="M120 120 H220 V200 H320" /><path d="M120 280 H220 V200" />
+            <path d="M120 380 H220 V460 H320" /><path d="M120 540 H220 V460" />
+            <path d="M320 200 H420 V330 H520" /><path d="M320 460 H420 V330" />
+            <path d="M1080 120 H980 V210 H880" /><path d="M1080 300 H980 V210" />
+          </g>
+          <g fill="#2dd4bf"><circle cx="320" cy="200" r="3" /><circle cx="320" cy="460" r="3" /><circle cx="520" cy="330" r="3.5" /></g>
+        </svg>
+        {/* بافتِ noise بسیار ظریف */}
+        <div className="absolute inset-0 opacity-[.04] [background-image:url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 width=%22120%22 height=%22120%22><filter id=%22n%22><feTurbulence type=%22fractalNoise%22 baseFrequency=%220.9%22 numOctaves=%222%22/></filter><rect width=%22100%25%22 height=%22100%25%22 filter=%22url(%23n)%22/></svg>')]" />
+        {/* vignette */}
+        <div className="absolute inset-0 [background:radial-gradient(120%_90%_at_50%_0%,transparent_55%,rgba(0,0,0,.45))]" />
         <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-l from-transparent via-accent/40 to-transparent" />
       </div>
 
@@ -25,8 +41,8 @@ export function HeroSection({ featured }: { featured?: TournamentRow }) {
             بازی کن،{' '}
             <span className="anim-gradient bg-gradient-to-l from-accent via-gold to-accent bg-clip-text text-transparent">جایزه بگیر</span>
           </h1>
-          <p className="mt-5 max-w-xl text-base leading-8 text-muted">
-            SHELTER پلتفرمِ کاملِ برگزاریِ مسابقاتِ بازی‌های ویدیویی است؛ از ثبت‌نام و براکت تا داوری، پرداختِ امن، چتِ زنده و توزیعِ جایزه.
+          <p className="mt-5 max-w-lg text-base leading-8 text-muted">
+            براکت بساز، نتیجه بگیر، جایزه آزاد کن. هر مسابقه — از ثبت‌نام تا فینال — یک‌جا، زنده و امن.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
             <Link href="/register" className="btn-primary px-7 py-3 text-base">شروعِ رایگان</Link>

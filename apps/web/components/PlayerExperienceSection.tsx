@@ -18,12 +18,12 @@ const Ico = ({ children, size = 18 }: { children: React.ReactNode; size?: number
   </svg>
 );
 
-/** مسیرِ تجربه‌ی بازیکن: پیدا کن ← ثبت‌نام ← رقابت ← جایزه. */
-const FLOW: { label: string; icon: React.ReactNode }[] = [
+/** گره‌های مسیرِ بازیکن: پیدا کردن → ثبت‌نام → براکت → چت → نتیجه → جایزه. */
+const JOURNEY: { label: string; icon: React.ReactNode }[] = [
   {
-    label: 'پیدا کن',
+    label: 'پیدا کردن',
     icon: (
-      <Ico>
+      <Ico size={16}>
         <circle cx="11" cy="11" r="7" />
         <path d="m20 20-3.5-3.5" />
       </Ico>
@@ -32,7 +32,7 @@ const FLOW: { label: string; icon: React.ReactNode }[] = [
   {
     label: 'ثبت‌نام',
     icon: (
-      <Ico>
+      <Ico size={16}>
         <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
         <circle cx="9" cy="7" r="4" />
         <path d="M19 8v6M22 11h-6" />
@@ -40,25 +40,43 @@ const FLOW: { label: string; icon: React.ReactNode }[] = [
     ),
   },
   {
-    label: 'رقابت',
+    label: 'براکت',
     icon: (
-      <Ico>
-        <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18" />
-        <path d="M6 4h12v4a6 6 0 0 1-12 0V4Z" />
-        <path d="M12 14v3M9 21h6M10 21v-1.5a2 2 0 1 1 4 0V21" />
+      <Ico size={16}>
+        <path d="M3 5h5v14H3M21 9h-5M21 15h-5M8 8h5a3 3 0 0 1 3 3v2a3 3 0 0 1-3 3H8" />
+      </Ico>
+    ),
+  },
+  {
+    label: 'چت',
+    icon: (
+      <Ico size={16}>
+        <path d="M21 12a8 8 0 0 1-11.5 7.2L3 21l1.8-6.5A8 8 0 1 1 21 12Z" />
+      </Ico>
+    ),
+  },
+  {
+    label: 'نتیجه',
+    icon: (
+      <Ico size={16}>
+        <path d="M9 11l3 3 8-8" />
+        <path d="M20 12v6a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h9" />
       </Ico>
     ),
   },
   {
     label: 'جایزه',
     icon: (
-      <Ico>
+      <Ico size={16}>
         <circle cx="12" cy="8" r="6" />
         <path d="M8.5 13.5 7 22l5-3 5 3-1.5-8.5" />
       </Ico>
     ),
   },
 ];
+
+/** نتایجِ اخیرِ نمایشی برای پیش‌نمایشِ پروفایل (تصویری). */
+const RECENT: ('W' | 'L')[] = ['W', 'W', 'L', 'W', 'W', 'W'];
 
 export function PlayerExperienceSection() {
   return (
@@ -67,20 +85,19 @@ export function PlayerExperienceSection() {
       <div className="mb-8">
         <span className="chip bg-accent/10 text-accent">
           <span className="me-1 inline-block h-1.5 w-1.5 rounded-full bg-accent" />
-          برای بازیکن‌ها
+          مسیرِ بازیکن
         </span>
         <h2 className="mt-3 font-display text-[clamp(22px,3vw,34px)] font-bold leading-tight text-white">
-          بازیکن‌ها سریع پیدا می‌کنند، راحت ثبت‌نام می‌کنند، شفاف رقابت می‌کنند
+          رقابت زنده، داوری شفاف، جایزه‌ی امن
         </h2>
-        <p className="mt-3 max-w-2xl text-muted leading-8">
-          از پیدا کردنِ تورنومنتِ مناسب تا دریافتِ امنِ جایزه — همه‌چیز در یک مسیرِ روان و
-          شفاف. بدونِ واسطه، بدونِ ابهام، با آماری که به آن اعتماد داری.
+        <p className="mt-3 max-w-2xl text-muted leading-7">
+          از پیدا کردنِ تورنومنتِ مناسب تا دریافتِ امنِ جایزه؛ یک مسیرِ روشن و بدونِ ابهام
+          که در هر گام می‌دانی کجای رقابت ایستاده‌ای.
         </p>
       </div>
 
-      {/* دو ستون؛ ترتیب نسبت به بخشِ برگزارکننده برعکس شده تا ریتمِ صفحه متناوب بماند:
-          ابتدا لیستِ نکات، سپس ویژوال (در RTL ویژوال سمتِ چپ می‌نشیند). */}
-      <div className="grid items-stretch gap-6 md:grid-cols-2">
+      {/* دو ستون؛ ترتیب نسبت به بخشِ برگزارکننده برعکس است (نکات راست، ویژوال چپ در RTL). */}
+      <div className="grid items-stretch gap-6 md:grid-cols-[0.9fr_1.1fr]">
         {/* ── ستونِ نکات: PLAYER_POINTS با مارکرِ teal ── */}
         <div className="flex h-full flex-col rounded-2xl border border-line bg-tile p-6 shadow-[0_18px_40px_-24px_rgba(0,0,0,.8)]">
           <h3 className="mb-5 font-display text-lg font-bold text-white">چرخه‌ی بازیکن، سرتاسر شفاف</h3>
@@ -103,77 +120,120 @@ export function PlayerExperienceSection() {
           </ul>
         </div>
 
-        {/* ── ستونِ ویژوال: مسیرِ بازیکن + استکِ دیسیپلین ── */}
+        {/* ── ستونِ ویژوال: کارتِ پروفایلِ بازیکن + نوارِ مسیر ── */}
         <div className="relative flex h-full flex-col overflow-hidden rounded-2xl border border-line bg-tile2 p-6 shadow-[0_18px_40px_-24px_rgba(0,0,0,.8)]">
           {/* درخششِ نرمِ پس‌زمینه */}
           <div className="pointer-events-none absolute -left-16 -top-20 h-48 w-48 rounded-full bg-accent/10 blur-3xl" />
           <div className="pointer-events-none absolute inset-0" style={{ boxShadow: 'inset 0 0 60px 8px rgba(0,0,0,.35)' }} />
 
-          {/* مسیرِ تجربه: پیدا کن ← ثبت‌نام ← رقابت ← جایزه */}
+          {/* کارتِ پروفایلِ نمایشی */}
           <div className="relative">
+            <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-faint">
+              <Ico size={14}>
+                <circle cx="12" cy="8" r="4" />
+                <path d="M4 20a8 8 0 0 1 16 0" />
+              </Ico>
+              پیش‌نمایشِ پروفایل
+            </div>
+
+            <div className="rounded-2xl border border-line bg-tile p-4 anim-float-sm shadow-[0_14px_34px_-22px_rgba(0,0,0,.85)]">
+              <div className="flex items-center gap-3">
+                {/* آواتارِ گرادیانی با حروفِ اول */}
+                <span className="grid h-12 w-12 flex-none place-items-center rounded-full bg-gradient-to-br from-accent to-accent-dim font-display text-base font-bold text-[#06231f] shadow-[0_8px_20px_-10px_rgba(45,212,191,.9)]">
+                  AP
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-display font-bold text-white" dir="ltr">
+                    Arian&nbsp;Pro
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                    <span className="chip bg-accent/10 text-accent">
+                      <Ico size={12}>
+                        <path d="m12 3 2.5 5 5.5.8-4 3.9.9 5.5L12 16.5 7.1 18.2l.9-5.5-4-3.9 5.5-.8Z" />
+                      </Ico>
+                      <span className="tnum">ELO ۱۸۴۲</span>
+                    </span>
+                    <span className="chip bg-gold/10 text-gold">
+                      <Ico size={12}>
+                        <path d="M6 3v6a6 6 0 0 0 12 0V3" />
+                        <path d="M5 21h14M9 21v-3a3 3 0 0 1 6 0v3" />
+                      </Ico>
+                      رتبه‌ی ۷
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* ردیفِ نتایجِ اخیر: پیل‌های W/L */}
+              <div className="mt-4">
+                <div className="mb-2 flex items-center justify-between text-[11px] text-faint">
+                  <span>نتایجِ اخیر</span>
+                  <span className="tnum text-good">۵ بُرد از ۶</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  {RECENT.map((r, i) => (
+                    <span
+                      key={i}
+                      className={`grid h-6 w-6 flex-none place-items-center rounded-md text-[11px] font-bold tnum ${
+                        r === 'W'
+                          ? 'border border-good/25 bg-good/10 text-good'
+                          : 'border border-bad/25 bg-bad/10 text-bad'
+                      }`}
+                    >
+                      {r === 'W' ? 'بُرد' : 'باخت'}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* دکمه‌ی اصلی */}
+              <button type="button" className="btn-primary mt-4 w-full">
+                <Ico size={16}>
+                  <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+                  <circle cx="9" cy="7" r="4" />
+                  <path d="M19 8v6M22 11h-6" />
+                </Ico>
+                ثبت‌نام در تورنومنت
+              </button>
+            </div>
+          </div>
+
+          {/* نوارِ مسیر: ۶ گره با خطِ teal (عمودی در موبایل، افقی در دسکتاپ) */}
+          <div className="relative mt-6 flex flex-1 flex-col">
             <div className="mb-4 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-faint">
               <Ico size={14}>
                 <path d="M5 12h14M13 6l6 6-6 6" />
               </Ico>
               مسیرِ یک بازیکن
             </div>
-            <div className="grid grid-cols-4 gap-2">
-              {FLOW.map((f, i) => (
-                <Reveal key={f.label} delay={i * 90} className="h-full">
-                  <div className="flex h-full flex-col items-center gap-2 rounded-xl border border-line bg-black/20 px-2 py-4 text-center anim-float-sm" style={{ animationDelay: `${i * 0.4}s` }}>
-                    <span className={`grid h-10 w-10 place-items-center rounded-xl ${i === FLOW.length - 1 ? 'bg-gold/10 text-gold' : 'bg-accent/10 text-accent'}`}>
-                      {f.icon}
-                    </span>
-                    <span className="text-xs font-semibold text-white">{f.label}</span>
-                    <span className="tnum text-[10px] text-faint">{`۰${i + 1}`}</span>
-                  </div>
-                </Reveal>
-              ))}
-            </div>
-          </div>
 
-          {/* استکِ دیسیپلین: مرورِ تورنومنت بر اساسِ بازی و پلتفرم */}
-          <div className="relative mt-6 flex flex-1 flex-col">
-            <div className="mb-3 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-faint">
-              <Ico size={14}>
-                <rect x="3" y="4" width="18" height="12" rx="2" />
-                <path d="M7 20h10M9 16v4M15 16v4" />
-              </Ico>
-              مرور بر اساسِ دیسیپلین
-            </div>
-            <div className="flex flex-1 flex-col justify-center gap-2.5">
-              {[
-                { name: 'تیراندازی', plat: 'PC', open: 'ثبت‌نام باز' },
-                { name: 'بتل‌رویال', plat: 'Cross-play', open: 'ثبت‌نام باز' },
-                { name: 'MOBA', plat: 'PC', open: 'زنده' },
-              ].map((d, i) => (
-                <Reveal key={d.name} delay={i * 80}>
-                  <div className="row-soft flex items-center gap-3 p-3">
-                    <span className="grid h-9 w-9 flex-none place-items-center rounded-lg bg-accent/10 text-accent">
-                      <Ico size={16}>
-                        <path d="M6 12h4M8 10v4" />
-                        <rect x="2" y="6" width="20" height="12" rx="4" />
-                        <circle cx="16" cy="11" r="1" />
-                        <circle cx="18.5" cy="13" r="1" />
-                      </Ico>
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-semibold text-white">{d.name}</div>
-                      <div className="text-xs text-faint">{d.plat}</div>
-                    </div>
+            <div className="relative flex flex-1 flex-col justify-center">
+              {/* خطِ رابطِ teal: عمودی در موبایل، افقی در دسکتاپ */}
+              <span
+                aria-hidden="true"
+                className="pointer-events-none absolute bottom-6 right-[19px] top-6 w-px bg-gradient-to-b from-accent/50 via-accent/30 to-accent/10 md:bottom-auto md:right-6 md:left-6 md:top-[19px] md:h-px md:w-auto md:bg-gradient-to-l md:from-accent/50 md:via-accent/30 md:to-accent/10"
+              />
+              <ol className="relative flex flex-col gap-3 md:flex-row md:items-start md:justify-between md:gap-1">
+                {JOURNEY.map((j, i) => (
+                  <Reveal
+                    as="li"
+                    key={j.label}
+                    delay={i * 80}
+                    className="flex items-center gap-3 md:flex-1 md:flex-col md:items-center md:gap-2 md:text-center"
+                  >
                     <span
-                      className={`chip ${
-                        d.open === 'زنده'
-                          ? 'border border-bad/30 bg-bad/10 text-bad'
-                          : 'bg-accent/10 text-accent'
+                      className={`grid h-10 w-10 flex-none place-items-center rounded-xl border ${
+                        i === JOURNEY.length - 1
+                          ? 'border-gold/30 bg-gold/10 text-gold'
+                          : 'border-accent/25 bg-accent/10 text-accent'
                       }`}
                     >
-                      {d.open === 'زنده' && <span className="me-1 inline-block h-1.5 w-1.5 rounded-full bg-bad" />}
-                      {d.open}
+                      {j.icon}
                     </span>
-                  </div>
-                </Reveal>
-              ))}
+                    <span className="text-sm font-semibold text-white md:text-xs">{j.label}</span>
+                  </Reveal>
+                ))}
+              </ol>
             </div>
           </div>
         </div>

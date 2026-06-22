@@ -10,9 +10,9 @@ export interface GameDef {
 /** کاتالوگِ ۴۰ بازیِ معروف با دسته‌بندی و رنگِ برند برای کاورِ حرفه‌ای. */
 export const GAMES: GameDef[] = [
   // ⚽ ورزشی
-  { slug: 'ea-fc-24', name: 'EA Sports FC 24', category: 'ورزشی', emoji: '⚽', c1: '#00b140', c2: '#003b1f' },
-  { slug: 'efootball', name: 'eFootball', category: 'ورزشی', emoji: '⚽', c1: '#1e90ff', c2: '#0a2a66' },
-  { slug: 'fifa-23', name: 'FIFA 23', category: 'ورزشی', emoji: '⚽', c1: '#0b6e4f', c2: '#053d2b' },
+  { slug: 'ea-fc-26', name: 'EA Sports FC 26', category: 'ورزشی', emoji: '⚽', c1: '#00d35a', c2: '#003b1f' },
+  { slug: 'ea-fc-25', name: 'EA Sports FC 25', category: 'ورزشی', emoji: '⚽', c1: '#00b140', c2: '#04301c' },
+  { slug: 'efootball', name: 'eFootball 2026', category: 'ورزشی', emoji: '⚽', c1: '#1e90ff', c2: '#0a2a66' },
   { slug: 'rocket-league', name: 'Rocket League', category: 'ورزشی', emoji: '🚗', c1: '#1f8fff', c2: '#f5a623' },
   { slug: 'nba-2k', name: 'NBA 2K', category: 'ورزشی', emoji: '🏀', c1: '#c8102e', c2: '#1d1d1d' },
 
@@ -72,4 +72,21 @@ export function findGame(name?: string): GameDef | undefined {
   if (!name) return undefined;
   const n = name.toLowerCase();
   return GAMES.find((g) => g.name.toLowerCase() === n) ?? GAMES.find((g) => n.includes(g.slug.replace(/-/g, ' ')) || g.name.toLowerCase().includes(n) || n.includes(g.name.toLowerCase()));
+}
+
+/** فرمت‌های پیشنهادی برای هر دسته‌ی بازی. */
+export const RECOMMENDED_FORMATS: Record<string, string[]> = {
+  ورزشی: ['SINGLE_ELIM', 'DOUBLE_ELIM', 'ROUND_ROBIN'],
+  تیراندازی: ['SINGLE_ELIM', 'DOUBLE_ELIM', 'SWISS'],
+  'بتل‌رویال': ['FFA', 'SWISS'],
+  MOBA: ['SINGLE_ELIM', 'DOUBLE_ELIM', 'SWISS'],
+  'مبارزه‌ای': ['DOUBLE_ELIM', 'SINGLE_ELIM'],
+  'مسابقه‌ای': ['FFA', 'ROUND_ROBIN'],
+  استراتژی: ['SWISS', 'SINGLE_ELIM'],
+  'موبایل/پارتی': ['FFA', 'SINGLE_ELIM'],
+};
+
+export function recommendedFormats(game?: string): string[] {
+  const g = findGame(game);
+  return g ? RECOMMENDED_FORMATS[g.category] ?? [] : [];
 }

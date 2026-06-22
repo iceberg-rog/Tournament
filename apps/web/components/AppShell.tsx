@@ -15,6 +15,7 @@ const fmt = (n: number) => n.toLocaleString('fa-IR');
 /* ---- آیکن‌های خطی (بدون ایموجی) ---- */
 const PATHS: Record<string, ReactNode> = {
   grid: <><rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" /></>,
+  pad: <><rect x="2" y="6" width="20" height="12" rx="4" /><path d="M6 12h4M8 10v4" /><circle cx="15" cy="11" r="1" /><circle cx="18" cy="13" r="1" /></>,
   trophy: <><path d="M6 3v6a6 6 0 0 0 12 0V3" /><path d="M5 21h14M9 21v-3a3 3 0 0 1 6 0v3" /><path d="M18 5h2a2 2 0 0 1 0 4M6 5H4a2 2 0 0 0 0 4" /></>,
   plus: <path d="M12 5v14M5 12h14" />,
   bars: <path d="M4 19V5M4 19h16M8 16v-5M13 16V8M18 16v-9" />,
@@ -43,6 +44,7 @@ const NAV_GROUPS: { label: string; admin?: boolean; items: { href: string; label
     label: 'اجرا',
     items: [
       { href: '/dashboard', label: 'داشبورد', icon: 'grid' },
+      { href: '/games', label: 'دیسیپلین‌ها', icon: 'pad' },
       { href: '/tournaments', label: 'تورنومنت‌ها', icon: 'trophy' },
       { href: '/tournaments/new', label: 'ساخت تورنومنت', icon: 'plus' },
     ],

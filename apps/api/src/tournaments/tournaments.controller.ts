@@ -264,4 +264,25 @@ export class TournamentsController {
     }
     return this.svc.resolveDispute(id, matchId, dto.winnerId);
   }
+
+  // ───────── مدیریتِ شرکت‌کننده توسطِ مدیر/داور ─────────
+  @Post(':id/participants/:pid/remove')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'MAIN_ADMIN', 'REFEREE', 'GAME_ADMIN')
+  removeParticipant(@Param('id') id: string, @Param('pid') pid: string) {
+    return this.svc.removeParticipant(id, pid);
+  }
+
+  @Post(':id/participants/:pid/message')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles('ADMIN', 'MAIN_ADMIN', 'REFEREE', 'GAME_ADMIN')
+  messageParticipant(
+    @Param('id') id: string,
+    @Param('pid') pid: string,
+    @Body() body: { text?: string },
+  ) {
+    const text = (body.text ?? '').trim();
+    if (text.length < 1) throw new BadRequestException('text is required');
+    return this.svc.messageParticipant(id, pid, text);
+  }
 }

@@ -182,6 +182,22 @@ export class TournamentService {
     throw new DomainError('participant is not registered');
   }
 
+  /** حذفِ یک شرکت‌کننده توسطِ مدیر/برگزارکننده (در DRAFT) + اعلان به او. */
+  async removeParticipant(tournamentId: string, participantId: string): Promise<void> {
+    await this.withdraw(tournamentId, participantId);
+    await this.notify(participantId, 'REMOVED', tournamentId, 'توسطِ مدیر از تورنومنت حذف شدید');
+  }
+
+  /** پیامِ مستقیمِ مدیر/برگزارکننده به یک شرکت‌کننده (از طریقِ اعلان‌ها). */
+  async messageParticipant(tournamentId: string, participantId: string, text: string): Promise<void> {
+    const rec = await this.mustGet(tournamentId);
+    const inTournament =
+      rec.participants.some((p) => p.id === participantId) ||
+      (rec.waitlist ?? []).some((p) => p.id === participantId);
+    if (!inTournament) throw new DomainError('participant is not in this tournament');
+    await this.notify(participantId, 'MESSAGE', tournamentId, text.slice(0, 500));
+  }
+
   /** شروع تورنومنت: seeding بر اساس ترتیب ثبت‌نام، DRAFT → RUNNING. */
   async start(id: string): Promise<void> {
     const rec = await this.mustGet(id);

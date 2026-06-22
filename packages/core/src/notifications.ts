@@ -4,7 +4,9 @@ export type NotificationType =
   | 'STARTED'
   | 'WON'
   | 'COMPLETED'
-  | 'CANCELLED';
+  | 'CANCELLED'
+  | 'REMOVED'
+  | 'MESSAGE';
 
 /** ورودیِ ساختِ اعلان (id/read/createdAt توسط مخزن پر می‌شوند). */
 export interface NotificationInput {

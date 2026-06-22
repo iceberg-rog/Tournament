@@ -83,9 +83,23 @@ for (const g of GAMES) {
 
 export const GAME_CATEGORIES = ['ورزشی', 'تیراندازی', 'بتل‌رویال', 'MOBA', 'مبارزه‌ای', 'مسابقه‌ای', 'استراتژی', 'موبایل/پارتی'];
 
+// نام‌های مستعار/دستیِ رایج → slugِ کاتالوگ (تا کاورِ واقعی بگیرند).
+const ALIASES: Record<string, string> = {
+  fc26: 'ea-fc-26', 'fc 26': 'ea-fc-26', fc25: 'ea-fc-25', 'fc 25': 'ea-fc-25',
+  fifa: 'ea-fc-26', 'fifa 26': 'ea-fc-26', 'ea fc': 'ea-fc-26',
+  valo: 'valorant', csgo: 'cs2', 'cs:go': 'cs2', cs: 'cs2', dota: 'dota-2',
+  'league of legends': 'lol', lol: 'lol', 'wild rift': 'wild-rift',
+  warzone: 'warzone', cod: 'cod', pubgm: 'pubg-mobile',
+};
+
 export function findGame(name?: string): GameDef | undefined {
   if (!name) return undefined;
-  const n = name.toLowerCase();
+  const n = name.toLowerCase().trim();
+  const alias = ALIASES[n];
+  if (alias) {
+    const byAlias = GAMES.find((g) => g.slug === alias);
+    if (byAlias) return byAlias;
+  }
   return GAMES.find((g) => g.name.toLowerCase() === n) ?? GAMES.find((g) => n.includes(g.slug.replace(/-/g, ' ')) || g.name.toLowerCase().includes(n) || n.includes(g.name.toLowerCase()));
 }
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 
@@ -8,15 +8,28 @@ const NAV = [
   { href: '/tournaments', label: 'تورنومنت‌ها' },
   { href: '/games', label: 'دیسیپلین‌ها' },
   { href: '/register', label: 'برگزارکنندگان' },
+  { href: '/#how', label: 'راهنما' },
 ];
 
 export function PublicNavbar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
-  const active = (href: string) => pathname === href || pathname.startsWith(href + '/');
+  const [scrolled, setScrolled] = useState(false);
+  const active = (href: string) => href.startsWith('/#') ? false : pathname === href || pathname.startsWith(href + '/');
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-line bg-ink/85 backdrop-blur-xl">
+    <header
+      className={`sticky top-0 z-40 transition-colors duration-300 ${
+        scrolled ? 'border-b border-line bg-ink/85 shadow-[0_8px_30px_-20px_rgba(0,0,0,.9)] backdrop-blur-xl' : 'border-b border-transparent bg-ink/30 backdrop-blur-md'
+      }`}
+    >
       <div className="mx-auto flex h-16 max-w-[1280px] items-center gap-4 px-4 md:px-6">
         {/* برند */}
         <Link href="/" className="flex flex-none items-center gap-2.5">

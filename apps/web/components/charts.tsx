@@ -68,8 +68,8 @@ export function RadialProgress({ value, size = 130, label }: { value: number; si
       <svg width={size} height={size}>
         <defs>
           <linearGradient id="radial-grad" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stopColor="#8b5cf6" />
-            <stop offset="100%" stopColor="#d946ef" />
+            <stop offset="0%" stopColor="#2dd4bf" />
+            <stop offset="100%" stopColor="#fbbf24" />
           </linearGradient>
         </defs>
         <g transform={`rotate(-90 ${size / 2} ${size / 2})`}>
@@ -113,7 +113,7 @@ export function BarChart({
           <div key={i} className="relative flex h-full flex-1 flex-col justify-end">
             <span className="absolute inset-x-0 -top-5 text-center text-xs font-semibold text-slate-200">{d.value}</span>
             <div
-              className="rounded-t-lg bg-gradient-to-t from-violet-600 to-fuchsia-500 transition-all"
+              className="rounded-t-lg bg-gradient-to-t from-accent-dim to-accent transition-all"
               style={{ height: `${Math.max(3, (d.value / max) * 100)}%` }}
               title={`${d.label}: ${d.value}`}
             />
@@ -144,14 +144,14 @@ export function AreaChart({ values, height = 120, max }: { values: number[]; hei
     <svg viewBox={`0 0 ${w} ${height}`} preserveAspectRatio="none" className="w-full" style={{ height }}>
       <defs>
         <linearGradient id="area-grad" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="rgba(217,70,239,0.45)" />
-          <stop offset="100%" stopColor="rgba(217,70,239,0)" />
+          <stop offset="0%" stopColor="rgba(45,212,191,0.40)" />
+          <stop offset="100%" stopColor="rgba(45,212,191,0)" />
         </linearGradient>
       </defs>
       <path d={area} fill="url(#area-grad)" />
-      <path d={line} fill="none" stroke="#d946ef" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
+      <path d={line} fill="none" stroke="#2dd4bf" strokeWidth="1.5" vectorEffect="non-scaling-stroke" />
       {pts.map((p, i) => (
-        <circle key={i} cx={p[0]} cy={p[1]} r="1.6" fill="#f0abfc" vectorEffect="non-scaling-stroke" />
+        <circle key={i} cx={p[0]} cy={p[1]} r="1.6" fill="#5eead4" vectorEffect="non-scaling-stroke" />
       ))}
     </svg>
   );

@@ -120,14 +120,18 @@ export class TournamentsController {
 
   @Post(':id/register')
   @UseGuards(JwtAuthGuard)
-  register(
+  async register(
     @Param('id') id: string,
     @Request() req: { user: { id: string; email: string } },
     @Body() body: RegisterDto,
   ) {
+    const user = await this.prisma.user.findUnique({
+      where: { id: req.user.id },
+      select: { displayName: true },
+    });
     return this.svc.register(id, {
       id: req.user.id,
-      name: body.name ?? req.user.email,
+      name: body.name ?? user?.displayName ?? req.user.email.split('@')[0],
       seed: 0,
       skill: 0,
     });

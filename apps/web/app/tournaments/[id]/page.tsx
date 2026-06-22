@@ -47,6 +47,28 @@ interface Standing {
   points: number;
 }
 
+function short(name?: string): string {
+  if (!name) return '—';
+  const base = name.split('@')[0];
+  return base.length > 14 ? base.slice(0, 14) + '…' : base;
+}
+function hue(s: string): number {
+  let h = 0;
+  for (const c of s) h = (h * 31 + c.charCodeAt(0)) % 360;
+  return h;
+}
+function Avatar({ label, size = 'h-8 w-8 text-xs' }: { label: string; size?: string }) {
+  const h = hue(label);
+  return (
+    <span
+      className={`grid ${size} shrink-0 place-items-center rounded-full font-bold text-white`}
+      style={{ background: `linear-gradient(135deg, hsl(${h} 60% 48%), hsl(${(h + 40) % 360} 60% 34%))` }}
+    >
+      {label.charAt(0).toUpperCase()}
+    </span>
+  );
+}
+
 export default function TournamentDetail() {
   const params = useParams();
   const router = useRouter();
@@ -226,46 +248,44 @@ export default function TournamentDetail() {
       {error && <p className="mb-4 text-red-400">{error}</p>}
 
       {loggedIn && rec.status === 'DRAFT' && (
-        <div className="mb-6 flex gap-3">
+        <div className="mb-6 flex flex-wrap gap-3">
           <button
             onClick={() => act(() => authedPost(`/tournaments/${id}/register`, {}))}
-            className="rounded-lg bg-indigo-600 px-4 py-2 hover:bg-indigo-500"
+            className="rounded-xl bg-gradient-to-l from-violet-600 to-fuchsia-500 px-5 py-2.5 font-semibold shadow-lg shadow-fuchsia-600/25 hover:opacity-90"
           >
-            ثبت‌نام من
+            ✋ ثبت‌نام من
           </button>
           <button
             onClick={() => act(() => authedPost(`/tournaments/${id}/withdraw`, {}))}
-            className="rounded-lg border border-slate-700 px-4 py-2 hover:bg-slate-800"
+            className="btn-ghost"
           >
             انصراف
           </button>
           <button
             onClick={() => act(() => authedPost(`/tournaments/${id}/start`, {}))}
-            className="rounded-lg border border-slate-700 px-4 py-2 hover:bg-slate-800"
+            className="rounded-xl bg-gradient-to-l from-emerald-600 to-teal-500 px-5 py-2.5 font-semibold shadow-lg shadow-emerald-600/25 hover:opacity-90"
           >
-            شروع تورنومنت
+            🚀 شروع تورنومنت
           </button>
         </div>
       )}
 
-      <section className="mb-6">
-        <h2 className="mb-2 font-bold">شرکت‌کنندگان ({rec.participants.length})</h2>
-        <div className="flex flex-wrap gap-2">
+      <section className="card mb-6 p-5">
+        <h2 className="mb-3 font-bold">شرکت‌کنندگان ({rec.participants.length})</h2>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
           {rec.participants.map((p) => (
-            <span key={p.id} className="rounded bg-slate-800 px-3 py-1 text-sm">
-              {p.name}
-            </span>
+            <div key={p.id} className="flex items-center gap-2 rounded-xl bg-white/5 px-3 py-2">
+              <Avatar label={short(p.name)} />
+              <span className="truncate text-sm" title={p.name}>
+                {short(p.name)}
+              </span>
+            </div>
           ))}
           {rec.participants.length === 0 && <span className="text-slate-500">هنوز کسی ثبت‌نام نکرده.</span>}
         </div>
         {(rec.waitlist?.length ?? 0) > 0 && (
-          <div className="mt-3 text-sm">
-            <span className="text-slate-400">لیست انتظار: </span>
-            {rec.waitlist!.map((p) => (
-              <span key={p.id} className="ml-1 rounded bg-slate-700 px-2 py-1 text-xs">
-                {p.name}
-              </span>
-            ))}
+          <div className="mt-3 text-sm text-slate-400">
+            لیست انتظار: {rec.waitlist!.map((p) => short(p.name)).join('، ')}
           </div>
         )}
       </section>
@@ -277,54 +297,54 @@ export default function TournamentDetail() {
           <div className="flex flex-col gap-2">
             {ready.map((m) =>
               m.kind === 'DUEL' ? (
-                <div key={m.id} className="flex items-center justify-between rounded-lg bg-slate-800 p-3">
-                  <span>
-                    {nameOf(m.participantIds[0])} <span className="text-slate-500">vs</span>{' '}
-                    {nameOf(m.participantIds[1])}
-                  </span>
+                <div key={m.id} className="card p-4">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                      <Avatar label={short(nameOf(m.participantIds[0]))} />
+                      <span className="truncate text-sm" title={nameOf(m.participantIds[0])}>
+                        {short(nameOf(m.participantIds[0]))}
+                      </span>
+                    </div>
+                    <span className="shrink-0 rounded-lg bg-white/5 px-2.5 py-1 text-xs font-extrabold text-slate-300">VS</span>
+                    <div className="flex min-w-0 flex-1 items-center justify-end gap-2">
+                      <span className="truncate text-sm" title={nameOf(m.participantIds[1])}>
+                        {short(nameOf(m.participantIds[1]))}
+                      </span>
+                      <Avatar label={short(nameOf(m.participantIds[1]))} />
+                    </div>
+                  </div>
                   {loggedIn && (
-                    <span className="flex gap-2">
+                    <div className="mt-3 flex flex-wrap items-center justify-center gap-2 border-t border-white/5 pt-3">
                       {rec.requireCheckIn && (
                         <button
-                          onClick={() =>
-                            act(() => authedPost(`/tournaments/${id}/matches/${m.id}/checkin`, {}))
-                          }
-                          className="rounded bg-sky-600 px-3 py-1 text-sm hover:bg-sky-500"
+                          onClick={() => act(() => authedPost(`/tournaments/${id}/matches/${m.id}/checkin`, {}))}
+                          className="rounded-lg bg-sky-600 px-3 py-1.5 text-xs hover:bg-sky-500"
                         >
                           check-in
                         </button>
                       )}
+                      <span className="text-xs text-slate-400">ثبتِ برنده:</span>
                       {m.participantIds.map((pid) => (
                         <button
                           key={pid}
-                          onClick={() =>
-                            act(() =>
-                              authedPost(`/tournaments/${id}/matches/${m.id}/report`, { winnerId: pid }),
-                            )
-                          }
-                          className="rounded bg-emerald-600 px-3 py-1 text-sm hover:bg-emerald-500"
+                          onClick={() => act(() => authedPost(`/tournaments/${id}/matches/${m.id}/report`, { winnerId: pid }))}
+                          className="rounded-lg bg-emerald-600/90 px-3 py-1.5 text-sm font-medium hover:bg-emerald-500"
                         >
-                          برنده: {nameOf(pid)}
+                          🏆 {short(nameOf(pid))}
                         </button>
                       ))}
-                    </span>
+                    </div>
                   )}
                 </div>
               ) : (
-                <div key={m.id} className="flex items-center justify-between rounded-lg bg-slate-800 p-3">
-                  <span>لابی ({m.participantIds.length} نفر)</span>
+                <div key={m.id} className="card flex items-center justify-between p-4">
+                  <span className="text-sm">🎮 لابی ({m.participantIds.length} نفر)</span>
                   {loggedIn && (
                     <button
-                      onClick={() =>
-                        act(() =>
-                          authedPost(`/tournaments/${id}/matches/${m.id}/report`, {
-                            rankedIds: m.participantIds,
-                          }),
-                        )
-                      }
-                      className="rounded bg-emerald-600 px-3 py-1 text-sm hover:bg-emerald-500"
+                      onClick={() => act(() => authedPost(`/tournaments/${id}/matches/${m.id}/report`, { rankedIds: m.participantIds }))}
+                      className="rounded-lg bg-emerald-600/90 px-3 py-1.5 text-sm hover:bg-emerald-500"
                     >
-                      ثبت رتبه‌بندی (ترتیب فعلی)
+                      ثبت رتبه‌بندی
                     </button>
                   )}
                 </div>
@@ -335,30 +355,27 @@ export default function TournamentDetail() {
       )}
 
       {standings.length > 0 && (
-        <section>
-          <h2 className="mb-2 font-bold">رده‌بندی</h2>
-          <table className="w-full text-sm">
-            <thead className="text-slate-400">
-              <tr>
-                <th className="p-2 text-right">#</th>
-                <th className="p-2 text-right">بازیکن</th>
-                <th className="p-2 text-right">برد</th>
-                <th className="p-2 text-right">باخت</th>
-                <th className="p-2 text-right">امتیاز</th>
-              </tr>
-            </thead>
-            <tbody>
-              {standings.map((s) => (
-                <tr key={s.participantId} className="border-t border-slate-800">
-                  <td className="p-2">{s.rank}</td>
-                  <td className="p-2">{s.name}</td>
-                  <td className="p-2">{s.wins}</td>
-                  <td className="p-2">{s.losses}</td>
-                  <td className="p-2">{s.points}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <section className="mb-6">
+          <h2 className="mb-3 font-bold">رده‌بندی</h2>
+          <div className="card overflow-hidden">
+            {standings.map((s) => (
+              <div key={s.participantId} className="flex items-center gap-3 border-b border-white/5 px-4 py-3 last:border-0">
+                <span
+                  className={`grid h-8 w-8 shrink-0 place-items-center rounded-lg text-sm font-bold ${
+                    s.rank === 1 ? 'bg-amber-400/20 text-amber-300' : s.rank <= 3 ? 'bg-slate-400/20 text-slate-200' : 'bg-white/5 text-slate-400'
+                  }`}
+                >
+                  {s.rank === 1 ? '🥇' : s.rank === 2 ? '🥈' : s.rank === 3 ? '🥉' : `#${s.rank}`}
+                </span>
+                <Avatar label={short(s.name)} />
+                <span className="flex-1 truncate text-sm" title={s.name}>
+                  {short(s.name)}
+                </span>
+                <span className="text-xs text-slate-400">🏆 {s.wins} · ✖ {s.losses}</span>
+                <span className="w-12 text-left font-bold text-fuchsia-300">{s.points}</span>
+              </div>
+            ))}
+          </div>
         </section>
       )}
 

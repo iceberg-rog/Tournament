@@ -6,7 +6,7 @@ function hueOf(s: string): number {
   return h;
 }
 
-/** کاورِ تورنومنت: عکسِ داده‌شده، یا کاورِ طراحی‌شده با رنگِ برندِ بازی + آیکون + اسم. */
+/** کاورِ تورنومنت: عکسِ آپلودشده، یا کاورِ تایپوگرافیکِ حرفه‌ای با رنگِ برندِ بازی. */
 export function CoverBanner({
   coverImage,
   game,
@@ -36,29 +36,40 @@ export function CoverBanner({
 
   const g = findGame(game);
   const h = hueOf(game || 'game');
-  const c1 = g?.c1 ?? `hsl(${h} 65% 34%)`;
-  const c2 = g?.c2 ?? `hsl(${(h + 45) % 360} 70% 18%)`;
-  const emoji = g?.emoji ?? '🎮';
-  const name = g?.name ?? game;
+  const c1 = g?.c1 || `hsl(${h} 62% 32%)`;
+  const c2 = g?.c2 || `hsl(${(h + 40) % 360} 70% 16%)`;
+  const name = g?.name ?? game ?? 'تورنومنت';
 
   return (
     <div
       className={`relative grid ${rounded} ${className} place-items-center overflow-hidden`}
       style={{ backgroundImage: `linear-gradient(135deg, ${c1}, ${c2})` }}
     >
-      <div className="pointer-events-none absolute -right-8 -top-8 h-28 w-28 rounded-full bg-white/15 blur-2xl" />
-      <div className="pointer-events-none absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle at 30% 120%, rgba(255,255,255,0.25), transparent 45%)' }} />
+      {/* فرم‌های هندسیِ تزئینی */}
+      <div className="pointer-events-none absolute -right-8 -top-10 h-28 w-28 rounded-full bg-white/10 blur-xl" />
+      <div className="pointer-events-none absolute -bottom-12 -left-10 h-32 w-32 rounded-full bg-black/25 blur-2xl" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-tr from-transparent via-white/5 to-transparent" />
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.08]"
+        style={{
+          backgroundImage:
+            'repeating-linear-gradient(115deg, #fff 0 1px, transparent 1px 16px)',
+        }}
+      />
+
       {g?.category && (
-        <span className="absolute right-2 top-2 rounded-md bg-black/30 px-2 py-0.5 text-[10px] font-medium text-white/90 backdrop-blur">
+        <span className="absolute right-2 top-2 rounded-md bg-black/35 px-2 py-0.5 text-[10px] font-semibold text-white/90 backdrop-blur">
           {g.category}
         </span>
       )}
-      <div className="z-10 flex flex-col items-center px-2 text-center">
-        <span className="text-4xl drop-shadow-lg md:text-5xl">{emoji}</span>
-        {showName && name && (
-          <span className="mt-1 line-clamp-1 max-w-full text-sm font-extrabold text-white drop-shadow md:text-base">{name}</span>
-        )}
-      </div>
+
+      {showName && (
+        <div className="relative z-10 flex h-full w-full items-center justify-center px-3">
+          <span className="text-center text-base font-black uppercase leading-tight tracking-tight text-white drop-shadow-[0_2px_8px_rgba(0,0,0,0.6)] md:text-xl">
+            {name}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { authedPost, publicGet, isLoggedIn } from '@/lib/api';
+import { authedPost, isLoggedIn } from '@/lib/api';
 import { CoverBanner } from '@/components/CoverBanner';
+import { GAMES, GAME_CATEGORIES } from '@/lib/games';
 
 const STEPS = [
   { n: 1, label: 'بازی و پلتفرم', icon: '🎮' },
@@ -16,7 +17,6 @@ const STEPS = [
   { n: 7, label: 'مرور و ساخت', icon: '🚀' },
 ];
 
-const DEFAULT_GAMES = ['FC26', 'eFootball', 'Warzone', 'Call of Duty', 'Valorant', 'PUBG', 'Rocket League', 'Apex'];
 const PLATFORMS: [string, string, string][] = [
   ['PC', '🖥️', 'کامپیوتر'],
   ['PS5', '🎮', 'PS5'],
@@ -39,7 +39,7 @@ export default function WizardPage() {
   const [step, setStep] = useState(1);
   const [maxStep, setMaxStep] = useState(1);
   const [error, setError] = useState('');
-  const [games, setGames] = useState<string[]>(DEFAULT_GAMES);
+  const [gameCat, setGameCat] = useState<string | null>(null);
   const [f, setF] = useState({
     game: '',
     platform: 'PC',
@@ -62,14 +62,6 @@ export default function WizardPage() {
     prize2: 0,
   });
   const set = (p: Partial<typeof f>) => setF({ ...f, ...p });
-
-  useEffect(() => {
-    publicGet<{ name: string }[]>('/games')
-      .then((gs) => {
-        if (gs.length) setGames([...new Set([...gs.map((g) => g.name), ...DEFAULT_GAMES])]);
-      })
-      .catch(() => {});
-  }, []);
 
   if (!isLoggedIn())
     return (
@@ -189,17 +181,37 @@ export default function WizardPage() {
             {step === 1 && (
               <div className="space-y-5">
                 <div>
-                  <p className="mb-2 text-sm text-slate-400">بازی را انتخاب کن</p>
+                  <p className="mb-2 text-sm text-slate-400">دسته‌بندی بازی</p>
                   <div className="flex flex-wrap gap-2">
-                    {games.map((g) => (
+                    <button
+                      onClick={() => setGameCat(null)}
+                      className={`rounded-xl px-3 py-1.5 text-sm transition ${gameCat === null ? 'bg-gradient-to-l from-violet-600 to-fuchsia-500 font-semibold' : 'bg-white/5 hover:bg-white/10'}`}
+                    >
+                      همه
+                    </button>
+                    {GAME_CATEGORIES.map((c) => (
                       <button
-                        key={g}
-                        onClick={() => set({ game: g })}
-                        className={`rounded-xl px-4 py-2 text-sm transition ${
-                          f.game === g ? 'bg-gradient-to-l from-violet-600 to-fuchsia-500 font-semibold' : 'bg-white/5 hover:bg-white/10'
+                        key={c}
+                        onClick={() => setGameCat(c)}
+                        className={`rounded-xl px-3 py-1.5 text-sm transition ${gameCat === c ? 'bg-gradient-to-l from-violet-600 to-fuchsia-500 font-semibold' : 'bg-white/5 hover:bg-white/10'}`}
+                      >
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="mb-2 text-sm text-slate-400">بازی را انتخاب کن</p>
+                  <div className="grid max-h-[340px] grid-cols-2 gap-3 overflow-y-auto pl-1 sm:grid-cols-3 md:grid-cols-4">
+                    {GAMES.filter((g) => !gameCat || g.category === gameCat).map((g) => (
+                      <button
+                        key={g.slug}
+                        onClick={() => set({ game: g.name })}
+                        className={`overflow-hidden rounded-xl border-2 transition ${
+                          f.game === g.name ? 'border-fuchsia-500 ring-2 ring-fuchsia-500/30' : 'border-transparent hover:border-white/20'
                         }`}
                       >
-                        {g}
+                        <CoverBanner game={g.name} rounded="rounded-lg" className="h-24 w-full" />
                       </button>
                     ))}
                   </div>

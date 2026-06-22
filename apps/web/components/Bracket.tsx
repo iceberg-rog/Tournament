@@ -51,10 +51,11 @@ function Slot({
   );
 }
 
-function MatchCard({ m, nameOf, onPlayer }: { m: BMatch; nameOf: (id: string) => string; onPlayer?: (id: string) => void }) {
+function MatchCard({ m, nameOf, onPlayer, highlightId }: { m: BMatch; nameOf: (id: string) => string; onPlayer?: (id: string) => void; highlightId?: string }) {
   const live = !!(m.a && m.b && !m.winner);
+  const mine = !!highlightId && (m.a === highlightId || m.b === highlightId);
   return (
-    <div className={`overflow-hidden rounded-lg border bg-tile2 ${live ? 'border-accent/40' : 'border-line'}`}>
+    <div className={`overflow-hidden rounded-lg border bg-tile2 ${mine ? 'border-accent ring-1 ring-accent/40' : live ? 'border-accent/40' : 'border-line'}`}>
       <Slot id={m.a} m={m} nameOf={nameOf} onPlayer={onPlayer} />
       <div className="h-px bg-line" />
       <Slot id={m.b} m={m} nameOf={nameOf} onPlayer={onPlayer} />
@@ -75,11 +76,13 @@ function Columns({
   nameOf,
   onPlayer,
   titleFn,
+  highlightId,
 }: {
   matches: BMatch[];
   nameOf: (id: string) => string;
   onPlayer?: (id: string) => void;
   titleFn: (round: number, maxRound: number) => string;
+  highlightId?: string;
 }) {
   const rounds = [...new Set(matches.map((m) => m.round))].sort((a, b) => a - b);
   const maxRound = Math.max(...rounds);
@@ -94,7 +97,7 @@ function Columns({
             </p>
             <div className="flex flex-1 flex-col justify-around gap-3">
               {ms.map((m) => (
-                <MatchCard key={m.id} m={m} nameOf={nameOf} onPlayer={onPlayer} />
+                <MatchCard key={m.id} m={m} nameOf={nameOf} onPlayer={onPlayer} highlightId={highlightId} />
               ))}
             </div>
           </div>
@@ -110,11 +113,13 @@ export function Bracket({
   matches,
   nameOf,
   onPlayer,
+  highlightId,
 }: {
   format: string;
   matches: BMatch[];
   nameOf: (id: string) => string;
   onPlayer?: (id: string) => void;
+  highlightId?: string;
 }) {
   if (!matches.length) return <p className="text-sm text-faint">جدولی برای نمایش نیست.</p>;
 
@@ -132,7 +137,7 @@ export function Bracket({
           return (
             <div key={g.b}>
               <p className="mb-2 text-sm font-bold text-accent">{g.title}</p>
-              <Columns matches={ms} nameOf={nameOf} onPlayer={onPlayer} titleFn={g.b === 'GF' ? () => 'فینال' : elimTitle} />
+              <Columns matches={ms} nameOf={nameOf} onPlayer={onPlayer} highlightId={highlightId} titleFn={g.b === 'GF' ? () => 'فینال' : elimTitle} />
             </div>
           );
         })}
@@ -141,9 +146,9 @@ export function Bracket({
   }
 
   if (format === 'SINGLE_ELIM') {
-    return <Columns matches={matches} nameOf={nameOf} onPlayer={onPlayer} titleFn={elimTitle} />;
+    return <Columns matches={matches} nameOf={nameOf} onPlayer={onPlayer} highlightId={highlightId} titleFn={elimTitle} />;
   }
 
   // ROUND_ROBIN / SWISS — دورهای مسابقات (گروهِ همه‌باهمه)
-  return <Columns matches={matches} nameOf={nameOf} onPlayer={onPlayer} titleFn={(r) => `دور ${r}`} />;
+  return <Columns matches={matches} nameOf={nameOf} onPlayer={onPlayer} highlightId={highlightId} titleFn={(r) => `دور ${r}`} />;
 }

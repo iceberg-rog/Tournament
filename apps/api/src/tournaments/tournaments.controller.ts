@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  ForbiddenException,
   Get,
   Param,
   Post,
@@ -125,13 +126,17 @@ export class TournamentsController {
     @Request() req: { user: { id: string; email: string } },
     @Body() body: RegisterDto,
   ) {
-    const user = await this.prisma.user.findUnique({
-      where: { id: req.user.id },
-      select: { displayName: true },
-    });
+    let displayName: string | undefined;
+    try {
+      displayName =
+        (await this.prisma.user?.findUnique({ where: { id: req.user.id }, select: { displayName: true } }))
+          ?.displayName ?? undefined;
+    } catch {
+      // prisma در دسترس نیست (مثلاً تستِ e2e بدون DB) — به نامِ ورودی/ایمیل برمی‌گردیم
+    }
     return this.svc.register(id, {
       id: req.user.id,
-      name: body.name ?? user?.displayName ?? req.user.email.split('@')[0],
+      name: body.name ?? displayName ?? req.user.email.split('@')[0],
       seed: 0,
       skill: 0,
     });
@@ -207,11 +212,24 @@ export class TournamentsController {
 
   @Post(':id/matches/:matchId/report')
   @UseGuards(JwtAuthGuard)
-  report(
+  async report(
     @Param('id') id: string,
     @Param('matchId') matchId: string,
+    @Request() req: { user: { id: string; role: string } },
     @Body() dto: ReportDto,
   ) {
+    // فقط داور/مدیر، برگزارکننده، یا یکی از دو طرفِ همین مسابقه می‌تواند نتیجه ثبت کند.
+    const STAFF = ['ADMIN', 'MAIN_ADMIN', 'REFEREE', 'GAME_ADMIN'];
+    if (!STAFF.includes(req.user.role)) {
+      const rec = await this.svc.get(id);
+      const isOrganizer = rec.organizerId === req.user.id;
+      if (!isOrganizer) {
+        const m = (await this.svc.ready(id)).find((x) => x.id === matchId);
+        if (!m || !m.participantIds.includes(req.user.id)) {
+          throw new ForbiddenException('فقط شرکت‌کنندگانِ این مسابقه یا داور می‌توانند نتیجه ثبت کنند');
+        }
+      }
+    }
     if (dto.rankedIds && dto.rankedIds.length > 0) {
       return this.svc.reportLobby(id, matchId, dto.rankedIds);
     }

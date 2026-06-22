@@ -149,6 +149,10 @@ export default function TournamentDetail() {
   const isStaff = !!me && STAFF.includes(me.role);
   const isOrganizer = !!me && rec.organizerId === me.id;
   const canManage = isStaff || isOrganizer;
+  const meId = me?.id;
+  const isParticipant = !!meId && rec.participants.some((p) => p.id === meId);
+  const myReady = rec.status === 'RUNNING' && meId ? ready.find((m) => m.participantIds.includes(meId)) : undefined;
+  const canReportMatch = (m: ReadyMatch) => canManage || (!!meId && m.participantIds.includes(meId));
   const startFa = rec.startAt ? new Date(rec.startAt).toLocaleString('fa-IR') : null;
   const endFa = rec.startAt && rec.durationHours ? new Date(new Date(rec.startAt).getTime() + rec.durationHours * 3600_000).toLocaleString('fa-IR') : null;
   const standOf = (pid: string) => standings.find((s) => s.participantId === pid);
@@ -191,6 +195,27 @@ export default function TournamentDetail() {
         {endFa && <span className="chip bg-tile2 text-slate-200"><Icon name="flag" size={13} /> پایان: {endFa}</span>}
       </div>
 
+      {/* ===== وضعیتِ بیننده ===== */}
+      {isParticipant ? (
+        <div className="rounded-2xl border border-accent/30 bg-accent/[0.06] px-4 py-2.5 text-sm">
+          <b className="text-accent">شما در این تورنومنت هستید.</b>{' '}
+          {rec.status === 'RUNNING' && (myReady ? (
+            <>نوبتِ شما: در برابرِ <b className="text-slate-100">{short(nameOf(myReady.participantIds.find((p) => p !== meId) ?? ''))}</b> — به تبِ «مسابقات» بروید.</>
+          ) : (
+            <span className="text-muted">منتظرِ مشخص‌شدنِ حریفِ بعدی…</span>
+          ))}
+          {rec.status === 'COMPLETED' && <span className="text-muted">تورنومنت پایان یافته — نتیجه‌ات در رده‌بندی.</span>}
+        </div>
+      ) : me ? (
+        rec.status === 'DRAFT' ? (
+          <div className="rounded-2xl border border-line bg-tile2 px-4 py-2.5 text-sm text-muted">هنوز ثبت‌نام نکرده‌اید — می‌توانید در «نمای کلی» ثبت‌نام کنید.</div>
+        ) : (
+          <div className="rounded-2xl border border-line bg-tile2 px-4 py-2.5 text-sm text-muted">حالتِ تماشا — شما شرکت‌کننده نیستید؛ همه‌چیز را می‌بینید ولی نمی‌توانید نتیجه ثبت کنید.</div>
+        )
+      ) : (
+        <div className="rounded-2xl border border-line bg-tile2 px-4 py-2.5 text-sm text-muted">حالتِ تماشا (مهمان). برای شرکت یا ثبتِ نتیجه <a href="/login" className="text-accent">وارد شوید</a>.</div>
+      )}
+
       {/* ===== نوارِ ابزارِ مدیریت ===== */}
       {canManage && (
         <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-accent/25 bg-accent/[0.06] p-3">
@@ -225,8 +250,11 @@ export default function TournamentDetail() {
         <div className="space-y-4">
           {loggedIn && rec.status === 'DRAFT' && (
             <div className="card flex flex-wrap gap-3 p-5">
-              <button onClick={() => act(() => authedPost(`/tournaments/${id}/register`, {}))} className="btn-primary px-5 py-2.5">ثبت‌نام من</button>
-              <button onClick={() => act(() => authedPost(`/tournaments/${id}/withdraw`, {}))} className="btn-ghost">انصراف</button>
+              {!isParticipant ? (
+                <button onClick={() => act(() => authedPost(`/tournaments/${id}/register`, {}))} className="btn-primary px-5 py-2.5">ثبت‌نام من</button>
+              ) : (
+                <button onClick={() => act(() => authedPost(`/tournaments/${id}/withdraw`, {}))} className="btn-ghost">انصراف از تورنومنت</button>
+              )}
             </div>
           )}
           {rec.streamUrl && (
@@ -261,7 +289,7 @@ export default function TournamentDetail() {
       {activeTab === 'bracket' && (
         <section className="card p-5">
           <div className="tile-head"><span className="tile-ic"><Icon name="swords" size={15} /></span><span className="tile-title">جدولِ مسابقات</span><span className="ms-auto text-[11px] text-faint">روی هر بازیکن کلیک کن</span></div>
-          <Bracket format={rec.format} matches={bracket} nameOf={(pid) => short(nameOf(pid))} onPlayer={openPlayer} />
+          <Bracket format={rec.format} matches={bracket} nameOf={(pid) => short(nameOf(pid))} onPlayer={openPlayer} highlightId={meId} />
         </section>
       )}
 
@@ -313,13 +341,14 @@ export default function TournamentDetail() {
             {ready.length === 0 && <p className="text-faint">مسابقه‌ی آماده‌ای نیست.</p>}
             <div className="flex flex-col gap-2">
               {ready.map((m) => m.kind === 'DUEL' ? (
-                <div key={m.id} className="rounded-[14px] border border-line bg-tile2 p-4">
+                <div key={m.id} className={`rounded-[14px] border bg-tile2 p-4 ${meId && m.participantIds.includes(meId) ? 'border-accent/50 ring-1 ring-accent/30' : 'border-line'}`}>
+                  {meId && m.participantIds.includes(meId) && <p className="mb-2 text-center text-[11px] font-bold text-accent">نوبتِ شما</p>}
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex min-w-0 flex-1 items-center gap-2"><Avatar label={short(nameOf(m.participantIds[0]))} /><span className="truncate text-sm">{short(nameOf(m.participantIds[0]))}</span></div>
                     <span className="shrink-0 rounded-lg bg-accent/15 px-2.5 py-1 text-xs font-extrabold text-[#5eead4]">VS</span>
                     <div className="flex min-w-0 flex-1 items-center justify-end gap-2"><span className="truncate text-sm">{short(nameOf(m.participantIds[1]))}</span><Avatar label={short(nameOf(m.participantIds[1]))} /></div>
                   </div>
-                  {loggedIn && (
+                  {canReportMatch(m) && (
                     <div className="mt-3 flex flex-wrap items-center justify-center gap-2 border-t border-line pt-3">
                       {rec.requireCheckIn && <button onClick={() => act(() => authedPost(`/tournaments/${id}/matches/${m.id}/checkin`, {}))} className="btn-ghost px-3 py-1.5 text-xs">check-in</button>}
                       <span className="text-xs text-muted">ثبتِ برنده:</span>
@@ -340,7 +369,7 @@ export default function TournamentDetail() {
               ) : (
                 <div key={m.id} className="flex items-center justify-between rounded-[14px] border border-line bg-tile2 p-4">
                   <span className="flex items-center gap-2 text-sm"><span className="text-accent"><Icon name="pad" size={16} /></span>لابی ({m.participantIds.length} نفر)</span>
-                  {loggedIn && <button onClick={() => act(() => authedPost(`/tournaments/${id}/matches/${m.id}/report`, { rankedIds: m.participantIds }))} className="btn-primary px-3 py-1.5 text-sm">ثبت رتبه‌بندی</button>}
+                  {canReportMatch(m) && <button onClick={() => act(() => authedPost(`/tournaments/${id}/matches/${m.id}/report`, { rankedIds: m.participantIds }))} className="btn-primary px-3 py-1.5 text-sm">ثبت رتبه‌بندی</button>}
                 </div>
               ))}
             </div>

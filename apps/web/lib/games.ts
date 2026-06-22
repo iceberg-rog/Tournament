@@ -68,18 +68,16 @@ export const GAMES: GameDef[] = [
   { slug: 'minecraft', name: 'Minecraft', category: 'موبایل/پارتی', emoji: '🟩', c1: '#5d8f3a', c2: '#3b2a1a' },
 ];
 
-// کاورهای واقعیِ لوکال (دانلودشده در public/games). بقیه‌ی بازی‌ها از کاورِ ساختگی استفاده می‌کنند.
-const REAL_IMAGE = new Set([
-  'aoe4', 'apex', 'battlefield', 'cod', 'cs2', 'dota-2', 'ea-fc-25', 'efootball', 'fall-guys', 'fortnite',
-  'forza', 'halo', 'hearthstone', 'lol', 'mk1', 'nba-2k', 'nfs', 'overwatch-2', 'r6', 'rocket-league',
-  'sf6', 'tekken-8', 'tft', 'warzone',
-]);
+// کاورهای واقعیِ لوکال (دانلودشده در public/games). همه‌ی ۴۰ بازیِ کاتالوگ کاورِ واقعیِ landscape
+// دارند؛ این‌ها پوسترِ عمودیِ واقعی هم دارند (برای هابِ بازی‌ها).
 const REAL_POSTER = new Set([
-  'aoe4', 'apex', 'battlefield', 'cod', 'cs2', 'dota-2', 'ea-fc-25', 'efootball', 'fall-guys', 'forza',
-  'halo', 'mk1', 'nba-2k', 'nfs', 'overwatch-2', 'pubg', 'r6', 'rocket-league', 'sf6', 'tekken-8',
+  'aoe4', 'apex', 'arena-of-valor', 'battlefield', 'brawl-stars', 'clash-of-clans', 'clash-royale', 'cod',
+  'cod-mobile', 'cs2', 'dota-2', 'ea-fc-25', 'ea-fc-26', 'efootball', 'fall-guys', 'forza', 'free-fire',
+  'gt7', 'halo', 'honor-of-kings', 'minecraft', 'mk1', 'mobile-legends', 'nba-2k', 'nfs', 'overwatch-2',
+  'pubg', 'pubg-mobile', 'r6', 'rocket-league', 'sf6', 'smash', 'tekken-8', 'valorant', 'wild-rift',
 ]);
 for (const g of GAMES) {
-  if (REAL_IMAGE.has(g.slug)) g.image = `/games/${g.slug}.jpg`;
+  g.image = `/games/${g.slug}.jpg`;
   if (REAL_POSTER.has(g.slug)) g.poster = `/games/${g.slug}-p.jpg`;
 }
 

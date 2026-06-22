@@ -8,7 +8,7 @@ export function FeaturedTournamentPreview({ t }: { t: TournamentRow }) {
   return (
     <Link
       href={`/tournaments/${t.id}`}
-      className="group relative block overflow-hidden rounded-2xl border border-line shadow-[0_22px_50px_-26px_rgba(0,0,0,.9)] transition hover:border-accent/40"
+      className="group relative block overflow-hidden rounded-2xl border border-line shadow-[0_16px_38px_-24px_rgba(0,0,0,.8)] transition hover:border-accent/40"
     >
       <div className="relative aspect-[16/10] w-full">
         <CoverBanner game={t.game} coverImage={t.coverImage} rounded="rounded-none" className="absolute inset-0 h-full w-full transition duration-500 group-hover:scale-[1.03]" showName={false} />

@@ -27,7 +27,7 @@ export function TournamentCard({ t, guest = true }: { t: TournamentRow; guest?: 
   return (
     <Link
       href={`/tournaments/${t.id}`}
-      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-line bg-tile transition duration-200 hover:-translate-y-1 hover:border-accent/40 hover:shadow-[0_18px_44px_-22px_rgba(0,0,0,.85)]"
+      className="group flex h-full flex-col overflow-hidden rounded-2xl border border-line bg-tile transition duration-200 hover:-translate-y-0.5 hover:border-accent/40 hover:shadow-[0_14px_32px_-20px_rgba(0,0,0,.75)]"
     >
       {/* کاور با نسبتِ ثابت */}
       <div className="relative aspect-[16/9] w-full overflow-hidden">

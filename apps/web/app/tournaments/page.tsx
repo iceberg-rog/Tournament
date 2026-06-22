@@ -68,6 +68,7 @@ export default function TournamentsPage() {
   // آمارِ محاسبه‌شده از داده‌ی واقعی (نه hardcoded)
   const stats = useMemo(
     () => ({
+      total: list.length,
       open: list.filter((t) => t.status === 'DRAFT').length,
       live: list.filter((t) => t.status === 'RUNNING').length,
       done: list.filter((t) => t.status === 'COMPLETED' || t.status === 'CANCELLED').length,
@@ -119,7 +120,6 @@ export default function TournamentsPage() {
           types={types}
           search={search}
           setSearch={setSearch}
-          count={filtered.length}
         />
 
         {loading ? (
@@ -129,7 +129,10 @@ export default function TournamentsPage() {
             ))}
           </div>
         ) : filtered.length ? (
-          <TournamentGrid items={filtered} guest={guest} />
+          <>
+            <p className="text-xs text-faint">{filtered.length.toLocaleString('fa-IR')} تورنومنت یافت شد</p>
+            <TournamentGrid items={filtered} guest={guest} />
+          </>
         ) : (
           <EmptyState
             title="تورنومنتی با این فیلتر پیدا نشد"

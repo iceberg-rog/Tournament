@@ -25,10 +25,10 @@ export function GameFilterStrip({
   const shown = sorted.slice(0, max);
 
   return (
-    <div className="-mx-1 flex gap-2.5 overflow-x-auto px-1 pb-1 [scrollbar-color:#262a35_transparent] [scrollbar-width:thin]">
+    <div className="hscroll flex gap-3 pb-2">
       <button
         onClick={() => onSelect(null)}
-        className={`grid h-[64px] w-20 flex-none place-items-center rounded-xl border text-xs font-bold transition ${
+        className={`grid h-[72px] w-[88px] flex-none place-items-center rounded-2xl border text-xs font-bold transition ${
           selected === null ? 'border-accent bg-accent/15 text-accent' : 'border-line bg-tile2 text-muted hover:text-text'
         }`}
       >
@@ -40,23 +40,26 @@ export function GameFilterStrip({
           key={g.game}
           onClick={() => onSelect(g.game === selected ? null : g.game)}
           title={g.game}
-          className={`group relative h-[64px] w-[132px] flex-none overflow-hidden rounded-xl border transition ${
-            selected === g.game ? 'border-accent ring-2 ring-accent/40' : 'border-line hover:border-line2'
+          className={`group relative h-[72px] w-[150px] flex-none overflow-hidden rounded-2xl border transition ${
+            selected === g.game ? 'border-accent ring-2 ring-accent/50' : 'border-line hover:border-line2'
           }`}
         >
           <CoverBanner game={g.game} rounded="rounded-none" className="absolute inset-0 h-full w-full" showName={false} />
-          <span className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-black/10" />
-          <span className="absolute left-1.5 top-1.5 rounded bg-black/55 px-1.5 text-[10px] font-semibold text-white/85 tnum backdrop-blur-sm">{fmt(g.total)}</span>
-          <span className="absolute inset-x-0 bottom-1 truncate px-2 text-[11px] font-bold text-white" dir="ltr">{g.game}</span>
+          <span className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-black/5" />
+          {g.total > 0 && (
+            <span className="absolute left-2 top-2 rounded-md bg-black/55 px-1.5 py-0.5 text-[10px] font-semibold text-white/85 tnum backdrop-blur-sm">{fmt(g.total)}</span>
+          )}
+          {selected === g.game && <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-accent shadow-[0_0_0_3px_rgba(45,212,191,.25)]" />}
+          <span className="absolute inset-x-0 bottom-1.5 truncate px-2.5 text-[12px] font-bold text-white" dir="ltr">{g.game}</span>
         </button>
       ))}
 
       {sorted.length > max && (
         <Link
           href="/games"
-          className="grid h-[64px] w-24 flex-none place-items-center rounded-xl border border-dashed border-line text-xs font-semibold text-muted transition hover:border-accent/50 hover:text-accent"
+          className="grid h-[72px] w-[100px] flex-none place-items-center rounded-2xl border border-dashed border-line text-center text-xs font-semibold leading-tight text-muted transition hover:border-accent/50 hover:text-accent"
         >
-          همه‌ی بازی‌ها →
+          همه‌ی<br />بازی‌ها →
         </Link>
       )}
     </div>

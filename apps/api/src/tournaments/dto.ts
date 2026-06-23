@@ -133,6 +133,12 @@ export class RegisterDto {
   @IsString()
   @MaxLength(40)
   name?: string;
+
+  // نامِ نمایشیِ اختیاری داخلِ مسابقه؛ اگر داده شود، در براکت به‌جای نامِ کاربری دیده می‌شود.
+  @IsOptional()
+  @IsString()
+  @MaxLength(32)
+  inGameName?: string;
 }
 
 export class ReportDto {

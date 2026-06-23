@@ -14,7 +14,8 @@ export type IntegrationProviderType =
   | 'jobs'
   | 'webhooks'
   | 'moderation'
-  | 'analytics';
+  | 'analytics'
+  | 'streaming';
 
 export const STATUS_FA: Record<IntegrationStatus, string> = {
   connected: 'متصل',

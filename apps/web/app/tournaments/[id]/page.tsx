@@ -87,6 +87,7 @@ function DbTournamentDetail() {
   const [chat, setChat] = useState<ChatMessage[]>([]);
   const [chatText, setChatText] = useState('');
   const [streamInput, setStreamInput] = useState('');
+  const [inGameName, setInGameName] = useState('');
   const [pendingConf, setPendingConf] = useState<{ matchId: string; winnerId: string; sides?: [string, string] }[]>([]);
   const [error, setError] = useState('');
   const [tab, setTab] = useState<'overview' | 'bracket' | 'players' | 'matches' | 'standings' | 'chat'>('overview');
@@ -258,9 +259,27 @@ function DbTournamentDetail() {
       {activeTab === 'overview' && (
         <div className="space-y-4">
           {loggedIn && rec.status === 'DRAFT' && (
-            <div className="card flex flex-wrap gap-3 p-5">
+            <div className="card p-5">
               {!isParticipant ? (
-                <button onClick={() => act(() => authedPost(`/tournaments/${id}/register`, {}))} className="btn-primary px-5 py-2.5">ثبت‌نام من</button>
+                <div className="space-y-3">
+                  <div>
+                    <label className="mb-1 block text-sm font-medium">نامِ نمایشیِ داخلِ مسابقه <span className="text-faint">(اختیاری)</span></label>
+                    <input
+                      value={inGameName}
+                      onChange={(e) => setInGameName(e.target.value)}
+                      maxLength={32}
+                      placeholder="مثلاً PhantomGG"
+                      className="w-full max-w-sm rounded-lg border border-line bg-tile2 px-3 py-2 text-sm outline-none focus:border-accent-dim"
+                    />
+                    <p className="mt-1 text-xs text-faint">اگر نمی‌خواهی نامِ اصلی یا نامِ کاربریِ عمومی‌ات در براکت دیده شود، یک نامِ نمایشی برای این تورنومنت وارد کن.</p>
+                  </div>
+                  <button
+                    onClick={() => act(() => authedPost(`/tournaments/${id}/register`, inGameName.trim() ? { inGameName: inGameName.trim() } : {}))}
+                    className="btn-primary px-5 py-2.5"
+                  >
+                    ثبت‌نام من
+                  </button>
+                </div>
               ) : (
                 <button onClick={() => act(() => authedPost(`/tournaments/${id}/withdraw`, {}))} className="btn-ghost">انصراف از تورنومنت</button>
               )}

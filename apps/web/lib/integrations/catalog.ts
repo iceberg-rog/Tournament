@@ -261,6 +261,27 @@ export const INTEGRATIONS: IntegrationDef[] = [
     requiredEnvs: ['SENTRY_DSN', 'POSTHOG_KEY'],
     dependentFeatures: ['مانیتورینگِ خطا', 'ردیابیِ رویداد', 'ثبتِ اقدامِ مدیر'],
   },
+  {
+    id: 'streaming',
+    label: 'پخشِ زنده',
+    description: 'پخشِ زنده‌ی مسابقات روی سرورِ خودمان یا سرویسِ بیرونی (ingest, playback, VOD, چتِ روی پخش).',
+    providers: sel('internal_mock_stream', 'rtmp_server', 'hls', 'custom_api'),
+    mockProvider: 'internal_mock_stream',
+    fields: [
+      { key: 'ingestUrl', label: 'آدرسِ Ingest (RTMP)', kind: 'text', placeholder: 'rtmp://ingest.shelter.gg/live', required: true },
+      { key: 'playbackBase', label: 'آدرسِ پایه‌ی پخش (HLS)', kind: 'text', placeholder: 'https://cdn.shelter.gg/hls', required: true },
+      { key: 'streamKey', label: 'کلیدِ استریم', kind: 'password', secret: true, required: true },
+      { key: 'latencyMode', label: 'حالتِ تأخیر', kind: 'select', options: sel('low', 'normal'), defaultValue: 'low' },
+      { key: 'defaultVisibility', label: 'دیداری‌بودنِ پیش‌فرض', kind: 'select', options: sel('public', 'participants', 'admins'), defaultValue: 'public' },
+      { key: 'recording', label: 'ضبطِ پخش', kind: 'toggle', defaultValue: true },
+      { key: 'vod', label: 'فعال‌سازیِ VOD', kind: 'toggle', defaultValue: true },
+      { key: 'chatOverlay', label: 'چتِ روی پخش', kind: 'toggle', defaultValue: true, advanced: true },
+      { key: 'maxBitrate', label: 'بیشینه‌ی بیت‌ریت (kbps)', kind: 'number', defaultValue: 6000, advanced: true },
+      { key: 'transcodeProfiles', label: 'پروفایل‌های ترنسکُد', kind: 'text', defaultValue: '1080p,720p,480p', advanced: true },
+    ],
+    requiredEnvs: ['STREAM_INGEST_URL', 'STREAM_KEY'],
+    dependentFeatures: ['پخشِ زنده‌ی مسابقات', 'صفحه‌ی تماشای عمومی', 'ضبط و VOD'],
+  },
 ];
 
 export const INTEGRATION_BY_ID = Object.fromEntries(INTEGRATIONS.map((i) => [i.id, i])) as Record<IntegrationProviderType, IntegrationDef>;

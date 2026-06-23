@@ -12,12 +12,15 @@ import { useAdminRole, useEnsureAdminRole, useTournament } from '@/lib/admin/sto
 
 const TABS = [
   { seg: '', label: 'نمای کلی' },
-  { seg: 'participants', label: 'شرکت‌کننده‌ها' },
+  { seg: 'control-room', label: 'اتاقِ کنترل' },
+  { seg: 'schedule', label: 'برنامه‌ی زمان‌بندی' },
   { seg: 'bracket', label: 'براکت' },
   { seg: 'matches', label: 'مسابقات' },
+  { seg: 'participants', label: 'شرکت‌کننده‌ها' },
+  { seg: 'chat', label: 'چت و اعلان‌ها' },
   { seg: 'disputes', label: 'اختلاف‌ها' },
+  { seg: 'stream', label: 'استریمِ زنده' },
   { seg: 'finance', label: 'مالی' },
-  { seg: 'control-room', label: 'اتاقِ کنترل' },
   { seg: 'audit-log', label: 'گزارشِ عملیات' },
 ];
 

@@ -138,7 +138,8 @@ export class TournamentsController {
     }
     return this.svc.register(id, {
       id: req.user.id,
-      name: body.name ?? displayName ?? req.user.email.split('@')[0],
+      // نامِ نمایشیِ مسابقه اولویت دارد تا بازیکن بتواند نامِ عمومی‌اش را پنهان کند
+      name: body.inGameName?.trim() || body.name || displayName || req.user.email.split('@')[0],
       seed: 0,
       skill: 0,
     });

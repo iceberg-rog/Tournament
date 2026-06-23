@@ -2,244 +2,161 @@
 
 import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { authedGet, authedPost, isLoggedIn } from '@/lib/api';
-import { BarChart, Donut, RadialProgress } from '@/components/charts';
+import { apiGet, isLoggedIn } from '@/lib/api';
+import { roleGroup } from '@/lib/roles';
+import { PageHeader } from '@/components/admin/PageHeader';
+import { AdminBadge } from '@/components/admin/AdminBadge';
+import {
+  ADMIN_KPIS,
+  ADMIN_QUEUE,
+  QUEUE_META,
+  RECENT_ACTIVITY,
+  SYSTEM_HEALTH,
+  TOURNAMENT_STATUS_META,
+  fmt,
+  money,
+  todayOps,
+} from '@/lib/admin';
 
-interface Stats {
-  users: number;
-  tournaments: { draft: number; running: number; completed: number; cancelled: number; total: number };
-  payments: { paidCount: number; paidTotal: number };
-  pendingWithdrawals: number;
-  openReports: number;
-  openTickets: number;
-}
-interface AdminUser {
-  id: string;
-  email: string;
-  displayName: string;
-  role: string;
-  accountStatus: string;
-}
-interface Game {
-  id: string;
-  slug: string;
-  name: string;
-}
-
-const ROLES = ['USER', 'GAME_ADMIN', 'REFEREE', 'SUPPORT', 'MAIN_ADMIN', 'ADMIN'];
-const fmt = (n: number) => n.toLocaleString('fa-IR');
-
-/* ---- آیکن‌های خطی (بدون ایموجی) ---- */
-const I: Record<string, ReactNode> = {
-  users: <><circle cx="9" cy="8" r="3" /><path d="M3 20a6 6 0 0 1 12 0" /><path d="M16 5.2a3 3 0 0 1 0 5.6" /></>,
+const PATHS: Record<string, ReactNode> = {
   trophy: <><path d="M6 3v6a6 6 0 0 0 12 0V3" /><path d="M5 21h14M9 21v-3a3 3 0 0 1 6 0v3" /></>,
-  wallet: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 10h18M7 15h4" /></>,
-  bank: <><path d="M3 10h18M5 10v8M9 10v8M15 10v8M19 10v8M3 21h18M12 3 3 8h18z" /></>,
   flag: <><path d="M4 22V4M4 4h13l-2 4 2 4H4" /></>,
-  ticket: <><path d="M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z" /><path d="M13 7v10" strokeDasharray="2 2" /></>,
-  check: <><path d="M20 6 9 17l-5-5" /></>,
-  play: <><circle cx="12" cy="12" r="9" /><path d="M10 8l6 4-6 4z" /></>,
-  game: <><path d="M6 12h4M8 10v4" /><circle cx="15" cy="11" r="1" /><circle cx="18" cy="13" r="1" /><rect x="2" y="6" width="20" height="12" rx="4" /></>,
-  bars: <><path d="M4 19V5M4 19h16M8 16v-5M13 16V8M18 16v-9" /></>,
-  donut: <><circle cx="12" cy="12" r="9" /><circle cx="12" cy="12" r="3.5" /></>,
-  ring: <><circle cx="12" cy="12" r="9" /><path d="M12 3a9 9 0 0 1 9 9" /></>,
-  list: <><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01" /></>,
+  check: <path d="M20 6 9 17l-5-5" />,
+  wallet: <><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 10h18M7 15h4" /></>,
+  inbox: <><path d="M5 5h14a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" /><path d="M4 13h5l1.5 2.5h3L19 13" /></>,
+  ticket: <><path d="M3 9a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-2a2 2 0 0 0 0-4z" /></>,
+  idcard: <><rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="8.5" cy="11" r="2" /><path d="M5.5 16a3 3 0 0 1 6 0M14 9.5h4M14 13h3" /></>,
+  arrow: <path d="M19 12H5M11 18l-6-6 6-6" />,
 };
-function Icon({ name, size = 15 }: { name: string; size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      {I[name]}
-    </svg>
-  );
-}
-
-const TileHead = ({ icon, title, amber, action }: { icon: ReactNode; title: string; amber?: boolean; action?: ReactNode }) => (
-  <div className="tile-head">
-    <span className={`tile-ic ${amber ? 'amber' : ''}`}>{icon}</span>
-    <span className="tile-title">{title}</span>
-    {action && <span className="ms-auto">{action}</span>}
-  </div>
+const Ico = ({ name, size = 16 }: { name: string; size?: number }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">{PATHS[name]}</svg>
 );
 
-function KpiTile({ label, value, icon, amber }: { label: string; value: string; icon: ReactNode; amber?: boolean }) {
+function OpsList({ title, items }: { title: string; items: { id: string; title: string; status: string }[] }) {
   return (
-    <article className="tile">
-      <TileHead icon={icon} title={label} amber={amber} />
-      <div className="kpi-value tnum">{value}</div>
-    </article>
+    <div className="rounded-xl border border-line bg-tile2 p-3">
+      <p className="mb-2 flex items-center justify-between text-xs font-semibold text-muted">{title}<span className="tnum text-faint">{fmt(items.length)}</span></p>
+      <div className="space-y-1.5">
+        {items.length ? items.map((t) => (
+          <Link key={t.id} href="/admin/tournaments" className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-xs transition hover:bg-white/[.04]">
+            <span className="min-w-0 flex-1 truncate">{t.title}</span>
+            <AdminBadge label={TOURNAMENT_STATUS_META[t.status as keyof typeof TOURNAMENT_STATUS_META]?.label ?? t.status} tone={TOURNAMENT_STATUS_META[t.status as keyof typeof TOURNAMENT_STATUS_META]?.tone ?? 'muted'} />
+          </Link>
+        )) : <p className="px-2 py-2 text-xs text-faint">موردی نیست</p>}
+      </div>
+    </div>
   );
 }
 
-export default function AdminPage() {
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [users, setUsers] = useState<AdminUser[]>([]);
-  const [games, setGames] = useState<Game[]>([]);
-  const [newGame, setNewGame] = useState({ slug: '', name: '' });
-  const [error, setError] = useState('');
+export default function AdminDashboard() {
+  const [allowed, setAllowed] = useState<boolean | null>(null);
 
-  async function load() {
-    try {
-      setStats(await authedGet<Stats>('/admin/stats'));
-      setUsers(await authedGet<AdminUser[]>('/admin/users'));
-      setGames(await authedGet<Game[]>('/games'));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : 'خطا');
-    }
-  }
   useEffect(() => {
-    if (isLoggedIn()) load();
+    if (!isLoggedIn()) { setAllowed(false); return; }
+    apiGet<{ role: string }>('/users/me')
+      .then((m) => setAllowed(roleGroup(m.role) === 'admin'))
+      .catch(() => setAllowed(false));
   }, []);
 
-  if (!isLoggedIn())
+  if (allowed === null) return <div className="py-20 text-center text-sm text-muted">در حال بارگذاری…</div>;
+  if (!allowed)
     return (
-      <div className="card p-8">
-        <Link href="/login" className="text-accent">
-          وارد شوید
-        </Link>
+      <div className="grid min-h-[50vh] place-items-center text-center">
+        <div>
+          <p className="text-lg font-bold">دسترسی نداری</p>
+          <p className="mt-1 text-sm text-faint">این بخش فقط برای مدیرانِ SHELTER است.</p>
+          <Link href="/dashboard" className="btn-ghost mt-4 px-4 py-2 text-sm">بازگشت به داشبورد</Link>
+        </div>
       </div>
     );
 
-  const t = stats?.tournaments;
-  const completionRate = t && t.total ? Math.round((t.completed / t.total) * 100) : 0;
+  const ops = todayOps();
 
   return (
-    <div className="space-y-4">
-      {error && (
-        <p className="rounded-xl border border-bad/30 bg-bad/10 px-4 py-2 text-sm text-bad">{error} — دسترسی مدیر لازم است.</p>
-      )}
+    <div className="space-y-5">
+      <PageHeader
+        title="داشبوردِ مدیریت"
+        subtitle="نمای کلیِ عملیاتِ پلتفرم — امروز چه کاری باید انجام شود."
+        actions={<Link href="/admin/queue" className="btn-primary px-4 py-2 text-sm">صفِ اقدامات</Link>}
+      />
 
-      {/* KPI cards */}
-      <section className="bento" aria-label="شاخص‌های کلیدی">
-        <KpiTile label="کاربران" value={fmt(stats?.users ?? 0)} icon={<Icon name="users" />} />
-        <KpiTile label="تورنومنت‌ها" value={fmt(t?.total ?? 0)} icon={<Icon name="trophy" />} amber />
-        <KpiTile label="درآمد (تومان)" value={fmt(stats?.payments.paidTotal ?? 0)} icon={<Icon name="wallet" />} amber />
-        <KpiTile label="برداشت‌های در انتظار" value={fmt(stats?.pendingWithdrawals ?? 0)} icon={<Icon name="bank" />} amber />
-        <KpiTile label="گزارش‌های باز" value={fmt(stats?.openReports ?? 0)} icon={<Icon name="flag" />} />
-        <KpiTile label="تیکت‌های باز" value={fmt(stats?.openTickets ?? 0)} icon={<Icon name="ticket" />} amber />
-        <KpiTile label="پرداخت‌های موفق" value={fmt(stats?.payments.paidCount ?? 0)} icon={<Icon name="check" />} />
-        <KpiTile label="در حال اجرا" value={fmt(t?.running ?? 0)} icon={<Icon name="play" />} />
-      </section>
-
-      {/* charts */}
-      <section className="grid gap-4 lg:grid-cols-3">
-        <div className="card flex items-center gap-5 p-6">
-          <Donut
-            size={140}
-            center={fmt(t?.total ?? 0)}
-            segments={[
-              { label: 'پیش‌نویس', value: t?.draft ?? 0, color: '#64748b' },
-              { label: 'در حال اجرا', value: t?.running ?? 0, color: '#34d399' },
-              { label: 'پایان‌یافته', value: t?.completed ?? 0, color: '#2dd4bf' },
-              { label: 'لغوشده', value: t?.cancelled ?? 0, color: '#f87171' },
-            ]}
-          />
-          <div className="space-y-1.5 text-sm">
-            <p className="mb-2 font-semibold text-muted">وضعیت تورنومنت‌ها</p>
-            <p className="flex items-center gap-2"><span className="inline-block h-3 w-3 rounded-full bg-slate-500" /> پیش‌نویس: <b className="num">{fmt(t?.draft ?? 0)}</b></p>
-            <p className="flex items-center gap-2"><span className="inline-block h-3 w-3 rounded-full bg-good" /> در حال اجرا: <b className="num">{fmt(t?.running ?? 0)}</b></p>
-            <p className="flex items-center gap-2"><span className="inline-block h-3 w-3 rounded-full bg-accent" /> پایان‌یافته: <b className="num">{fmt(t?.completed ?? 0)}</b></p>
-            <p className="flex items-center gap-2"><span className="inline-block h-3 w-3 rounded-full bg-bad" /> لغوشده: <b className="num">{fmt(t?.cancelled ?? 0)}</b></p>
+      {/* KPI */}
+      <section className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        {ADMIN_KPIS.map((k) => (
+          <div key={k.key} className="rounded-2xl border border-line bg-tile p-4">
+            <p className="text-[11px] text-faint">{k.label}</p>
+            <p className={`mt-1 font-display text-2xl font-bold tnum ${k.tone === 'gold' ? 'text-gold' : k.tone === 'bad' ? 'text-[#fca5a5]' : k.tone === 'accent' ? 'text-accent' : ''}`}>
+              {k.money ? money(k.value) : fmt(k.value)}
+            </p>
           </div>
-        </div>
-
-        <div className="card p-6">
-          <p className="mb-6 text-sm font-semibold text-muted">شمارشِ کلیدی</p>
-          <BarChart
-            height={140}
-            data={[
-              { label: 'کاربران', value: stats?.users ?? 0 },
-              { label: 'تورنومنت', value: t?.total ?? 0 },
-              { label: 'پرداخت', value: stats?.payments.paidCount ?? 0 },
-              { label: 'تیکت', value: stats?.openTickets ?? 0 },
-              { label: 'گزارش', value: stats?.openReports ?? 0 },
-            ]}
-          />
-        </div>
-
-        <div className="card flex flex-col items-center justify-center p-6">
-          <p className="mb-3 self-start text-sm font-semibold text-muted">نرخ تکمیل تورنومنت‌ها</p>
-          <RadialProgress value={completionRate} label="پایان‌یافته از کل" />
-        </div>
+        ))}
       </section>
 
-      {/* games */}
-      <section className="card p-6">
-        <h3 className="mb-3 flex items-center gap-2 font-bold">
-          <span className="tile-ic"><Icon name="game" /></span>
-          مدیریت بازی‌ها
-        </h3>
-        <div className="mb-3 flex gap-2">
-          <input className="w-32 rounded-xl border border-line bg-tile2 px-3 py-2" placeholder="slug" value={newGame.slug} onChange={(e) => setNewGame({ ...newGame, slug: e.target.value })} />
-          <input className="flex-1 rounded-xl border border-line bg-tile2 px-3 py-2" placeholder="نام بازی" value={newGame.name} onChange={(e) => setNewGame({ ...newGame, name: e.target.value })} />
-          <button
-            onClick={() => authedPost('/games', { slug: newGame.slug, name: newGame.name, platforms: [] }).then(load).catch((e) => setError(e.message))}
-            className="btn-primary"
-          >
-            افزودن
-          </button>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {games.map((g) => (
-            <span key={g.id} className="chip bg-accent/15 text-[#5eead4]">
-              <Icon name="game" size={13} /> {g.name}
-            </span>
-          ))}
-          {games.length === 0 && <span className="text-sm text-muted">بازی‌ای ثبت نشده.</span>}
-        </div>
-      </section>
+      <div className="grid gap-5 lg:grid-cols-[1.3fr_1fr]">
+        {/* Action Queue */}
+        <section className="rounded-2xl border border-line bg-tile p-5">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="font-display text-lg font-bold">صفِ اقدامات</h2>
+            <Link href="/admin/queue" className="text-xs font-semibold text-accent">همه</Link>
+          </div>
+          <div className="space-y-2">
+            {ADMIN_QUEUE.map((q) => {
+              const m = QUEUE_META[q.kind];
+              return (
+                <div key={q.id} className="flex items-center gap-3 rounded-xl border border-line bg-tile2 p-3">
+                  <span className={`grid h-9 w-9 flex-none place-items-center rounded-lg ${q.urgent ? 'bg-bad/15 text-[#fca5a5]' : 'bg-accent/10 text-accent'}`}><Ico name={m.icon} /></span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-semibold">{q.title}</p>
+                    <p className="truncate text-[11px] text-faint">{m.label} · {q.meta}</p>
+                  </div>
+                  {q.urgent && <AdminBadge label="فوری" tone="bad" />}
+                  <Link href={m.href} className="btn-ghost flex-none px-3 py-1.5 text-xs">بررسی</Link>
+                </div>
+              );
+            })}
+          </div>
+        </section>
 
-      {/* users */}
-      <section>
-        <h3 className="mb-3 flex items-center gap-2 font-bold">
-          <span className="tile-ic"><Icon name="list" /></span>
-          کاربران و نقش‌ها ({fmt(users.length)})
-        </h3>
-        <div className="card overflow-hidden">
-          <table className="w-full text-sm">
-            <thead className="bg-tile2 text-muted">
-              <tr>
-                <th className="p-3 text-right">کاربر</th>
-                <th className="p-3 text-right">نقش</th>
-                <th className="p-3 text-right">وضعیت</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.slice(0, 50).map((u) => (
-                <tr key={u.id} className="border-t border-line">
-                  <td className="p-3">
-                    {u.displayName}
-                    <span className="block text-xs text-faint">{u.email}</span>
-                  </td>
-                  <td className="p-3">
-                    <select
-                      className="rounded-lg border border-line bg-tile2 px-2 py-1"
-                      value={u.role}
-                      onChange={(e) => authedPost(`/admin/users/${u.id}/role`, { role: e.target.value }).then(load).catch((er) => setError(er.message))}
-                    >
-                      {ROLES.map((r) => (
-                        <option key={r} value={r}>
-                          {r}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="p-3">
-                    <select
-                      className="rounded-lg border border-line bg-tile2 px-2 py-1"
-                      value={u.accountStatus}
-                      onChange={(e) => authedPost(`/admin/users/${u.id}/status`, { status: e.target.value }).then(load).catch((er) => setError(er.message))}
-                    >
-                      {['ACTIVE', 'SUSPENDED', 'BANNED'].map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                </tr>
+        <div className="space-y-5">
+          {/* Recent Activity */}
+          <section className="rounded-2xl border border-line bg-tile p-5">
+            <h2 className="mb-3 font-display text-lg font-bold">فعالیتِ اخیر</h2>
+            <ul className="space-y-2">
+              {RECENT_ACTIVITY.map((a) => (
+                <li key={a.id} className="flex items-start gap-2 text-sm">
+                  <span className={`mt-1.5 h-1.5 w-1.5 flex-none rounded-full ${a.tone === 'gold' ? 'bg-gold' : a.tone === 'bad' ? 'bg-bad' : a.tone === 'good' ? 'bg-good' : a.tone === 'accent' ? 'bg-accent' : 'bg-slate-500'}`} />
+                  <span className="text-slate-200">{a.text}</span>
+                </li>
               ))}
-            </tbody>
-          </table>
+            </ul>
+          </section>
+
+          {/* System Health */}
+          <section className="rounded-2xl border border-line bg-tile p-5">
+            <h2 className="mb-3 font-display text-lg font-bold">سلامتِ سیستم</h2>
+            <ul className="space-y-2">
+              {SYSTEM_HEALTH.map((h) => (
+                <li key={h.key} className="flex items-center justify-between gap-2 text-sm">
+                  <span className="flex items-center gap-2">
+                    <span className={`h-2 w-2 rounded-full ${h.ok ? 'bg-good' : 'bg-bad animate-pulse'}`} />
+                    {h.label}
+                  </span>
+                  <span className="text-xs text-faint">{h.note}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+        </div>
+      </div>
+
+      {/* Today Operations */}
+      <section>
+        <h2 className="mb-3 font-display text-lg font-bold">عملیاتِ امروز</h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <OpsList title="شروعِ امروز" items={ops.startingToday} />
+          <OpsList title="مسابقاتِ زنده" items={ops.live} />
+          <OpsList title="در انتظارِ تأیید" items={ops.pendingApproval} />
+          <OpsList title="در انتظارِ پرداخت" items={ops.payoutPending} />
         </div>
       </section>
     </div>

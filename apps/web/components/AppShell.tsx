@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { apiGet, authedGet, isLoggedIn, clearTokens } from '@/lib/api';
+import { ROLE_FA, canCreateTournament, dashboardLabel, navForGroup, roleGroup } from '@/lib/roles';
 
 interface Me {
   displayName: string;
@@ -30,6 +31,11 @@ const PATHS: Record<string, ReactNode> = {
   logout: <><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="M16 17l5-5-5-5M21 12H9" /></>,
   bell: <><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></>,
   globe: <><circle cx="12" cy="12" r="9" /><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18" /></>,
+  queue: <><rect x="3" y="4" width="18" height="4" rx="1" /><rect x="3" y="10" width="18" height="4" rx="1" /><rect x="3" y="16" width="11" height="4" rx="1" /></>,
+  inbox: <><path d="M5 5h14a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z" /><path d="M4 13h5l1.5 2.5h3L19 13" /></>,
+  users: <><circle cx="9" cy="8" r="3" /><path d="M3 20a6 6 0 0 1 12 0" /><path d="M16 5.2a3 3 0 0 1 0 5.6M18 20a6 6 0 0 0-3-5.2" /></>,
+  idcard: <><rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="8.5" cy="11" r="2" /><path d="M5.5 16a3 3 0 0 1 6 0M14 9.5h4M14 13h3" /></>,
+  log: <><rect x="4" y="3" width="16" height="18" rx="2" /><path d="M8 8h8M8 12h8M8 16h5" /></>,
 };
 function Icon({ name, size = 17 }: { name: string; size?: number }) {
   return (
@@ -38,52 +44,6 @@ function Icon({ name, size = 17 }: { name: string; size?: number }) {
     </svg>
   );
 }
-
-const NAV_GROUPS: { label: string; admin?: boolean; items: { href: string; label: string; icon: string }[] }[] = [
-  {
-    label: 'اجرا',
-    items: [
-      { href: '/dashboard', label: 'داشبورد', icon: 'grid' },
-      { href: '/games', label: 'دیسیپلین‌ها', icon: 'pad' },
-      { href: '/tournaments', label: 'تورنومنت‌ها', icon: 'trophy' },
-      { href: '/tournaments/new', label: 'ساخت تورنومنت', icon: 'plus' },
-    ],
-  },
-  {
-    label: 'رقابت و جامعه',
-    items: [
-      { href: '/ladders', label: 'نردبان رتبه‌بندی', icon: 'bars' },
-      { href: '/seasons', label: 'فصل‌ها', icon: 'calendar' },
-      { href: '/spaces', label: 'کامیونیتی', icon: 'chat' },
-    ],
-  },
-  {
-    label: 'حساب',
-    items: [
-      { href: '/wallet', label: 'کیف پول', icon: 'wallet' },
-      { href: '/support', label: 'تیکت‌ها', icon: 'ticket' },
-      { href: '/security', label: 'امنیت', icon: 'shield' },
-      { href: '/report', label: 'گزارش تخلف', icon: 'flag' },
-    ],
-  },
-  {
-    label: 'مدیریت',
-    admin: true,
-    items: [
-      { href: '/admin', label: 'کنسول مدیریت', icon: 'tool' },
-      { href: '/settings', label: 'تنظیمات', icon: 'gear' },
-    ],
-  },
-];
-
-const ROLE_FA: Record<string, string> = {
-  ADMIN: 'مدیر سیستم',
-  MAIN_ADMIN: 'مدیر کل',
-  REFEREE: 'داور',
-  SUPPORT: 'پشتیبان',
-  GAME_ADMIN: 'ادمین بازی',
-  USER: 'بازیکن',
-};
 
 export default function AppShell({ title, children }: { title?: string; children: ReactNode }) {
   const pathname = usePathname();
@@ -103,17 +63,19 @@ export default function AppShell({ title, children }: { title?: string; children
     router.push('/login');
   }
 
-  const isAdmin = me?.role === 'ADMIN' || me?.role === 'MAIN_ADMIN';
+  const group = roleGroup(me?.role);
   const initials = (me?.displayName ?? '?').trim().charAt(0) || '?';
-  const groups = NAV_GROUPS.filter((g) => !g.admin || isAdmin);
+  const groups = navForGroup(group);
+  const home = groups[0]?.items[0]?.href ?? '/dashboard';
 
   const isActive = (href: string) =>
-    pathname === href || (href !== '/dashboard' && href !== '/tournaments/new' && pathname.startsWith(href + '/'));
+    pathname === href ||
+    (href !== '/dashboard' && href !== '/tournaments/new' && href !== '/admin' && pathname.startsWith(href + '/'));
 
   const sidebarInner = (
     <div className="flex h-full flex-col gap-5">
       {/* brand */}
-      <a href="/dashboard" className="flex items-center gap-2.5">
+      <a href={home} className="flex items-center gap-2.5">
         <span className="grid h-9 w-9 flex-none place-items-center rounded-[11px] bg-gradient-to-br from-accent to-accent-dim text-[#06231f] shadow-[0_6px_18px_-8px_rgba(45,212,191,.6)]">
           <Icon name="shield" size={19} />
         </span>
@@ -145,7 +107,8 @@ export default function AppShell({ title, children }: { title?: string; children
                   <span className={active ? 'text-accent' : 'opacity-85'}>
                     <Icon name={it.icon} />
                   </span>
-                  {it.label}
+                  <span className="flex-1">{it.label}</span>
+                  {it.soon && <span className="rounded bg-white/10 px-1.5 text-[9px] text-faint">به‌زودی</span>}
                 </a>
               );
             })}
@@ -196,8 +159,8 @@ export default function AppShell({ title, children }: { title?: string; children
           </button>
 
           <div className="min-w-0">
-            <h1 className="truncate text-[clamp(18px,2.4vw,25px)] font-semibold">{title ?? `سلام، ${me?.displayName ?? 'بازیکن'}`}</h1>
-            <p className="mt-0.5 text-[12.5px] text-faint">SHELTER · داشبوردِ بازیکن</p>
+            <h1 className="truncate text-[clamp(18px,2.4vw,25px)] font-semibold">{title ?? `سلام، ${me?.displayName ?? '...'}`}</h1>
+            <p className="mt-0.5 text-[12.5px] text-faint">SHELTER · {dashboardLabel(group)}</p>
           </div>
 
           <div className="ms-auto flex flex-wrap items-center gap-2.5">
@@ -210,10 +173,12 @@ export default function AppShell({ title, children }: { title?: string; children
               <span className="absolute right-2.5 top-2.5 h-[7px] w-[7px] rounded-full bg-gold shadow-[0_0_0_2px_#16181f]" />
               <Icon name="bell" size={18} />
             </a>
-            <a href="/tournaments/new" className="btn-primary">
-              <Icon name="plus" size={16} />
-              <span className="hidden sm:inline">تورنومنت جدید</span>
-            </a>
+            {canCreateTournament(group) && (
+              <a href="/tournaments/new" className="btn-primary">
+                <Icon name="plus" size={16} />
+                <span className="hidden sm:inline">تورنومنت جدید</span>
+              </a>
+            )}
           </div>
         </header>
 

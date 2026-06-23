@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { authedPost, isLoggedIn } from '@/lib/api';
+import { apiGet, authedPost, isLoggedIn } from '@/lib/api';
+import { roleGroup } from '@/lib/roles';
 import { CoverBanner } from '@/components/CoverBanner';
 import { CoverUpload } from '@/components/CoverUpload';
 import JalaliPicker from '@/components/JalaliPicker';
@@ -121,6 +122,19 @@ export default function WizardPage() {
   });
   const set = (p: Partial<typeof f>) => setF((cur) => ({ ...cur, ...p }));
 
+  const [role, setRole] = useState<string | undefined>(undefined);
+  const [roleLoaded, setRoleLoaded] = useState(false);
+  useEffect(() => {
+    if (!isLoggedIn()) {
+      setRoleLoaded(true);
+      return;
+    }
+    apiGet<{ role: string }>('/users/me')
+      .then((m) => setRole(m.role))
+      .catch(() => {})
+      .finally(() => setRoleLoaded(true));
+  }, []);
+
   if (!isLoggedIn())
     return (
       <div className="grid min-h-[60vh] place-items-center p-8 text-muted">
@@ -128,6 +142,22 @@ export default function WizardPage() {
         <Link href="/login" className="text-accent">
           وارد شوید
         </Link>
+      </div>
+    );
+
+  if (!roleLoaded) return <div className="py-20 text-center text-sm text-muted">در حال بارگذاری…</div>;
+
+  // در SHELTER فقط مدیر/برگزارکننده‌ی تأییدشده تورنومنت می‌سازد؛ بازیکن باید درخواستِ همکاری بدهد.
+  if (roleGroup(role) === 'player')
+    return (
+      <div className="grid min-h-[60vh] place-items-center p-8 text-center">
+        <div className="max-w-md">
+          <p className="font-display text-lg font-bold">ساختِ تورنومنت مخصوصِ برگزارکننده‌هاست</p>
+          <p className="mt-2 text-sm leading-7 text-faint">
+            در SHELTER تورنومنت‌های رسمی توسطِ تیمِ SHELTER و برگزارکننده‌های تأییدشده ساخته می‌شوند. اگر تیم یا برندِ گیمینگ هستی، برای همکاری درخواست بده.
+          </p>
+          <Link href="/register" className="btn-primary mt-5 px-5 py-2.5">درخواستِ پنلِ برگزارکننده</Link>
+        </div>
       </div>
     );
 

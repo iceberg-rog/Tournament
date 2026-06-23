@@ -77,7 +77,7 @@ function Cockpit({ t, role, actorName }: { t: AdminTournament; role: AdminRole; 
   return (
     <div className="space-y-6">
       {/* سطح ۱ — همیشه visible */}
-      <CompactStatusBar cr={cr.cr} onRun={cr.run} onOpenChat={openChat} />
+      <CompactStatusBar cr={cr.cr} onRun={cr.run} onOpenChat={openChat} onReset={cr.reset} />
       <OperationRoadmap cr={cr.cr} activeKey={step?.key} onSelect={setStep} />
 
       {(() => {

@@ -29,10 +29,12 @@ export function CompactStatusBar({
   cr,
   onRun,
   onOpenChat,
+  onReset,
 }: {
   cr: ControlRoomState;
   onRun: (a: CRAction, p?: CRPayload) => void;
   onOpenChat: () => void;
+  onReset?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const tone = TONE[cr.statusTone];
@@ -93,6 +95,11 @@ export function CompactStatusBar({
           <Chip label="اختلافِ باز" value={fa(cr.openDisputes)} tone={cr.openDisputes ? 'text-[#fca5a5]' : undefined} />
           <Chip label="بعدی" value={relTime(cr.nextScheduled)} />
           <Chip label="پایانِ تخمینی" value={relTime(cr.estimatedFinish)} />
+          {onReset && (
+            <button onClick={onReset} className="ms-auto rounded-lg border border-dashed border-line px-2.5 py-1 text-[11px] text-faint transition hover:text-text" title="بازگرداندنِ نمونه‌ی نمایشی">
+              بازنشانیِ نمونه
+            </button>
+          )}
         </div>
       )}
     </div>

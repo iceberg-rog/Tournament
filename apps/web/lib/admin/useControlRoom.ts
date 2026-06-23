@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import type { AdminTournament } from '@/lib/admin';
 import type { AdminRole } from '@/lib/admin/ops';
 import { appendAudit, pushToast } from '@/lib/admin/store';
@@ -46,9 +46,43 @@ export interface CRPayload {
   judge?: string;
 }
 
+const STORAGE_KEY = (id: string) => `shelter:cr:${id}:v1`;
+
 export function useControlRoom(t: AdminTournament, role: AdminRole, actorName: string) {
   const [core, setCore] = useState<ControlRoomCore>(() => buildCore(t));
   const cr = useMemo<ControlRoomState>(() => derive(core), [core]);
+
+  // ماندگاری محلی: تغییراتِ اپراتور با refresh از بین نرود (mock، بدونِ بک‌اند).
+  const [ready, setReady] = useState(false);
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY(t.id));
+      if (raw) setCore(JSON.parse(raw) as ControlRoomCore);
+    } catch {
+      /* ignore */
+    }
+    setReady(true);
+    // فقط یک‌بار در ابتدای mount برای این تورنومنت
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [t.id]);
+  useEffect(() => {
+    if (!ready) return;
+    try {
+      window.localStorage.setItem(STORAGE_KEY(t.id), JSON.stringify(core));
+    } catch {
+      /* ignore */
+    }
+  }, [core, ready, t.id]);
+
+  const reset = useCallback(() => {
+    try {
+      window.localStorage.removeItem(STORAGE_KEY(t.id));
+    } catch {
+      /* ignore */
+    }
+    setCore(buildCore(t));
+    pushToast({ kind: 'info', msg: 'اتاقِ کنترل به نمونه‌ی اولیه بازنشانی شد' });
+  }, [t]);
 
   const [matchId, setMatchId] = useState<string | null>(null);
   const [participantId, setParticipantId] = useState<string | null>(null);
@@ -251,5 +285,6 @@ export function useControlRoom(t: AdminTournament, role: AdminRole, actorName: s
     },
     setChatOpen,
     closeDrawers,
+    reset,
   };
 }

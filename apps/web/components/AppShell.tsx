@@ -4,6 +4,7 @@ import { useEffect, useState, type ReactNode } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { apiGet, authedGet, isLoggedIn, clearTokens } from '@/lib/api';
 import { ROLE_FA, canCreateTournament, dashboardLabel, navForGroup, roleGroup } from '@/lib/roles';
+import { Toaster } from '@/components/admin/Toaster';
 
 interface Me {
   displayName: string;
@@ -184,6 +185,7 @@ export default function AppShell({ title, children }: { title?: string; children
 
         <div className="min-w-0 flex-1">{children}</div>
       </div>
+      <Toaster />
     </div>
   );
 }

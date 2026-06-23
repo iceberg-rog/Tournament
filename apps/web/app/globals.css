@@ -79,6 +79,13 @@ h1, h2, h3, .display { font-family: var(--font-display); letter-spacing: -.01em;
     color: var(--text);
   }
   .btn-ghost:hover { border-color: var(--teal-dim); }
+  .btn-danger {
+    @apply btn;
+    background: linear-gradient(135deg, #ef4444, #b91c1c);
+    color: #fff;
+    box-shadow: 0 8px 22px -12px rgba(239, 68, 68, .8);
+  }
+  .btn-danger:hover { transform: translateY(-1px); box-shadow: 0 12px 26px -12px rgba(239, 68, 68, .9); }
   .chip {
     @apply inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold;
   }

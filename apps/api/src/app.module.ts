@@ -17,6 +17,7 @@ import { CommunityModule } from './community/community.module';
 import { LaddersModule } from './ladders/ladders.module';
 import { AuditModule } from './audit/audit.module';
 import { OrganizerRequestsModule } from './organizer-requests/organizer-requests.module';
+import { ControlBoardModule } from './control-board/control-board.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -39,6 +40,7 @@ import { HealthController } from './health.controller';
     LaddersModule,
     AuditModule,
     OrganizerRequestsModule,
+    ControlBoardModule,
   ],
   controllers: [HealthController],
 })

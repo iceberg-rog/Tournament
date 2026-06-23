@@ -247,3 +247,25 @@ model AuditLog {
   @@index([entityType, entityId])
   @@index([actorId])
 }
+
+/** بُردِ عملیاتِ اتاقِ کنترل — وضعیتِ زنده‌ی هر تورنومنت (مسابقات/اختلاف‌ها/شرکت‌کننده‌ها). */
+model ControlBoard {
+  id              String   @id @default(uuid())
+  tournamentId    String   @unique
+  title           String
+  game            String
+  format          String
+  prize           Int      @default(0)
+  phase           String
+  currentRound    Int      @default(0)
+  totalRounds     Int      @default(0)
+  roundName       String   @default("")
+  nextScheduled   String?
+  estimatedFinish String?
+  participants    Json
+  matches         Json
+  disputes        Json
+  activity        Json
+  updatedAt       DateTime @updatedAt
+  createdAt       DateTime @default(now())
+}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { authedGet, authedPut, isLoggedIn } from '@/lib/api';
 import type { AdminTournament } from '@/lib/admin';
 import type { AdminRole } from '@/lib/admin/ops';
 import { appendAudit, pushToast } from '@/lib/admin/store';
@@ -52,35 +53,57 @@ export function useControlRoom(t: AdminTournament, role: AdminRole, actorName: s
   const [core, setCore] = useState<ControlRoomCore>(() => buildCore(t));
   const cr = useMemo<ControlRoomState>(() => derive(core), [core]);
 
-  // ماندگاری محلی: تغییراتِ اپراتور با refresh از بین نرود (mock، بدونِ بک‌اند).
+  // ماندگاری: بُردِ عملیات روی دیتابیس ذخیره می‌شود (بین‌دستگاهی)، با کشِ محلی برای resilience.
   const [ready, setReady] = useState(false);
+  const cache = (c: ControlRoomCore) => {
+    try { window.localStorage.setItem(STORAGE_KEY(t.id), JSON.stringify(c)); } catch { /* ignore */ }
+  };
+
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY(t.id));
-      if (raw) setCore(JSON.parse(raw) as ControlRoomCore);
-    } catch {
-      /* ignore */
-    }
-    setReady(true);
-    // فقط یک‌بار در ابتدای mount برای این تورنومنت
+    let cancelled = false;
+    (async () => {
+      if (isLoggedIn()) {
+        try {
+          const remote = await authedGet<ControlRoomCore | null>(`/control-board/${t.id}`);
+          if (cancelled) return;
+          if (remote && Array.isArray((remote as { matches?: unknown }).matches)) {
+            setCore(remote);
+            setReady(true);
+            return;
+          }
+          // هنوز بُردی نیست → با نمونه‌ی پیش‌فرض seed کن
+          authedPut(`/control-board/${t.id}`, buildCore(t)).catch(() => {});
+          setReady(true);
+          return;
+        } catch {
+          /* خطای شبکه/دسترسی → سقوط به کشِ محلی */
+        }
+      }
+      try {
+        const raw = window.localStorage.getItem(STORAGE_KEY(t.id));
+        if (raw && !cancelled) setCore(JSON.parse(raw) as ControlRoomCore);
+      } catch { /* ignore */ }
+      if (!cancelled) setReady(true);
+    })();
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t.id]);
+
+  // ذخیره (با debounce) روی API + کشِ محلی
   useEffect(() => {
     if (!ready) return;
-    try {
-      window.localStorage.setItem(STORAGE_KEY(t.id), JSON.stringify(core));
-    } catch {
-      /* ignore */
-    }
+    cache(core);
+    if (!isLoggedIn()) return;
+    const id = setTimeout(() => { authedPut(`/control-board/${t.id}`, core).catch(() => {}); }, 600);
+    return () => clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [core, ready, t.id]);
 
   const reset = useCallback(() => {
-    try {
-      window.localStorage.removeItem(STORAGE_KEY(t.id));
-    } catch {
-      /* ignore */
-    }
-    setCore(buildCore(t));
+    const def = buildCore(t);
+    try { window.localStorage.removeItem(STORAGE_KEY(t.id)); } catch { /* ignore */ }
+    setCore(def);
+    if (isLoggedIn()) authedPut(`/control-board/${t.id}`, def).catch(() => {});
     pushToast({ kind: 'info', msg: 'اتاقِ کنترل به نمونه‌ی اولیه بازنشانی شد' });
   }, [t]);
 

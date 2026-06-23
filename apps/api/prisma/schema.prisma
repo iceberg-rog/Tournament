@@ -269,3 +269,12 @@ model ControlBoard {
   updatedAt       DateTime @updatedAt
   createdAt       DateTime @default(now())
 }
+
+/** تنظیماتِ اتصال‌ها و APIها به تفکیکِ محیط (development/staging/production). */
+model IntegrationConfig {
+  id          String   @id @default(uuid())
+  environment String   @unique
+  data        Json
+  updatedAt   DateTime @updatedAt
+  createdAt   DateTime @default(now())
+}

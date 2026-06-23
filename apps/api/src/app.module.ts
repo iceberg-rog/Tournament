@@ -18,6 +18,7 @@ import { LaddersModule } from './ladders/ladders.module';
 import { AuditModule } from './audit/audit.module';
 import { OrganizerRequestsModule } from './organizer-requests/organizer-requests.module';
 import { ControlBoardModule } from './control-board/control-board.module';
+import { IntegrationsModule } from './integrations/integrations.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -41,6 +42,7 @@ import { HealthController } from './health.controller';
     AuditModule,
     OrganizerRequestsModule,
     ControlBoardModule,
+    IntegrationsModule,
   ],
   controllers: [HealthController],
 })

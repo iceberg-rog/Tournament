@@ -130,7 +130,10 @@ const ADMIN_NAV: NavGroup[] = [
   },
   {
     label: 'سیستم',
-    items: [{ href: '/settings', label: 'تنظیمات', icon: 'gear' }],
+    items: [
+      { href: '/admin/settings/integrations', label: 'اتصال‌ها و APIها', icon: 'plug' },
+      { href: '/settings', label: 'تنظیمات', icon: 'gear' },
+    ],
   },
 ];
 

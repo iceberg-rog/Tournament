@@ -7,6 +7,7 @@ import { apiGet, authedGet, authedPost, isLoggedIn } from '@/lib/api';
 import { publicGet } from '@/lib/api';
 import { CoverBanner } from '@/components/CoverBanner';
 import { Bracket, type BMatch } from '@/components/Bracket';
+import { ShowcaseTournamentDetail } from '@/components/ShowcaseTournamentDetail';
 
 interface Participant { id: string; name: string }
 interface TournamentRecord {
@@ -63,7 +64,15 @@ const fmtFa: Record<string, string> = { SINGLE_ELIM: 'تک‌حذفی', DOUBLE_E
 const stFa: Record<string, string> = { DRAFT: 'پیش‌نویس', RUNNING: 'در حال اجرا', COMPLETED: 'پایان‌یافته', CANCELLED: 'لغوشده' };
 const stColor: Record<string, string> = { DRAFT: 'bg-tile2 text-muted', RUNNING: 'bg-good/15 text-good', COMPLETED: 'bg-accent/15 text-[#5eead4]', CANCELLED: 'bg-bad/15 text-bad' };
 
-export default function TournamentDetail() {
+export default function TournamentDetailPage() {
+  const params = useParams();
+  const id = String(params.id);
+  // کارت‌های نمایشیِ صفحه‌ی اصلی (lt-*) → جزئیاتِ سبک، بدونِ ۴۰۴.
+  if (id.startsWith('lt-')) return <ShowcaseTournamentDetail id={id} />;
+  return <DbTournamentDetail />;
+}
+
+function DbTournamentDetail() {
   const params = useParams();
   const router = useRouter();
   const id = String(params.id);

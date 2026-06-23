@@ -226,3 +226,24 @@ h1, h2, h3, .display { font-family: var(--font-display); letter-spacing: -.01em;
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .001ms !important; transition-duration: .001ms !important; }
 }
+
+/* ───────── cinematic landing ───────── */
+@keyframes float-3d { 0%, 100% { transform: translateY(0) rotate(-.4deg); } 50% { transform: translateY(-12px) rotate(.4deg); } }
+@keyframes glow-breathe { 0%, 100% { opacity: .42; } 50% { opacity: .9; } }
+@keyframes grid-pan-y { from { background-position: 0 0; } to { background-position: 0 64px; } }
+@keyframes drift-up { 0% { transform: translateY(0); opacity: 0; } 12% { opacity: .8; } 100% { transform: translateY(-140px); opacity: 0; } }
+
+/* ورودِ سینماییِ کارت‌ها (با IntersectionObserver کلاسِ .is-in افزوده می‌شود) */
+.cine { opacity: 0; transform: translateY(42px) scale(.93); filter: blur(10px); transition: opacity .75s var(--ease), transform .75s var(--ease), filter .75s var(--ease); will-change: opacity, transform, filter; }
+.cine.is-in { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
+.cine-float { animation: float-3d 7s ease-in-out infinite; }
+.glow-breathe { animation: glow-breathe 4s ease-in-out infinite; }
+.arena-grid { animation: grid-pan-y 22s linear infinite; }
+
+@media (prefers-reduced-motion: reduce) {
+  .cine { opacity: 1 !important; transform: none !important; filter: none !important; transition: none !important; }
+  .cine-float, .glow-breathe, .arena-grid { animation: none !important; }
+}
+@media (max-width: 640px) {
+  .cine-float { animation: none; }
+}

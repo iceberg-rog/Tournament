@@ -1,48 +1,27 @@
-'use client';
-
-import { useEffect, useState } from 'react';
-import { publicGet } from '@/lib/api';
 import { PublicNavbar } from '@/components/PublicNavbar';
 import { PublicFooter } from '@/components/PublicFooter';
-import { HeroSection } from '@/components/HeroSection';
-import { StatPillGrid } from '@/components/StatPillGrid';
-import { LiveTournamentsShowcase } from '@/components/LiveTournamentsShowcase';
-import { FeatureStorySection } from '@/components/FeatureStorySection';
-import { HowItWorksSection } from '@/components/HowItWorksSection';
-import { OrganizerPreviewSection } from '@/components/OrganizerPreviewSection';
-import { PlayerExperienceSection } from '@/components/PlayerExperienceSection';
-import { FinalCTASection } from '@/components/FinalCTASection';
-import type { TournamentRow } from '@/lib/tournaments';
+import { CinematicHero } from '@/components/CinematicHero';
+import { ArenaPreviewPanel } from '@/components/ArenaPreviewPanel';
+import { OfficialTournamentsShowcase } from '@/components/OfficialTournamentsShowcase';
+import { PlayerJourneySection } from '@/components/PlayerJourneySection';
+import { BracketExperienceSection } from '@/components/BracketExperienceSection';
+import { PrizeEscrowSection } from '@/components/PrizeEscrowSection';
+import { OrganizerPartnershipSection } from '@/components/OrganizerPartnershipSection';
+import { FinalCtaSection } from '@/components/FinalCtaSection';
 
 export default function LandingPage() {
-  const [featured, setFeatured] = useState<TournamentRow | undefined>(undefined);
-
-  useEffect(() => {
-    publicGet<TournamentRow[]>('/tournaments')
-      .then((l) => {
-        const wp = (t: TournamentRow) => (t.prizePool?.length ?? 0) > 0;
-        setFeatured(
-          l.find((t) => t.status === 'RUNNING' && wp(t)) ??
-            l.find((t) => t.status === 'RUNNING') ??
-            l.find((t) => t.status === 'DRAFT' && wp(t)) ??
-            l[0],
-        );
-      })
-      .catch(() => {});
-  }, []);
-
   return (
-    <div className="min-h-screen">
+    <div className="relative min-h-screen overflow-x-clip">
       <PublicNavbar />
-      <HeroSection featured={featured} />
-      <main className="mx-auto max-w-[1280px] space-y-24 px-4 pb-24 md:space-y-32 md:px-6">
-        <StatPillGrid />
-        <LiveTournamentsShowcase />
-        <FeatureStorySection />
-        <HowItWorksSection />
-        <OrganizerPreviewSection />
-        <PlayerExperienceSection />
-        <FinalCTASection />
+      <CinematicHero />
+      <main className="space-y-24 pb-24 md:space-y-32">
+        <ArenaPreviewPanel />
+        <OfficialTournamentsShowcase />
+        <PlayerJourneySection />
+        <BracketExperienceSection />
+        <PrizeEscrowSection />
+        <OrganizerPartnershipSection />
+        <FinalCtaSection />
       </main>
       <PublicFooter />
     </div>

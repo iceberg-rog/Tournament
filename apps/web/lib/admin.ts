@@ -66,10 +66,32 @@ export const TOURNAMENT_ACTIONS: Record<TournamentStatus, string[]> = {
 
 export type EscrowStatus = 'none' | 'locked' | 'released' | 'refunded';
 
+export type TournamentFormat =
+  | 'single_elimination'
+  | 'double_elimination'
+  | 'round_robin'
+  | 'swiss'
+  | 'league'
+  | 'ladder'
+  | 'battle_royale'
+  | 'custom';
+
+export const FORMAT_FA: Record<TournamentFormat, string> = {
+  single_elimination: 'حذفی تک‌حذفی',
+  double_elimination: 'حذفی دوحذفی',
+  round_robin: 'دوره‌ای',
+  swiss: 'سوئیسی',
+  league: 'لیگ',
+  ladder: 'نردبانی',
+  battle_royale: 'بتل‌رویال',
+  custom: 'سفارشی',
+};
+
 export interface AdminTournament {
   id: string;
   title: string;
   game: string;
+  format: TournamentFormat;
   status: TournamentStatus;
   participants: number;
   minParticipants: number;
@@ -240,12 +262,12 @@ export interface HealthItem {
 const D = (offset: number) => new Date(Date.parse('2026-06-23T12:00:00.000Z') + offset * 86400000).toISOString();
 
 export const ADMIN_TOURNAMENTS: AdminTournament[] = [
-  { id: 't1', title: 'Valorant Champions Arena', game: 'Valorant', status: 'live', participants: 28, minParticipants: 8, maxParticipants: 32, platform: 'PC', prize: 50000000, escrow: 'locked', organizer: 'SHELTER', startAt: D(-1), registrationEnd: D(-2), currentRound: 2, disputes: 1, pendingResults: 3, pendingPayouts: 0 },
-  { id: 't2', title: 'CS2 Open Ladder', game: 'Counter-Strike 2', status: 'registration_open', participants: 24, minParticipants: 8, maxParticipants: 32, platform: 'PC', prize: 30000000, escrow: 'locked', organizer: 'SHELTER', startAt: D(1), registrationEnd: D(0), currentRound: 0, disputes: 0, pendingResults: 0, pendingPayouts: 0 },
-  { id: 't3', title: 'Dota 2 Weekend Clash', game: 'Dota 2', status: 'pending_review', participants: 0, minParticipants: 8, maxParticipants: 16, platform: 'PC', prize: 40000000, escrow: 'none', organizer: 'Nova Esports', startAt: D(4), registrationEnd: D(3), currentRound: 0, disputes: 0, pendingResults: 0, pendingPayouts: 0 },
-  { id: 't4', title: 'FC 26 Pro Cup', game: 'EA Sports FC 26', status: 'draft', participants: 0, minParticipants: 16, maxParticipants: 64, platform: 'PS5', prize: 15000000, escrow: 'none', organizer: 'GameHub', startAt: D(6), registrationEnd: D(5), currentRound: 0, disputes: 0, pendingResults: 0, pendingPayouts: 0 },
-  { id: 't5', title: 'Fortnite Solo Cup', game: 'Fortnite', status: 'payout_pending', participants: 96, minParticipants: 32, maxParticipants: 100, platform: 'Cross-play', prize: 40000000, escrow: 'locked', organizer: 'SHELTER', startAt: D(-3), registrationEnd: D(-4), currentRound: 6, disputes: 0, pendingResults: 0, pendingPayouts: 2 },
-  { id: 't6', title: 'Tekken 8 Showdown', game: 'Tekken 8', status: 'completed', participants: 16, minParticipants: 8, maxParticipants: 16, platform: 'PS5', prize: 12000000, escrow: 'released', organizer: 'SHELTER', startAt: D(-5), registrationEnd: D(-6), currentRound: 4, disputes: 0, pendingResults: 0, pendingPayouts: 0 },
+  { id: 't1', title: 'Valorant Champions Arena', game: 'Valorant', format: 'single_elimination', status: 'live', participants: 28, minParticipants: 8, maxParticipants: 32, platform: 'PC', prize: 50000000, escrow: 'locked', organizer: 'SHELTER', startAt: D(-1), registrationEnd: D(-2), currentRound: 2, disputes: 1, pendingResults: 3, pendingPayouts: 0 },
+  { id: 't2', title: 'CS2 Open Ladder', game: 'Counter-Strike 2', format: 'round_robin', status: 'registration_open', participants: 24, minParticipants: 8, maxParticipants: 32, platform: 'PC', prize: 30000000, escrow: 'locked', organizer: 'SHELTER', startAt: D(1), registrationEnd: D(0), currentRound: 0, disputes: 0, pendingResults: 0, pendingPayouts: 0 },
+  { id: 't3', title: 'Dota 2 Weekend Clash', game: 'Dota 2', format: 'single_elimination', status: 'pending_review', participants: 0, minParticipants: 8, maxParticipants: 16, platform: 'PC', prize: 40000000, escrow: 'none', organizer: 'Nova Esports', startAt: D(4), registrationEnd: D(3), currentRound: 0, disputes: 0, pendingResults: 0, pendingPayouts: 0 },
+  { id: 't4', title: 'FC 26 Pro Cup', game: 'EA Sports FC 26', format: 'league', status: 'draft', participants: 0, minParticipants: 16, maxParticipants: 64, platform: 'PS5', prize: 15000000, escrow: 'none', organizer: 'GameHub', startAt: D(6), registrationEnd: D(5), currentRound: 0, disputes: 0, pendingResults: 0, pendingPayouts: 0 },
+  { id: 't5', title: 'Fortnite Solo Cup', game: 'Fortnite', format: 'battle_royale', status: 'payout_pending', participants: 96, minParticipants: 32, maxParticipants: 100, platform: 'Cross-play', prize: 40000000, escrow: 'locked', organizer: 'SHELTER', startAt: D(-3), registrationEnd: D(-4), currentRound: 6, disputes: 0, pendingResults: 0, pendingPayouts: 2 },
+  { id: 't6', title: 'Tekken 8 Showdown', game: 'Tekken 8', format: 'single_elimination', status: 'completed', participants: 16, minParticipants: 8, maxParticipants: 16, platform: 'PS5', prize: 12000000, escrow: 'released', organizer: 'SHELTER', startAt: D(-5), registrationEnd: D(-6), currentRound: 4, disputes: 0, pendingResults: 0, pendingPayouts: 0 },
 ];
 
 export const ORGANIZER_REQUESTS: OrganizerRequest[] = [

@@ -94,7 +94,7 @@ export function CinematicHero() {
 
       {/* ───────── فورگراند ───────── */}
       <div className="mx-auto max-w-[1280px] px-4 pb-24 pt-20 md:px-6 lg:pb-32 lg:pt-28">
-        <div className="grid items-center gap-12 lg:grid-cols-[1.05fr_1fr] lg:gap-10">
+        <div className="grid items-center gap-12 lg:grid-cols-[1fr_1.12fr] lg:gap-8">
           {/* ستونِ متن — شروعِ RTL (سمتِ راست) */}
           <div className="relative text-center lg:text-start">
             <CineReveal>
@@ -156,11 +156,9 @@ export function CinematicHero() {
             </CineReveal>
           </div>
 
-          {/* ستونِ صحنه‌ی شناورِ تورنومنت‌ها */}
+          {/* ستونِ صحنه‌ی شناورِ تورنومنت‌ها (کارت‌ها خودشان pop-in دارند) */}
           <div className="relative">
-            <CineReveal delay={300}>
-              <FloatingTournamentScene />
-            </CineReveal>
+            <FloatingTournamentScene />
           </div>
         </div>
       </div>

@@ -15,6 +15,7 @@ export interface LandingTournament {
   format: string;
   startsAt?: string;
   cover?: string;
+  branded?: boolean; // به‌جای عکس، هدرِ برندِ بازی رندر می‌شود (مثلِ FC26)
   href: string;
   accent: string; // رنگِ گلوِ اختصاصیِ کارت
 }
@@ -27,7 +28,7 @@ export const STATUS_META: Record<LandingStatus, { label: string; tone: 'live' | 
 };
 
 export const SHOWCASE_TOURNAMENTS: LandingTournament[] = [
-  { id: 'lt-fc26', title: 'FC26 Champions Cup — 128 بازیکن', game: 'EA Sports FC 26', status: 'live', prize: '۸٬۰۰۰٬۰۰۰ تومان', participants: 128, capacity: 128, platform: 'PS5', format: 'تک‌حذفی', cover: '/games/ea-fc-26-p.jpg', href: '/tournaments/lt-fc26', accent: '#2dd4bf' },
+  { id: 'lt-fc26', title: 'FC26 Champions Cup — 128 بازیکن', game: 'EA Sports FC 26', status: 'live', prize: '۸٬۰۰۰٬۰۰۰ تومان', participants: 128, capacity: 128, platform: 'PS5', format: 'تک‌حذفی', branded: true, href: '/tournaments/lt-fc26', accent: '#22c55e' },
   { id: 'lt-valorant', title: 'Valorant Champions Arena', game: 'Valorant', status: 'live', prize: '۵۰٬۰۰۰٬۰۰۰ تومان', participants: 28, capacity: 32, platform: 'PC', format: 'تک‌حذفی', cover: '/games/valorant-p.jpg', href: '/tournaments/lt-valorant', accent: '#fb5b6b' },
   { id: 'lt-cs2', title: 'CS2 Open Ladder', game: 'Counter-Strike 2', status: 'registration_open', prize: '۳۰٬۰۰۰٬۰۰۰ تومان', participants: 24, capacity: 32, platform: 'PC', format: 'سوئیسی', cover: '/games/cs2-p.jpg', href: '/tournaments/lt-cs2', accent: '#fbbf24' },
   { id: 'lt-dota', title: 'Dota 2 Weekend Clash', game: 'Dota 2', status: 'registration_open', prize: '۴۰٬۰۰۰٬۰۰۰ تومان', participants: 11, capacity: 16, platform: 'PC', format: 'دوحذفی', cover: '/games/dota-2-p.jpg', href: '/tournaments/lt-dota', accent: '#a78bfa' },

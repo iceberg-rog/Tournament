@@ -234,7 +234,7 @@ h1, h2, h3, .display { font-family: var(--font-display); letter-spacing: -.01em;
 @keyframes drift-up { 0% { transform: translateY(0); opacity: 0; } 12% { opacity: .8; } 100% { transform: translateY(-140px); opacity: 0; } }
 
 /* ورودِ سینماییِ کارت‌ها (با IntersectionObserver کلاسِ .is-in افزوده می‌شود) */
-.cine { opacity: 0; transform: translateY(42px) scale(.93); filter: blur(10px); transition: opacity .75s var(--ease), transform .75s var(--ease), filter .75s var(--ease); will-change: opacity, transform, filter; }
+.cine { opacity: 0; transform: translateY(34px) scale(.95); filter: blur(4px); transition: opacity .7s var(--ease), transform .7s var(--ease), filter .7s var(--ease); will-change: opacity, transform, filter; }
 .cine.is-in { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
 .cine-float { animation: float-3d 7s ease-in-out infinite; }
 .glow-breathe { animation: glow-breathe 4s ease-in-out infinite; }

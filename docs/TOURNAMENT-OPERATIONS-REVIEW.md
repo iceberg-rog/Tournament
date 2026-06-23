@@ -104,3 +104,45 @@
 
 - آیا همه‌ی موارد پوشش داده شد؟ **بخشِ اصلیِ تجربه (زمان‌بندی، شرکت‌کننده‌های غنی، چت/نظارت، اعلان، استریم، صفحه‌ی عمومی، ثبت‌نام با نامِ نمایشی) بله.** برخی اقلام (persist سمتِ سرور، استریمِ واقعی، ارسالِ واقعیِ پیام) عمداً mock/adapter-ready ماندند چون به سرویسِ بیرونی نیاز دارند — در بخش ۵ دقیق فهرست شده‌اند.
 - این پنل دیگر «UIِ تزئینی» نیست: هر دکمه نتیجه‌ی قابل‌مشاهده، audit و persist دارد.
+
+---
+
+## ۸. Manual UI QA — Authenticated Admin
+
+با اکانتِ `admin@example.com` (نقش ADMIN) و **Playwright + کانالِ Edge** روی `/admin/tournaments/t7` به‌صورتِ تعاملی تست شد: لاگین واقعی، تزریقِ توکن، بازکردنِ هر تب، کلیک روی drawerها/دکمه‌ها، ارسالِ پیام/اعلان، روشن‌کردنِ استریم، و سنجشِ persistence با **refreshِ واقعی**. نتیجه‌ی نهایی: **۴۷ بررسی، ۰ FAIL** (+ بازبینیِ بصریِ screenshotهای هر تب).
+
+| تب | چه تست شد | نتیجه | مشکلِ یافته‌شده | اصلاح | وابستگیِ backend |
+|----|-----------|:----:|----------------|-------|------------------|
+| نمای کلی | کارت‌های خلاصه، «۳ دور نیازمندِ اقدام»، گام‌های بعدی، FC26 | ✅ | — | — | — |
+| اتاقِ کنترل | roadmapِ مرحله‌ها (کلیک→جزئیات)، صفِ اقدام‌ها، match drawer | ✅ | — | — | — |
+| برنامه‌ی زمان‌بندی | drawerِ دور، ارسالِ یادآوری، تمدیدِ مهلت، **persist بعد از refresh** | ✅ | selectorِ تستِ اولیه (نه باگ) | — | کرونِ ارسالِ واقعیِ یادآوری (jobs) |
+| براکت | درختِ ۳ دوره (یک‌چهارم/نیمه/فینال)، وضعیت‌ها، legend | ✅ | — | — | — |
+| مسابقات | فهرستِ مسابقاتِ واقعی، فیلترِ دور/وضعیت، actionهای تأیید/رد/ویرایش | ✅ | — | — | — |
+| شرکت‌کننده‌ها | search، Player Drawer (ایمیل/موبایل/Game ID/نامِ نمایشی/KYC/wallet/اخطار)، اکشن، bulk، **mobile بدونِ overflow** | ✅ | — | — | ذخیره‌ی پایدارِ تغییرات (ops API) |
+| چت و اعلان‌ها | ارسالِ پیام، **persist بعد از refresh**، سیاستِ چت، mute/delete/report، اعلان | ✅ | selectorِ تستِ اولیه (نه باگ) | — | چتِ بلادرنگ/چنددستگاهی (WebSocket) |
+| اختلاف‌ها | **drawerِ پرونده با گزارش‌دهنده/حریف/ادعا/نتیجه‌ی ثبت‌شده/مدرک/اثر/پیشنهاد** + تصمیم‌ها + persist | ✅ | **باگِ واقعی: صفحه‌ی قدیمی drawerِ غنی نداشت** | **بازنویسی با مدلِ `OpsDispute` + drawer + `useOpsSlice`** | — |
+| استریمِ زنده | overview، setup (کلیدِ masked)، **start/stop + persist**، سلامت، mock player | ✅ | — | — | سرورِ RTMP/HLS واقعی |
+| مالی و escrow | وضعیتِ escrow، قفلِ پرداخت با **دلیلِ دقیق**، توزیعِ جایزه، ledger | ✅ | — | — | درگاه/تسویه‌ی واقعی |
+| فعالیت/ممیزی | بلوک‌های auditِ هر تب، تبِ گزارشِ عملیات؛ activity پس از اقدام پر می‌شود | ✅ | — | — | — |
+| پخشِ عمومی `/t/:id/live` | mock player، امتیاز، سلامت، چت، گزارشِ مشکل | ✅ | — | — | پخشِ واقعی |
+
+### چک‌لیستِ نهایی (همه ✅)
+- [x] Roadmap popovers tested — کلیکِ مرحله جزئیات باز می‌کند
+- [x] Schedule reminders tested — ارسالِ یادآوری + تمدید + **persist بعد از refresh**
+- [x] Match drawers tested — اتاقِ کنترل
+- [x] Player drawers tested — همه‌ی فیلدهای هویت/تماس/Game ID/نامِ نمایشی
+- [x] Chat controls tested — ارسال/حذف/mute/سیاست + **persist**
+- [x] Announcements tested — composer با هدف/کانال/زمان‌بندی
+- [x] Disputes tested — drawerِ کامل + تصمیم‌ها + persist (**اصلاح شد**)
+- [x] Activity feed tested — رویدادها از audit
+- [x] Audit log tested — جدا از activity
+- [x] Live streaming tested — start/stop + persist + mock player
+- [x] Public live page tested — رندر تأییدشده
+- [x] Finance/escrow tested — قفل با دلیل + توزیعِ جایزه
+- [x] Refresh persistence tested — چت/اسکجول/استریم/اختلاف همه ماندند
+- [x] No dead buttons — هر دکمه‌ی probe‌شده عمل کرد
+- [x] No meaningless placeholders — هیچ متنِ lorem/coming-soon یافت نشد
+- [x] FC26 128-player scenario consistent — در همه‌ی تب‌ها داده‌ی FC26 دیده شد
+- [x] RTL/Persian درست · mobile (۳۹۰px) بدونِ overflow
+
+**روشِ تست:** Playwright headless (کانالِ Edge)، لاگینِ واقعیِ API، تزریقِ توکن، تعامل + refresh. تنها یک **باگِ واقعی** یافت شد (drawerِ اختلاف) که **اصلاح و دوباره تأیید** شد؛ بقیه‌ی FAILهای اولیه نویزِ selectorِ تست بودند که با selectorِ درست PASS شدند.

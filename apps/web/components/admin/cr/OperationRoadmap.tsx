@@ -1,218 +1,73 @@
 'use client';
 
-import type { ControlRoomState, RoadmapStep } from '@/lib/admin/controlRoom';
+import type { RoadmapState, RoadmapStep, ControlRoomState } from '@/lib/admin/controlRoom';
 
-/* ───────── icons (inline line SVG) ───────── */
-function CheckIcon({ size = 16 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M5 13l4 4L19 7" />
-    </svg>
-  );
-}
-function WarnIcon({ size = 16 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <path d="M12 9v4" />
-      <path d="M12 17h.01" />
-      <path d="M10.3 3.9 1.8 18.5a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
-    </svg>
-  );
-}
-function ClockIcon({ size = 16 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M12 7v5l3 2" />
-    </svg>
-  );
-}
-function DotIcon({ size = 10 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <circle cx="12" cy="12" r="6" />
-    </svg>
-  );
-}
-
-/* ───────── per-state visual config ───────── */
-type StateMeta = {
-  label: string;
-  ring: string; // node border
-  fill: string; // node background
-  ico: string; // node icon color
-  connector: string; // line to the next node
-  pill: string; // small status chip classes
+const STATE: Record<RoadmapState, { ring: string; bg: string; text: string; badge: string; line: string; label: string }> = {
+  completed: { ring: 'border-accent/50', bg: 'bg-accent/15', text: 'text-accent', badge: 'text-accent', line: 'bg-accent/40', label: 'انجام‌شده' },
+  current: { ring: 'border-accent shadow-[0_0_0_4px_rgba(45,212,191,.15)]', bg: 'bg-accent/20', text: 'text-accent', badge: 'text-[#5eead4]', line: 'bg-line', label: 'جاری' },
+  blocked: { ring: 'border-bad', bg: 'bg-bad/15', text: 'text-bad', badge: 'text-[#fca5a5]', line: 'bg-line', label: 'مسدود' },
+  warning: { ring: 'border-gold/60', bg: 'bg-gold/15', text: 'text-gold', badge: 'text-gold', line: 'bg-line', label: 'هشدار' },
+  pending_admin: { ring: 'border-gold/60', bg: 'bg-gold/15', text: 'text-gold', badge: 'text-gold', line: 'bg-line', label: 'نیازِ اقدام' },
+  upcoming: { ring: 'border-line', bg: 'bg-tile2', text: 'text-faint', badge: 'text-faint', line: 'bg-line', label: 'بعدی' },
+  locked: { ring: 'border-line border-dashed', bg: 'bg-tile2', text: 'text-faint', badge: 'text-faint', line: 'bg-line', label: 'قفل' },
 };
 
-const STATE_META: Record<RoadmapStep['state'], StateMeta> = {
-  completed: {
-    label: 'انجام‌شده',
-    ring: 'border-accent/70',
-    fill: 'bg-accent/15',
-    ico: 'text-[#5eead4]',
-    connector: 'bg-accent/60',
-    pill: 'bg-accent/15 text-[#5eead4] border-accent/30',
-  },
-  current: {
-    label: 'در حالِ اجرا',
-    ring: 'border-gold',
-    fill: 'bg-gold/15',
-    ico: 'text-gold',
-    connector: 'bg-gradient-to-l from-gold/60 to-line',
-    pill: 'bg-gold/15 text-gold border-gold/30',
-  },
-  blocked: {
-    label: 'مسدود',
-    ring: 'border-bad',
-    fill: 'bg-bad/15',
-    ico: 'text-[#fca5a5]',
-    connector: 'bg-bad/40',
-    pill: 'bg-bad/15 text-[#fca5a5] border-bad/40',
-  },
-  pending_admin: {
-    label: 'منتظرِ مدیر',
-    ring: 'border-amber-400/80',
-    fill: 'bg-amber-400/15',
-    ico: 'text-amber-300',
-    connector: 'bg-amber-400/40',
-    pill: 'bg-amber-400/15 text-amber-300 border-amber-400/30',
-  },
-  upcoming: {
-    label: 'پیشِ‌رو',
-    ring: 'border-dashed border-line',
-    fill: 'bg-tile2',
-    ico: 'text-faint',
-    connector: 'bg-line/70',
-    pill: 'bg-tile2 text-faint border-line',
-  },
+const KIND_ICON: Record<string, string> = {
+  registration: '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M19 8v6M22 11h-6"/>',
+  check_in: '<circle cx="12" cy="12" r="9"/><path d="m8.5 12 2.5 2.5L16 9"/>',
+  bracket: '<path d="M6 3v6a3 3 0 0 0 3 3h6a3 3 0 0 1 3 3v6"/><circle cx="6" cy="3" r="0"/><path d="M4 5h4M4 19h4M16 19h4"/>',
+  round: '<path d="M6 3v6a6 6 0 0 0 12 0V3"/><path d="M5 21h14M9 21v-3a3 3 0 0 1 6 0v3"/>',
+  verify: '<rect x="6" y="4" width="12" height="16" rx="2"/><path d="M9 4V3h6v1M9 12l2 2 4-4"/>',
+  payout: '<path d="M6 9h12l-1 11H7L6 9Z"/><path d="M9 9a3 3 0 1 1 6 0"/>',
 };
 
-function StepIcon({ state }: { state: RoadmapStep['state'] }) {
-  if (state === 'completed') return <CheckIcon size={18} />;
-  if (state === 'blocked') return <WarnIcon size={18} />;
-  if (state === 'pending_admin') return <ClockIcon size={18} />;
-  if (state === 'current') return <DotIcon size={12} />;
-  return <DotIcon size={9} />;
+function Lock() {
+  return <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>;
+}
+function Check() {
+  return <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={3} strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>;
 }
 
-function Node({ step, index, isLast }: { step: RoadmapStep; index: number; isLast: boolean }) {
-  const meta = STATE_META[step.state];
-  const isCurrent = step.state === 'current';
-  const isBlocked = step.state === 'blocked';
-  const isPending = step.state === 'pending_admin';
-  const faIndex = (index + 1).toLocaleString('fa-IR');
-
+export function OperationRoadmap({ cr, activeKey, onSelect }: { cr: ControlRoomState; activeKey?: string | null; onSelect?: (step: RoadmapStep) => void }) {
+  const steps = cr.roadmap;
   return (
-    <li className="relative flex min-w-[148px] max-w-[200px] flex-none flex-col items-center">
-      {/* connector to the NEXT node (RTL → sits on the left side) */}
-      {!isLast && (
-        <span className={`pointer-events-none absolute end-[-50%] top-[26px] h-[3px] w-full ${meta.connector}`} aria-hidden />
-      )}
+    <section className="rounded-2xl border border-line bg-tile p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <h2 className="font-display text-sm font-bold">روندِ تورنومنت</h2>
+        <span className="text-[11px] text-faint">برای جزئیاتِ هر مرحله رویش بزن</span>
+      </div>
 
-      {/* node circle */}
-      <span className="relative z-10 grid place-items-center" style={{ width: 52, height: 52 }}>
-        {isCurrent && <span className="absolute inset-0 animate-ping rounded-full border-2 border-gold/60" aria-hidden />}
-        {isCurrent && <span className="absolute inset-[-4px] rounded-full ring-2 ring-gold/40" aria-hidden />}
-        {isBlocked && <span className="absolute inset-0 animate-pulse rounded-full bg-bad/20" aria-hidden />}
-        <span className={`relative grid h-[52px] w-[52px] place-items-center rounded-full border-2 ${meta.ring} ${meta.fill} ${meta.ico}`}>
-          <StepIcon state={step.state} />
-        </span>
-      </span>
+      <div className="hscroll flex items-start gap-0 pb-1">
+        {steps.map((s, i) => {
+          const st = STATE[s.state];
+          const active = activeKey === s.key;
+          const last = i === steps.length - 1;
+          return (
+            <div key={s.key} className="flex min-w-[96px] flex-1 flex-col items-center">
+              {/* node + connector */}
+              <div className="flex w-full items-center">
+                <span className={`h-0.5 flex-1 ${i === 0 ? 'opacity-0' : STATE[steps[i - 1].state].line}`} />
+                <button
+                  onClick={() => onSelect?.(s)}
+                  className={`relative grid h-11 w-11 flex-none place-items-center rounded-2xl border-2 transition ${st.ring} ${st.bg} ${st.text} ${active ? 'scale-110 ring-2 ring-white/20' : 'hover:scale-105'} ${s.state === 'current' ? 'animate-pulse' : ''}`}
+                  title={s.label}
+                  aria-current={active ? 'true' : undefined}
+                >
+                  {s.state === 'completed' ? <Check /> : s.state === 'locked' ? <Lock /> : <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" dangerouslySetInnerHTML={{ __html: KIND_ICON[s.kind] ?? KIND_ICON.round }} />}
+                  {s.needsAction && <span className="absolute -end-0.5 -top-0.5 h-2.5 w-2.5 rounded-full bg-bad ring-2 ring-tile" />}
+                </button>
+                <span className={`h-0.5 flex-1 ${last ? 'opacity-0' : st.line}`} />
+              </div>
 
-      {/* index + status pill */}
-      <span className={`mt-3 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold tnum ${meta.pill}`}>
-        <span className="opacity-70">{faIndex}</span>
-        <span>{meta.label}</span>
-      </span>
-
-      {/* label */}
-      <span
-        className={`mt-2 text-center text-[13px] leading-snug ${
-          isCurrent ? 'font-display font-bold text-gold' : step.state === 'completed' ? 'font-display font-semibold text-accent' : isBlocked ? 'font-bold text-[#fca5a5]' : isPending ? 'font-semibold text-amber-200' : 'text-muted'
-        }`}
-      >
-        {step.label}
-      </span>
-
-      {/* blocker / pending reason */}
-      {(isBlocked || isPending) && step.blockerReason && (
-        <span
-          className={`mt-1.5 flex items-start gap-1 rounded-lg border px-2 py-1 text-center text-[11px] leading-snug ${
-            isBlocked ? 'border-bad/30 bg-bad/10 text-[#fca5a5]' : 'border-amber-400/30 bg-amber-400/10 text-amber-200'
-          }`}
-        >
-          <span className="mt-0.5 flex-none">
-            {isBlocked ? <WarnIcon size={12} /> : <ClockIcon size={12} />}
-          </span>
-          <span>{step.blockerReason}</span>
-        </span>
-      )}
-    </li>
-  );
-}
-
-/* ───────── main component ───────── */
-export function OperationRoadmap({ cr }: { cr: ControlRoomState }) {
-  const steps = cr.roadmap ?? [];
-
-  const counts = steps.reduce(
-    (acc, s) => {
-      acc[s.state] = (acc[s.state] ?? 0) + 1;
-      return acc;
-    },
-    {} as Record<RoadmapStep['state'], number>,
-  );
-  const blockedTotal = (counts.blocked ?? 0) + (counts.pending_admin ?? 0);
-
-  return (
-    <section className="rounded-2xl border border-line bg-tile p-4 md:p-5" dir="rtl" aria-label="مسیرِ عملیاتِ تورنومنت">
-      {/* header */}
-      <header className="mb-4 flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <span className="grid h-9 w-9 place-items-center rounded-xl border border-line bg-tile2 text-accent">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M4 18 L9 13 L13 16 L20 8" />
-              <circle cx="4" cy="18" r="1.6" fill="currentColor" />
-              <circle cx="20" cy="8" r="1.6" fill="currentColor" />
-            </svg>
-          </span>
-          <div>
-            <h3 className="font-display text-sm font-bold text-white">مسیرِ عملیات</h3>
-            <p className="text-[11px] text-faint">خطِ زمانیِ زنده‌ی برگزاری — از ثبت‌نام تا پرداختِ جایزه</p>
-          </div>
-        </div>
-
-        {/* legend / blocker summary */}
-        <div className="flex items-center gap-2">
-          {blockedTotal > 0 ? (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-bad/40 bg-bad/10 px-2.5 py-1 text-[11px] font-bold text-[#fca5a5]">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-current" />
-              {blockedTotal.toLocaleString('fa-IR')} گام نیازمندِ اقدام
-            </span>
-          ) : (
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/15 px-2.5 py-1 text-[11px] font-bold text-[#5eead4]">
-              <CheckIcon size={12} />
-              مسیر بدونِ انسداد
-            </span>
-          )}
-        </div>
-      </header>
-
-      {/* roadmap track */}
-      {steps.length === 0 ? (
-        <div className="rounded-xl border border-dashed border-line bg-tile2 p-6 text-center text-[13px] text-faint">
-          هنوز گامی برای این تورنومنت تعریف نشده؛ پس از باز شدنِ ثبت‌نام، مراحلِ برگزاری اینجا به‌ترتیب نمایش داده می‌شوند.
-        </div>
-      ) : (
-        <div className="hscroll -mx-1 px-1 pb-2">
-          <ol className="flex items-start gap-2 pt-1">
-            {steps.map((s, i) => (
-              <Node key={s.key} step={s} index={i} isLast={i === steps.length - 1} />
-            ))}
-          </ol>
-        </div>
-      )}
+              {/* label + badge */}
+              <button onClick={() => onSelect?.(s)} className="mt-1.5 flex flex-col items-center px-1 text-center">
+                <span className={`line-clamp-1 text-[11.5px] font-semibold ${s.state === 'upcoming' || s.state === 'locked' ? 'text-faint' : 'text-slate-200'}`}>{s.label}</span>
+                {s.badge && <span className={`mt-0.5 line-clamp-1 text-[10px] ${st.badge}`}>{s.badge}</span>}
+              </button>
+            </div>
+          );
+        })}
+      </div>
     </section>
   );
 }

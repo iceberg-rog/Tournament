@@ -7,12 +7,13 @@ import type { AdminTournament } from '@/lib/admin';
 import type { AdminRole } from '@/lib/admin/ops';
 import { useAdminRole, useEnsureAdminRole, useTournament } from '@/lib/admin/store';
 import { useControlRoom } from '@/lib/admin/useControlRoom';
-import type { ActionQueueItem } from '@/lib/admin/controlRoom';
+import type { ActionQueueItem, RoadmapStep } from '@/lib/admin/controlRoom';
 import { AuditLogList } from '@/components/admin/AuditLogList';
 import { CompactStatusBar } from '@/components/admin/cr/CompactStatusBar';
-import { OperationStatusStrip } from '@/components/admin/cr/OperationStatusStrip';
 import { OperationRoadmap } from '@/components/admin/cr/OperationRoadmap';
 import { CriticalBlockerCard } from '@/components/admin/cr/CriticalBlockerCard';
+import { LiveNowSummary } from '@/components/admin/cr/LiveNowSummary';
+import { StepPanel } from '@/components/admin/cr/StepPanel';
 import { ActionQueuePanel } from '@/components/admin/cr/ActionQueuePanel';
 import { LiveMatchCenter } from '@/components/admin/cr/LiveMatchCenter';
 import { ProgressView } from '@/components/admin/cr/ProgressView';
@@ -20,17 +21,16 @@ import { ParticipantsPanel } from '@/components/admin/cr/ParticipantsPanel';
 import { ChatAnnouncementsPanel } from '@/components/admin/cr/ChatAnnouncementsPanel';
 import { DisputesPanel } from '@/components/admin/cr/DisputesPanel';
 import { ActivityLog } from '@/components/admin/cr/ActivityLog';
-import { RoundControlPanel } from '@/components/admin/cr/RoundControlPanel';
-import { OutcomeSummary } from '@/components/admin/cr/OutcomeSummary';
 import { MatchDetailDrawer } from '@/components/admin/cr/MatchDetailDrawer';
 import { PlayerProfileDrawer } from '@/components/admin/cr/PlayerProfileDrawer';
 import { DisputeDrawer } from '@/components/admin/cr/DisputeDrawer';
 
-type TabKey = 'participants' | 'chat' | 'disputes' | 'activity' | 'audit';
+type TabKey = 'actions' | 'matches' | 'participants' | 'chat' | 'disputes' | 'activity' | 'audit';
 
 function Cockpit({ t, role, actorName }: { t: AdminTournament; role: AdminRole; actorName: string }) {
   const cr = useControlRoom(t, role, actorName);
-  const [tab, setTab] = useState<TabKey>('participants');
+  const [tab, setTab] = useState<TabKey>('actions');
+  const [step, setStep] = useState<RoadmapStep | null>(null);
   const unread = cr.cr.matches.reduce((s, m) => s + m.chatUnread, 0);
 
   function handleAct(item: ActionQueueItem) {
@@ -57,9 +57,16 @@ function Cockpit({ t, role, actorName }: { t: AdminTournament; role: AdminRole; 
     }
   }
 
+  // پل از StepPanel به تب‌ها/drawerها
+  function stepTab(to: 'participants' | 'bracket' | 'disputes' | 'actions') {
+    setStep(null);
+    setTab(to === 'bracket' ? 'matches' : to);
+  }
   const openChat = () => setTab('chat');
 
   const TABS: { key: TabKey; label: string; badge?: number; tone?: string }[] = [
+    { key: 'actions', label: 'اقدامات', badge: cr.cr.actionQueue.length, tone: cr.cr.openDisputes ? 'text-[#fca5a5]' : 'text-gold' },
+    { key: 'matches', label: 'براکت و مسابقات' },
     { key: 'participants', label: 'شرکت‌کننده‌ها', badge: cr.cr.totalCount },
     { key: 'chat', label: 'گفت‌وگو', badge: unread, tone: 'text-gold' },
     { key: 'disputes', label: 'اختلاف‌ها', badge: cr.cr.openDisputes, tone: 'text-[#fca5a5]' },
@@ -69,26 +76,21 @@ function Cockpit({ t, role, actorName }: { t: AdminTournament; role: AdminRole; 
 
   return (
     <div className="space-y-6">
+      {/* سطح ۱ — همیشه visible */}
       <CompactStatusBar cr={cr.cr} onRun={cr.run} onOpenChat={openChat} />
-      <OperationStatusStrip cr={cr.cr} />
-      <OperationRoadmap cr={cr.cr} />
+      <OperationRoadmap cr={cr.cr} activeKey={step?.key} onSelect={setStep} />
 
-      {/* ناحیه‌ی اصلیِ عملیات */}
-      <div className="grid gap-6 xl:grid-cols-[1.7fr_1fr]">
-        <div className="space-y-6">
-          <LiveMatchCenter cr={cr.cr} onOpenMatch={cr.openMatch} onRun={cr.run} />
-          <ProgressView cr={cr.cr} onOpenMatch={cr.openMatch} />
-        </div>
+      {(() => {
+        const hasBlocker = cr.cr.disputes.some((d) => d.status === 'open' || d.status === 'under_review');
+        return (
+          <div className={hasBlocker ? 'grid gap-6 lg:grid-cols-2' : ''}>
+            {hasBlocker && <CriticalBlockerCard cr={cr.cr} onResolve={cr.openDispute} onOpenChat={openChat} />}
+            <LiveNowSummary cr={cr.cr} onOpenMatch={cr.openMatch} onViewAll={() => setTab('matches')} />
+          </div>
+        );
+      })()}
 
-        <div className="space-y-6">
-          <CriticalBlockerCard cr={cr.cr} onResolve={cr.openDispute} onOpenChat={openChat} />
-          <ActionQueuePanel cr={cr.cr} onAct={handleAct} />
-          <RoundControlPanel cr={cr.cr} onGenerateNext={() => cr.run('generate_next_round')} />
-          <OutcomeSummary cr={cr.cr} />
-        </div>
-      </div>
-
-      {/* پنل‌های ثانویه — تب‌دار (هم‌زمان فقط یکی باز) */}
+      {/* سطح ۲ — تب‌های ثانویه (هم‌زمان فقط یکی) */}
       <div className="space-y-3">
         <div className="hscroll flex gap-1 rounded-2xl border border-line bg-tile p-1">
           {TABS.map((tb) => {
@@ -106,6 +108,13 @@ function Cockpit({ t, role, actorName }: { t: AdminTournament; role: AdminRole; 
           })}
         </div>
 
+        {tab === 'actions' && <ActionQueuePanel cr={cr.cr} onAct={handleAct} />}
+        {tab === 'matches' && (
+          <div className="space-y-6">
+            <ProgressView cr={cr.cr} onOpenMatch={cr.openMatch} />
+            <LiveMatchCenter cr={cr.cr} onOpenMatch={cr.openMatch} onRun={cr.run} />
+          </div>
+        )}
         {tab === 'participants' && <ParticipantsPanel cr={cr.cr} onOpenParticipant={cr.openParticipant} />}
         {tab === 'chat' && <ChatAnnouncementsPanel cr={cr.cr} onRun={cr.run} />}
         {tab === 'disputes' && <DisputesPanel cr={cr.cr} onOpenDispute={cr.openDispute} />}
@@ -118,6 +127,20 @@ function Cockpit({ t, role, actorName }: { t: AdminTournament; role: AdminRole; 
         )}
       </div>
 
+      {/* سطح ۲ — Glass panel هر مرحله */}
+      <StepPanel
+        cr={cr.cr}
+        step={step}
+        onClose={() => setStep(null)}
+        onRun={cr.run}
+        onOpenMatch={cr.openMatch}
+        onOpenDispute={cr.openDispute}
+        onOpenParticipant={cr.openParticipant}
+        onOpenChat={openChat}
+        onOpenTab={stepTab}
+      />
+
+      {/* سطح ۳ — drawerها */}
       <MatchDetailDrawer cr={cr.cr} matchId={cr.matchId} onClose={cr.closeDrawers} onRun={cr.run} onOpenParticipant={cr.openParticipant} />
       <PlayerProfileDrawer cr={cr.cr} participantId={cr.participantId} onClose={cr.closeDrawers} onRun={cr.run} onOpenMatch={cr.openMatch} />
       <DisputeDrawer cr={cr.cr} disputeId={cr.disputeId} onClose={cr.closeDrawers} onRun={cr.run} onOpenParticipant={cr.openParticipant} />

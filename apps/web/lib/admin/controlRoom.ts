@@ -155,11 +155,17 @@ export interface CRActivity {
   at: string;
 }
 
+export type RoadmapKind = 'registration' | 'check_in' | 'bracket' | 'round' | 'verify' | 'payout';
+export type RoadmapState = 'completed' | 'current' | 'blocked' | 'warning' | 'upcoming' | 'locked' | 'pending_admin';
 export interface RoadmapStep {
   key: string;
+  kind: RoadmapKind;
   label: string;
-  state: 'completed' | 'current' | 'blocked' | 'pending_admin' | 'upcoming';
+  state: RoadmapState;
+  round?: number;
+  badge?: string;
   blockerReason?: string;
+  needsAction?: boolean;
 }
 
 export type ActionKind =
@@ -467,41 +473,65 @@ function computeLeaderboard(core: ControlRoomCore): LeaderboardRow[] {
 }
 
 function buildRoadmap(core: ControlRoomCore, openDisputes: number, missingResults: number): RoadmapStep[] {
-  const elim = core.format === 'single_elimination' || core.format === 'double_elimination' || core.format === 'custom';
-  const pre: RoadmapStep[] = [
-    { key: 'reg', label: 'ثبت‌نام', state: 'completed' },
-    { key: 'checkin', label: 'چک‌این', state: 'completed' },
-    { key: 'bracket', label: core.format === 'battle_royale' ? 'آماده‌سازیِ لابی' : 'ساختِ براکت', state: 'completed' },
-  ];
+  const fa = (n: number) => n.toLocaleString('fa-IR');
+  const finished = core.phase === 'completed' || core.phase === 'paid';
+  const noShow = core.participants.filter((p) => p.status === 'no_show').length;
+  const bracketLabel = core.format === 'battle_royale' ? 'آماده‌سازیِ لابی' : 'ساختِ براکت';
+
+  // فازهای پیش از شروع
   if (core.phase === 'registration' || core.phase === 'check_in') {
+    const rounds: RoadmapStep[] = [];
+    for (let r = 1; r <= core.totalRounds; r++) rounds.push({ key: `r${r}`, kind: 'round', round: r, label: roundName(core.format, r, core.totalRounds), state: 'upcoming' });
     return [
-      { key: 'reg', label: 'ثبت‌نام', state: core.phase === 'registration' ? 'current' : 'completed' },
-      { key: 'checkin', label: 'چک‌این', state: core.phase === 'check_in' ? 'current' : 'upcoming' },
-      { key: 'bracket', label: 'ساختِ براکت', state: 'upcoming' },
-      { key: 'play', label: 'برگزاری', state: 'upcoming' },
-      { key: 'payout', label: 'پرداختِ جایزه', state: 'upcoming' },
+      { key: 'reg', kind: 'registration', label: 'ثبت‌نام', state: core.phase === 'registration' ? 'current' : 'completed', needsAction: core.phase === 'registration' },
+      { key: 'checkin', kind: 'check_in', label: 'چک‌این', state: core.phase === 'check_in' ? 'current' : 'upcoming', needsAction: core.phase === 'check_in' },
+      { key: 'bracket', kind: 'bracket', label: bracketLabel, state: 'upcoming' },
+      ...rounds,
+      { key: 'verify', kind: 'verify', label: 'تأییدِ نتایج', state: 'upcoming' },
+      { key: 'payout', kind: 'payout', label: 'پرداختِ جایزه', state: 'locked', badge: 'بعد از پایان' },
     ];
   }
+
+  const pre: RoadmapStep[] = [
+    { key: 'reg', kind: 'registration', label: 'ثبت‌نام', state: 'completed' },
+    { key: 'checkin', kind: 'check_in', label: 'چک‌این', state: 'completed' },
+    { key: 'bracket', kind: 'bracket', label: bracketLabel, state: 'completed' },
+  ];
+
   const rounds: RoadmapStep[] = [];
   for (let r = 1; r <= core.totalRounds; r++) {
-    let state: RoadmapStep['state'] = 'upcoming';
+    let state: RoadmapState = 'upcoming';
+    let badge: string | undefined;
     let blockerReason: string | undefined;
-    if (r < core.currentRound) state = 'completed';
+    let needsAction = false;
+    if (finished || r < core.currentRound) state = 'completed';
     else if (r === core.currentRound) {
-      if (openDisputes > 0) { state = 'blocked'; blockerReason = `${openDisputes.toLocaleString('fa-IR')} اختلافِ باز`; }
-      else if (missingResults > 0) { state = 'blocked'; blockerReason = `${missingResults.toLocaleString('fa-IR')} نتیجه ثبت نشده`; }
-      else state = 'current';
+      if (openDisputes > 0) { state = 'blocked'; badge = `${fa(openDisputes)} اختلافِ باز`; blockerReason = 'اختلافِ باز مانعِ ادامه است'; needsAction = true; }
+      else if (missingResults > 0) { state = 'warning'; badge = `${fa(missingResults)} نتیجه‌ی معلق`; needsAction = true; }
+      else if (noShow > 0) { state = 'warning'; badge = `${fa(noShow)} غایب`; needsAction = true; }
+      else { state = 'current'; badge = 'در جریان'; }
+    } else if (r === core.currentRound + 1) {
+      if (openDisputes > 0 || missingResults > 0) { state = 'locked'; badge = 'منتظرِ حلِ مانع'; }
+      else state = 'upcoming';
     }
-    rounds.push({ key: `r${r}`, label: roundName(core.format, r, core.totalRounds), state, blockerReason });
+    rounds.push({ key: `r${r}`, kind: 'round', round: r, label: roundName(core.format, r, core.totalRounds), state, badge, blockerReason, needsAction });
   }
+
+  const verifyState: RoadmapState = finished || core.phase === 'payout_pending' ? 'completed' : missingResults > 0 ? 'warning' : 'upcoming';
+  let payoutState: RoadmapState = 'locked';
+  let payoutBadge: string | undefined = 'بعد از پایانِ تورنومنت';
+  if (core.phase === 'paid') { payoutState = 'completed'; payoutBadge = undefined; }
+  else if (core.phase === 'payout_pending') {
+    if (openDisputes > 0) { payoutState = 'blocked'; payoutBadge = 'اختلافِ باز'; }
+    else { payoutState = 'pending_admin'; payoutBadge = 'آماده‌ی آزادسازی'; }
+  }
+
   const post: RoadmapStep[] = [
-    { key: 'verify', label: 'تأییدِ نتایج', state: core.phase === 'completed' || core.phase === 'paid' || core.phase === 'payout_pending' ? 'completed' : 'upcoming' },
-    { key: 'payout', label: 'پرداختِ جایزه', state: core.phase === 'paid' ? 'completed' : core.phase === 'payout_pending' ? 'pending_admin' : 'upcoming' },
-    { key: 'done', label: 'پایان', state: core.phase === 'paid' ? 'completed' : 'upcoming' },
+    { key: 'verify', kind: 'verify', label: 'تأییدِ نتایج', state: verifyState, badge: verifyState === 'warning' ? `${fa(missingResults)} معلق` : undefined, needsAction: verifyState === 'warning' },
+    { key: 'payout', kind: 'payout', label: 'پرداختِ جایزه', state: payoutState, badge: payoutBadge, needsAction: payoutState === 'pending_admin' },
   ];
-  return elim || core.format === 'battle_royale' || core.format === 'round_robin' || core.format === 'league' || core.format === 'swiss'
-    ? [...pre, ...rounds, ...post]
-    : [...pre, ...rounds, ...post];
+
+  return [...pre, ...rounds, ...post];
 }
 
 function buildActionQueue(core: ControlRoomCore): ActionQueueItem[] {

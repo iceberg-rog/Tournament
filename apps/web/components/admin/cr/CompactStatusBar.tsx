@@ -75,6 +75,15 @@ export function CompactStatusBar({
         </div>
       </div>
 
+      {/* اقدامِ بعدی — همیشه visible */}
+      {cr.summary.nextAction && cr.statusTone !== 'idle' && (
+        <div className="mt-2 flex items-center gap-2 border-t border-line pt-2 text-xs">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="text-accent"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+          <span className="text-faint">اقدامِ بعدی:</span>
+          <span className="font-semibold text-[#5eead4]">{cr.summary.nextAction}</span>
+        </div>
+      )}
+
       {/* ردیفِ جزئیات (بازشونده) */}
       {open && (
         <div className="mt-2.5 flex flex-wrap items-center gap-2 border-t border-line pt-2.5">

@@ -70,11 +70,11 @@ export const ARENA = {
     status: 'live' as const,
   } satisfies ArenaMatch,
   bracket: [
-    { id: 'b1', a: 'Phantom X', b: 'Valor GG', sa: 3, sb: 1, win: 'a' as const },
-    { id: 'b2', a: 'Nebula', b: 'Cobalt', sa: 2, sb: 2, win: null },
-    { id: 'b3', a: 'Storm', b: 'Echo', sa: 2, sb: 0, win: 'a' as const },
+    { id: 'b1', a: 'Phantom X', b: 'Valor GG', sa: 3, sb: 1, win: 'a' },
+    { id: 'b2', a: 'Nebula', b: 'Cobalt', sa: 1, sb: 2, win: 'b' },
+    { id: 'b3', a: 'Storm', b: 'Echo', sa: 2, sb: 0, win: 'a' },
     { id: 'b4', a: 'Apex', b: 'Drift', sa: 0, sb: 0, win: null },
-  ],
+  ] as { id: string; a: string; b: string; sa: number; sb: number; win: 'a' | 'b' | null }[],
 };
 
 // ───────── فعالیتِ زنده ─────────

@@ -2,8 +2,7 @@
 
 import Link from 'next/link';
 import { CineReveal } from '@/components/CineReveal';
-import { FloatingTournamentScene } from '@/components/FloatingTournamentScene';
-import { Hero3DGate } from '@/components/Hero3DGate';
+import { TournamentCommandCenter } from '@/components/TournamentCommandCenter';
 
 /** نویزِ بسیار ظریف به‌صورتِ data-uri (SVG fractal noise) برای بافتِ سینمایی. */
 const NOISE =
@@ -157,13 +156,11 @@ export function CinematicHero() {
             </CineReveal>
           </div>
 
-          {/* ستونِ صحنه‌ی شناورِ تورنومنت‌ها (کارت‌ها خودشان pop-in دارند) */}
+          {/* ستونِ پنلِ شیشه‌ایِ مرکزِ فرماندهیِ تورنومنت */}
           <div className="relative">
-            {/* هسته‌ی سه‌بعدیِ درخشان پشتِ کارت‌ها (دسکتاپ، بدونِ reduced-motion) */}
-            <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-[1] hidden lg:block motion-reduce:hidden">
-              <Hero3DGate />
-            </div>
-            <FloatingTournamentScene />
+            <CineReveal delay={300}>
+              <TournamentCommandCenter />
+            </CineReveal>
           </div>
         </div>
       </div>

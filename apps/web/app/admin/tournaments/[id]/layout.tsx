@@ -59,24 +59,26 @@ function Shell({ children }: { children: ReactNode }) {
         <span className="text-slate-300">{t.title}</span>
       </nav>
 
-      {/* header */}
-      <div className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-line bg-tile p-5">
-        <div className="flex items-center gap-3">
-          <span className="grid h-12 w-12 flex-none place-items-center rounded-xl bg-gradient-to-br from-accent/30 to-gold/20 font-display text-sm font-bold text-white">{t.game.slice(0, 2)}</span>
-          <div>
-            <div className="mb-1 flex items-center gap-2">
-              <AdminBadge label={meta.label} tone={meta.tone} dot={t.status === 'live'} />
-              <span className="text-[11px] text-faint">{t.game} · {t.platform} · {t.organizer}</span>
+      {/* header — در اتاقِ کنترل پنهان می‌شود (کابین هدرِ فشردهٔ خودش را دارد) */}
+      {activeSeg !== 'control-room' && (
+        <div className="flex flex-wrap items-start justify-between gap-3 rounded-2xl border border-line bg-tile p-5">
+          <div className="flex items-center gap-3">
+            <span className="grid h-12 w-12 flex-none place-items-center rounded-xl bg-gradient-to-br from-accent/30 to-gold/20 font-display text-sm font-bold text-white">{t.game.slice(0, 2)}</span>
+            <div>
+              <div className="mb-1 flex items-center gap-2">
+                <AdminBadge label={meta.label} tone={meta.tone} dot={t.status === 'live'} />
+                <span className="text-[11px] text-faint">{t.game} · {t.platform} · {t.organizer}</span>
+              </div>
+              <h1 className="font-display text-xl font-bold leading-tight">{t.title}</h1>
+              <p className="mt-0.5 text-xs text-faint">
+                {fmt(t.participants)}/{fmt(t.maxParticipants)} شرکت‌کننده · جایزه {money(t.prize)}
+                {t.currentRound ? ` · دورِ ${fmt(t.currentRound)}` : ''}
+              </p>
             </div>
-            <h1 className="font-display text-xl font-bold leading-tight">{t.title}</h1>
-            <p className="mt-0.5 text-xs text-faint">
-              {fmt(t.participants)}/{fmt(t.maxParticipants)} شرکت‌کننده · جایزه {money(t.prize)}
-              {t.currentRound ? ` · دورِ ${fmt(t.currentRound)}` : ''}
-            </p>
           </div>
+          <TournamentRowActions t={t} role={role} actorName={actorName} inline={3} />
         </div>
-        <TournamentRowActions t={t} role={role} actorName={actorName} inline={3} />
-      </div>
+      )}
 
       {/* tabs */}
       <div className="hscroll flex gap-1 border-b border-line">

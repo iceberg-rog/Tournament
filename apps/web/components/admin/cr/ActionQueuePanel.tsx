@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import type { ActionQueueItem, ControlRoomState } from '@/lib/admin/controlRoom';
 import { participantById } from '@/lib/admin/controlRoom';
 import { Avatar } from '@/components/admin/cr/Avatar';
@@ -93,7 +94,7 @@ function Row({ cr, item, onAct }: { cr: ControlRoomState; item: ActionQueueItem;
     })();
 
   return (
-    <li className={`relative overflow-hidden rounded-2xl border p-4 transition ${P.ring} ${critical ? 'animate-pulse' : ''}`}>
+    <li className={`relative overflow-hidden rounded-2xl border p-4 transition ${P.ring}`}>
       {/* ریلِ رنگیِ کنارِ ردیف — نشانه‌ی فوریت */}
       <span className={`absolute inset-y-2 start-0 w-1 rounded-full ${P.rail}`} aria-hidden />
 
@@ -135,10 +136,15 @@ export function ActionQueuePanel({
   cr: ControlRoomState;
   onAct: (item: ActionQueueItem) => void;
 }) {
+  const [showAll, setShowAll] = useState(false);
   const queue = cr.actionQueue;
   const critical = queue.filter((q) => q.priority === 'critical').length;
   const warning = queue.filter((q) => q.priority === 'warning').length;
   const normal = queue.filter((q) => q.priority === 'normal').length;
+  // پیش‌فرض فقط بحرانی + هشدار؛ عادی‌ها پشتِ «نمایش بیشتر».
+  const primary = queue.filter((q) => q.priority !== 'normal');
+  const secondary = queue.filter((q) => q.priority === 'normal');
+  const visible = showAll ? queue : primary;
 
   return (
     <section className="rounded-2xl border border-line bg-tile p-4 sm:p-5">
@@ -175,11 +181,22 @@ export function ActionQueuePanel({
           </p>
         </div>
       ) : (
-        <ul className="flex flex-col gap-3">
-          {queue.map((item) => (
-            <Row key={item.id} cr={cr} item={item} onAct={onAct} />
-          ))}
-        </ul>
+        <>
+          <ul className="flex flex-col gap-3">
+            {visible.map((item) => (
+              <Row key={item.id} cr={cr} item={item} onAct={onAct} />
+            ))}
+          </ul>
+          {secondary.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setShowAll((v) => !v)}
+              className="mt-3 w-full rounded-xl border border-line bg-tile2 py-2 text-xs font-semibold text-muted transition hover:text-text"
+            >
+              {showAll ? 'نمایشِ کمتر' : `نمایشِ ${secondary.length.toLocaleString('fa-IR')} موردِ عادیِ دیگر`}
+            </button>
+          )}
+        </>
       )}
     </section>
   );

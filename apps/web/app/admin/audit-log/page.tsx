@@ -1,10 +1,11 @@
 'use client';
 
-import { useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { authedGet } from '@/lib/api';
 import { AdminGuard } from '@/components/admin/AdminGuard';
 import { PageHeader } from '@/components/admin/PageHeader';
 import { AdminBadge } from '@/components/admin/AdminBadge';
-import { AUDIT_LOG, fmt, type Tone } from '@/lib/admin';
+import { AUDIT_LOG, fmt, type AuditEntry, type Tone } from '@/lib/admin';
 
 const Ico = ({ name, size = 16 }: { name: 'search' | 'download' | 'shield' | 'tag'; size?: number }) => {
   const paths: Record<string, ReactNode> = {
@@ -51,16 +52,29 @@ export default function AuditLogPage() {
   const [q, setQ] = useState('');
   const [entity, setEntity] = useState('all');
   const [note, setNote] = useState('');
+  // دادهٔ واقعی از API؛ در صورتِ خطا/خالی به mock برمی‌گردد.
+  const [data, setData] = useState<AuditEntry[]>(AUDIT_LOG);
+
+  useEffect(() => {
+    authedGet<any[]>('/audit')
+      .then((list) => {
+        if (!Array.isArray(list) || list.length === 0) return;
+        setData(
+          list.map((e) => ({
+            id: e.id, actor: e.actorId, actorRole: e.actorRole, action: e.action,
+            entityType: e.entityType, entityId: e.entityId, reason: e.reason ?? undefined, createdAt: e.createdAt,
+          })),
+        );
+      })
+      .catch(() => {});
+  }, []);
 
   // انواعِ موجودیتِ متمایز — مستقیماً از داده استخراج می‌شوند.
-  const entityTypes = useMemo(
-    () => Array.from(new Set(AUDIT_LOG.map((e) => e.entityType))),
-    [],
-  );
+  const entityTypes = useMemo(() => Array.from(new Set(data.map((e) => e.entityType))), [data]);
 
   const rows = useMemo(() => {
     const term = q.trim().toLowerCase();
-    return AUDIT_LOG.filter((e) => {
+    return data.filter((e) => {
       if (entity !== 'all' && e.entityType !== entity) return false;
       if (!term) return true;
       return (
@@ -70,7 +84,7 @@ export default function AuditLogPage() {
         e.entityId.toLowerCase().includes(term)
       );
     });
-  }, [q, entity]);
+  }, [data, q, entity]);
 
   return (
     <AdminGuard>

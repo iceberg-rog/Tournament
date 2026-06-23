@@ -15,6 +15,8 @@ import { GamesModule } from './games/games.module';
 import { SeasonsModule } from './seasons/seasons.module';
 import { CommunityModule } from './community/community.module';
 import { LaddersModule } from './ladders/ladders.module';
+import { AuditModule } from './audit/audit.module';
+import { OrganizerRequestsModule } from './organizer-requests/organizer-requests.module';
 import { HealthController } from './health.controller';
 
 @Module({
@@ -35,6 +37,8 @@ import { HealthController } from './health.controller';
     SeasonsModule,
     CommunityModule,
     LaddersModule,
+    AuditModule,
+    OrganizerRequestsModule,
   ],
   controllers: [HealthController],
 })

@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { authedGet, authedPost } from '@/lib/api';
 import { AdminGuard } from '@/components/admin/AdminGuard';
 import { PageHeader } from '@/components/admin/PageHeader';
 import { AdminBadge } from '@/components/admin/AdminBadge';
@@ -39,6 +40,22 @@ export default function OrganizerRequestsPage() {
     () => Object.fromEntries(ORGANIZER_REQUESTS.map((r) => [r.id, r.status])),
   );
   const [notes, setNotes] = useState<Record<string, string>>({});
+  // دادهٔ واقعی از API؛ در صورتِ خطا/خالی به mock برمی‌گردد.
+  const [data, setData] = useState<OrganizerRequest[]>(ORGANIZER_REQUESTS);
+
+  useEffect(() => {
+    authedGet<OrganizerRequest[]>('/organizer-requests')
+      .then((list) => {
+        if (!Array.isArray(list) || list.length === 0) return;
+        const mapped = list.map((r) => ({
+          id: r.id, org: r.org, contact: r.contact, reason: r.reason,
+          experience: r.experience ?? '', status: r.status, createdAt: r.createdAt,
+        })) as OrganizerRequest[];
+        setData(mapped);
+        setStatuses(Object.fromEntries(mapped.map((r) => [r.id, r.status])));
+      })
+      .catch(() => {});
+  }, []);
 
   const setNote = (id: string, text: string) => setNotes((n) => ({ ...n, [id]: text }));
 
@@ -46,6 +63,7 @@ export default function OrganizerRequestsPage() {
     if (!window.confirm(`برگزارکننده‌ی «${r.org}» تأیید شود؟`)) return;
     setStatuses((s) => ({ ...s, [r.id]: 'approved' }));
     setNote(r.id, `برگزارکننده تأیید شد — پنل برای «${r.org}» فعال شد.`);
+    authedPost(`/organizer-requests/${r.id}/approve`).catch(() => {});
   };
 
   const reject = (r: OrganizerRequest) => {
@@ -54,22 +72,24 @@ export default function OrganizerRequestsPage() {
     if (reason === null) return;
     setStatuses((s) => ({ ...s, [r.id]: 'rejected' }));
     setNote(r.id, reason.trim() ? `رد شد — دلیل: ${reason.trim()}` : 'درخواست رد شد.');
+    authedPost(`/organizer-requests/${r.id}/reject`, { reason: reason.trim() }).catch(() => {});
   };
 
   const requestInfo = (r: OrganizerRequest) => {
     setStatuses((s) => ({ ...s, [r.id]: 'under_review' }));
     setNote(r.id, 'درخواستِ اطلاعاتِ تکمیلی برای متقاضی ارسال شد.');
+    authedPost(`/organizer-requests/${r.id}/request-info`).catch(() => {});
   };
 
   const rows = useMemo(() => {
     const q = search.trim().toLowerCase();
-    return ORGANIZER_REQUESTS.filter((r) => {
+    return data.filter((r) => {
       const cur = statuses[r.id];
       if (status !== 'all' && cur !== status) return false;
       if (q && !`${r.org} ${r.contact} ${r.reason}`.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [search, status, statuses]);
+  }, [data, search, status, statuses]);
 
   const pendingCount = useMemo(
     () => Object.values(statuses).filter((s) => s === 'submitted' || s === 'under_review').length,

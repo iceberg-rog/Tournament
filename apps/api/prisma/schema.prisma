@@ -210,3 +210,40 @@ model Ladder {
   ratings   Json
   createdAt DateTime @default(now())
 }
+
+/** درخواستِ همکاریِ برگزارکننده (برنامه‌ی برگزارکننده‌های تأییدشده). */
+model OrganizerRequest {
+  id             String   @id @default(uuid())
+  userId         String
+  org            String
+  contact        String
+  reason         String
+  experience     String   @default("")
+  links          String?
+  // submitted | under_review | approved | rejected
+  status         String   @default("submitted")
+  reviewerId     String?
+  decisionReason String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+/** گزارشِ ممیزی — ثبتِ هر اقدامِ حساسِ مدیریتی. */
+model AuditLog {
+  id         String   @id @default(uuid())
+  actorId    String
+  actorRole  String
+  action     String
+  entityType String
+  entityId   String
+  reason     String?
+  before     String?
+  after      String?
+  createdAt  DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([actorId])
+}

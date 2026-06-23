@@ -27,6 +27,8 @@ export type TournamentAction =
   | 'refund'
   | 'archive'
   | 'cancel'
+  | 'delete'
+  | 'delete_permanent'
   | 'preview'
   | 'view_participants'
   | 'view_finance'
@@ -85,6 +87,8 @@ export const ACTION_LABEL: Record<TournamentAction, string> = {
   refund: 'بازپرداخت',
   archive: 'بایگانی',
   cancel: 'لغو',
+  delete: 'حذف (به بایگانی)',
+  delete_permanent: 'حذفِ دائمی',
   preview: 'پیش‌نمایش',
   view_participants: 'شرکت‌کننده‌ها',
   view_finance: 'مالی',
@@ -92,22 +96,22 @@ export const ACTION_LABEL: Record<TournamentAction, string> = {
 };
 
 export const ACTIONS_BY_STATUS: Record<TournamentStatus, TournamentAction[]> = {
-  draft: ['edit', 'submit_for_review', 'cancel'],
-  pending_review: ['approve', 'reject', 'request_changes', 'preview'],
-  rejected: ['edit', 'resubmit'],
-  approved: ['schedule', 'open_registration', 'preview'],
-  scheduled: ['open_registration', 'edit', 'cancel'],
-  registration_open: ['close_registration', 'send_announcement', 'view_participants', 'preview'],
-  registration_closed: ['open_check_in', 'generate_bracket', 'view_participants'],
-  check_in_open: ['close_check_in', 'generate_bracket', 'manual_check_in', 'view_participants'],
-  live: ['open_control_room', 'pause', 'send_announcement', 'review_results', 'review_disputes'],
-  paused: ['resume', 'send_announcement', 'cancel'],
-  dispute_review: ['review_disputes', 'open_control_room', 'resume'],
-  completed: ['review_standings', 'prepare_payout', 'archive'],
-  payout_pending: ['release_prizes', 'refund', 'view_finance'],
-  paid: ['archive', 'view_finance'],
-  archived: ['view'],
-  cancelled: ['refund', 'archive'],
+  draft: ['edit', 'submit_for_review', 'cancel', 'delete'],
+  pending_review: ['approve', 'reject', 'request_changes', 'preview', 'delete'],
+  rejected: ['edit', 'resubmit', 'delete'],
+  approved: ['schedule', 'open_registration', 'preview', 'delete'],
+  scheduled: ['open_registration', 'edit', 'cancel', 'delete'],
+  registration_open: ['close_registration', 'send_announcement', 'view_participants', 'preview', 'delete'],
+  registration_closed: ['open_check_in', 'generate_bracket', 'view_participants', 'delete'],
+  check_in_open: ['close_check_in', 'generate_bracket', 'manual_check_in', 'view_participants', 'delete'],
+  live: ['open_control_room', 'pause', 'send_announcement', 'review_results', 'review_disputes', 'delete'],
+  paused: ['resume', 'send_announcement', 'cancel', 'delete'],
+  dispute_review: ['review_disputes', 'open_control_room', 'resume', 'delete'],
+  completed: ['review_standings', 'prepare_payout', 'archive', 'delete'],
+  payout_pending: ['release_prizes', 'refund', 'view_finance', 'delete'],
+  paid: ['archive', 'view_finance', 'delete'],
+  archived: ['view', 'delete_permanent'],
+  cancelled: ['refund', 'archive', 'delete'],
 };
 
 // اکشن → وضعیتِ بعدی (فقط اکشن‌هایی که status را عوض می‌کنند).
@@ -129,6 +133,7 @@ export const NEXT_STATUS: Partial<Record<TournamentAction, TournamentStatus>> = 
   release_prizes: 'paid',
   archive: 'archived',
   cancel: 'cancelled',
+  delete: 'archived', // «حذف» نرم → بایگانی
 };
 
 // اکشن‌هایی که فقط route باز می‌کنند (تغییرِ state ندارند).
@@ -171,7 +176,7 @@ export function navHref(action: TournamentAction, t: AdminTournament): string {
 // اکشن‌هایی که reason اجباری می‌خواهند.
 export const REASON_REQUIRED = new Set<TournamentAction>(['reject', 'request_changes', 'pause', 'refund', 'cancel']);
 // اکشن‌های پرخطر (تأییدِ قرمز).
-export const DANGER_ACTIONS = new Set<TournamentAction>(['reject', 'release_prizes', 'refund', 'cancel', 'pause']);
+export const DANGER_ACTIONS = new Set<TournamentAction>(['reject', 'release_prizes', 'refund', 'cancel', 'pause', 'delete', 'delete_permanent']);
 
 // ───────── مجوزها ─────────
 export type Permission =
@@ -210,6 +215,10 @@ export const PERMISSION_BY_ACTION: Partial<Record<TournamentAction, Permission>>
   prepare_payout: 'finance:payout',
   release_prizes: 'finance:payout',
   refund: 'finance:refund',
+  cancel: 'tournament:update',
+  archive: 'tournament:update',
+  delete: 'tournament:update',
+  delete_permanent: 'tournament:publish', // حذفِ دائمی فقط برای نقش‌های بالاتر
 };
 
 const ROLE_PERMS: Record<AdminRole, Permission[] | '*'> = {

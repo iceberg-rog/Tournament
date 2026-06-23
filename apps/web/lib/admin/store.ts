@@ -140,6 +140,9 @@ export function dismissToast(id: string) {
 function patchTournament(id: string, patch: Partial<AdminTournament>) {
   state.tournaments = state.tournaments.map((t) => (t.id === id ? { ...t, ...patch } : t));
 }
+function removeTournament(id: string) {
+  state.tournaments = state.tournaments.filter((t) => t.id !== id);
+}
 export function appendAudit(e: Omit<AuditEntry, 'id' | 'createdAt'>) {
   state.audit = [{ ...e, id: uid('audit'), createdAt: nowIso() }, ...state.audit];
 }
@@ -178,6 +181,8 @@ const SUCCESS: Partial<Record<TournamentAction, string>> = {
   refund: 'بازپرداخت انجام شد',
   archive: 'تورنومنت بایگانی شد',
   cancel: 'تورنومنت لغو شد',
+  delete: 'تورنومنت به بایگانی منتقل شد',
+  delete_permanent: 'تورنومنت برای همیشه حذف شد',
 };
 
 function toastFollowUp(action: TournamentAction, t: AdminTournament): Toast['action'] | undefined {
@@ -202,6 +207,15 @@ export function runAction(action: TournamentAction, t: AdminTournament, opts: Ru
   if (!v.ok) {
     pushToast({ kind: 'error', msg: v.message ?? 'اجرای اکشن ممکن نیست' });
     return v;
+  }
+
+  // حذفِ دائمی — فقط از بایگانی، ردیف کاملاً پاک می‌شود.
+  if (action === 'delete_permanent') {
+    removeTournament(t.id);
+    appendAudit({ actor: opts.actorName, actorRole: opts.role, action: ACTION_LABEL[action], entityType: 'tournament', entityId: t.id, reason: opts.reason });
+    pushToast({ kind: 'success', msg: SUCCESS.delete_permanent ?? 'حذف شد' });
+    emit();
+    return { ok: true };
   }
 
   const patch: Partial<AdminTournament> = {};

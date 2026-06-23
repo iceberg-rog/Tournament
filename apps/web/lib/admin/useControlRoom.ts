@@ -19,13 +19,18 @@ export type CRAction =
   | 'reject_result'
   | 'edit_score'
   | 'mark_no_show'
+  | 'mark_double_no_show'
+  | 'invalid_evidence'
   | 'disqualify'
+  | 'warn'
+  | 'mute'
   | 'restore'
   | 'resolve_dispute_a'
   | 'resolve_dispute_b'
   | 'reject_dispute'
   | 'request_evidence'
   | 'assign_judge'
+  | 'rematch'
   | 'message'
   | 'announce'
   | 'generate_next_round'
@@ -118,6 +123,8 @@ export function useControlRoom(t: AdminTournament, role: AdminRole, actorName: s
   );
 
   const patchMatch = (id: string, patch: Partial<CRMatch>) => setCore((c) => ({ ...c, matches: c.matches.map((m) => (m.id === id ? { ...m, ...patch } : m)) }));
+  const patchParticipant = (id: string, fn: (p: ControlRoomCore['participants'][number]) => ControlRoomCore['participants'][number]) =>
+    setCore((c) => ({ ...c, participants: c.participants.map((x) => (x.id === id ? fn(x) : x)) }));
   const addActivity = (kind: ControlRoomCore['activity'][number]['kind'], text: string) =>
     setCore((c) => ({ ...c, activity: [{ id: `la-${Date.now()}`, kind, text, at: new Date().toISOString() }, ...c.activity] }));
 
@@ -151,14 +158,59 @@ export function useControlRoom(t: AdminTournament, role: AdminRole, actorName: s
           break;
         case 'mark_no_show':
           if (m) {
-            patchMatch(m.id, { status: 'no_show' });
-            audit('ثبتِ عدمِ حضور', 'match', m.id);
-            ok(`عدمِ حضور در مسابقه‌ی ${num} ثبت شد`);
+            const present = m.submittedById ?? m.aId ?? undefined;
+            const absent = present === m.aId ? m.bId : m.aId;
+            patchMatch(m.id, { status: 'completed', winnerId: present, blockerReason: undefined });
+            let disqualified = false;
+            if (absent) {
+              const cur = core.participants.find((x) => x.id === absent);
+              const ns = (cur?.noShows ?? 0) + 1;
+              disqualified = ns >= 2; // عدمِ حضورِ دوم → محرومیت
+              patchParticipant(absent, (x) => ({ ...x, noShows: ns, warnings: (x.warnings ?? 0) + 1, status: disqualified ? 'disqualified' : x.status }));
+            }
+            audit('ثبتِ عدمِ حضور', 'match', m.id, absent && disqualified ? 'عدمِ حضورِ دوم — محرومیت' : undefined);
+            addActivity('admin', `عدمِ حضور در مسابقه‌ی ${num} ثبت شد؛ حریف صعود کرد`);
+            ok(`عدمِ حضور ثبت شد؛ حریف صعود کرد${disqualified ? ' و بازیکنِ غایب محروم شد' : ''}`);
           } else if (p.participantId) {
-            setCore((c) => ({ ...c, participants: c.participants.map((x) => (x.id === p.participantId ? { ...x, status: 'no_show' } : x)) }));
+            patchParticipant(p.participantId, (x) => ({ ...x, status: 'no_show', noShows: (x.noShows ?? 0) + 1 }));
             audit('ثبتِ عدمِ حضور', 'participant', p.participantId);
             ok('عدمِ حضورِ بازیکن ثبت شد');
           }
+          break;
+        case 'mark_double_no_show':
+          if (!m) return;
+          patchMatch(m.id, { status: 'admin_review', blockerReason: 'هر دو غایب — اخطار صادر شد، نیازِ تصمیمِ مدیر' });
+          if (m.aId) patchParticipant(m.aId, (x) => ({ ...x, warnings: (x.warnings ?? 0) + 1, noShows: (x.noShows ?? 0) + 1 }));
+          if (m.bId) patchParticipant(m.bId, (x) => ({ ...x, warnings: (x.warnings ?? 0) + 1, noShows: (x.noShows ?? 0) + 1 }));
+          audit('عدمِ حضورِ دوطرفه', 'match', m.id);
+          addActivity('admin', `عدمِ حضورِ دوطرفه در مسابقه‌ی ${num}؛ هر دو اخطار گرفتند`);
+          ok(`هر دو بازیکنِ مسابقه‌ی ${num} اخطار گرفتند؛ مسابقه به بازبینیِ مدیر رفت`);
+          break;
+        case 'invalid_evidence':
+          if (!m) return;
+          patchMatch(m.id, { status: 'ready', submittedById: undefined, scoreA: 0, scoreB: 0, evidenceCount: 0, blockerReason: 'مدرکِ نامعتبر — منتظرِ ثبتِ مجددِ نتیجه با مدرکِ معتبر' });
+          audit('ابطالِ مدرک', 'match', m.id, p.reason);
+          addActivity('admin', `مدرکِ مسابقه‌ی ${num} نامعتبر اعلام شد`);
+          ok('به بازیکن اطلاع داده شد مدرک نامعتبر است؛ مهلتِ ثبتِ مجدد داده شد');
+          break;
+        case 'warn':
+          if (!p.participantId) return;
+          patchParticipant(p.participantId, (x) => ({ ...x, warnings: (x.warnings ?? 0) + 1 }));
+          audit('اخطار به بازیکن', 'participant', p.participantId, p.reason);
+          ok('اخطار به بازیکن ثبت شد');
+          break;
+        case 'mute':
+          if (!p.participantId) return;
+          audit('بی‌صداکردنِ بازیکن', 'participant', p.participantId, p.reason);
+          ok('بازیکن در چت بی‌صدا شد');
+          break;
+        case 'rematch':
+          if (!m) return;
+          patchMatch(m.id, { status: 'ready', scoreA: 0, scoreB: 0, winnerId: undefined, submittedById: undefined, disputeId: undefined, blockerReason: undefined });
+          if (m.disputeId) setCore((c) => ({ ...c, disputes: c.disputes.map((d) => (d.id === m.disputeId ? { ...d, status: 'resolved' } : d)) }));
+          audit('بازیِ مجدد', 'match', m.id, p.reason);
+          addActivity('admin', `برای مسابقه‌ی ${num} بازیِ مجدد تعیین شد`);
+          ok(`مسابقه‌ی ${num} برای بازیِ مجدد بازنشانی شد`);
           break;
         case 'disqualify':
           if (!p.participantId) return;

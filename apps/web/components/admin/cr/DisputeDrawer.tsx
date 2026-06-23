@@ -57,12 +57,16 @@ export function DisputeDrawer({
   const [reason, setReason] = useState('');
   const [judge, setJudge] = useState('');
   const [confirmReject, setConfirmReject] = useState(false);
+  const [confirmRematch, setConfirmRematch] = useState(false);
+  const [confirmDq, setConfirmDq] = useState(false);
 
   // reset transient editors whenever the open dispute changes
   useEffect(() => {
     setReason('');
     setJudge('');
     setConfirmReject(false);
+    setConfirmRematch(false);
+    setConfirmDq(false);
   }, [d?.id]);
 
   const open = !!disputeId;
@@ -336,6 +340,75 @@ export function DisputeDrawer({
                 </p>
               )}
             </section>
+
+            {/* Rematch — resets the match and resolves the dispute (confirm) */}
+            {confirmRematch ? (
+              <section className="rounded-2xl border border-gold/40 bg-gold/5 p-4">
+                <p className="mb-2 text-xs leading-5 text-gold">
+                  مسابقه‌ی موردِ اختلاف بازنشانی و برای بازیِ مجدد آماده می‌شود؛ امتیازها صفر و این اختلاف حل‌شده ثبت می‌شود. مطمئن‌اید؟
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onRun('rematch', { matchId: d.matchId, reason: trimmedReason || undefined });
+                      onClose();
+                    }}
+                    className="btn-primary px-3 py-1.5 text-xs"
+                  >
+                    تأییدِ بازیِ مجدد
+                  </button>
+                  <button type="button" onClick={() => setConfirmRematch(false)} className="btn-ghost px-3 py-1.5 text-xs">
+                    انصراف
+                  </button>
+                </div>
+              </section>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setConfirmRematch(true)}
+                className="btn-ghost flex w-full items-center justify-center gap-1.5 py-2 text-sm"
+              >
+                <Icon d="M3 2v6h6 M21 12a9 9 0 1 1-3-6.7L21 8" />
+                بازیِ مجدد
+              </button>
+            )}
+
+            {/* Disqualify accused — only when an accused party exists (confirm + reason) */}
+            {accused && (
+              confirmDq ? (
+                <section className="rounded-2xl border border-bad/40 bg-bad/5 p-4">
+                  <p className="mb-2 text-xs leading-5 text-[#fca5a5]">
+                    <span className="font-bold text-text">{accused.name}</span> از تورنومنت محروم می‌شود. این اقدام نهایی است؛ مطمئن‌اید؟
+                    {!trimmedReason && <span className="mt-1 block text-[11px] text-faint">پیشنهاد می‌شود دلیلِ محرومیت را در یادداشتِ تصمیم بنویسید.</span>}
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onRun('disqualify', { participantId: accused.id, reason: trimmedReason || undefined });
+                        onClose();
+                      }}
+                      className="btn-danger px-3 py-1.5 text-xs"
+                    >
+                      تأییدِ محرومیت
+                    </button>
+                    <button type="button" onClick={() => setConfirmDq(false)} className="btn-ghost px-3 py-1.5 text-xs">
+                      انصراف
+                    </button>
+                  </div>
+                </section>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setConfirmDq(true)}
+                  className="btn-danger flex w-full items-center justify-center gap-1.5 py-2 text-sm"
+                >
+                  <Icon d="M18.36 6.64A9 9 0 1 1 5.64 5.64 M12 2v10" />
+                  محرومیتِ متهم
+                </button>
+              )
+            )}
 
             {/* Reject (invalid) — destructive, needs confirm */}
             {confirmReject ? (

@@ -26,6 +26,8 @@ const STATUS_TONE: Record<CRMatchStatus, Tone> = {
   disputed: 'bad',
   completed: 'good',
   no_show: 'bad',
+  double_no_show: 'bad',
+  expired: 'gold',
   cancelled: 'muted',
 };
 
@@ -58,6 +60,8 @@ export function MatchDetailDrawer({
   const [sb, setSb] = useState(0);
   const [rejecting, setRejecting] = useState(false);
   const [reason, setReason] = useState('');
+  const [invalidating, setInvalidating] = useState(false);
+  const [evReason, setEvReason] = useState('');
 
   // sync editor + transient UI whenever the open match changes
   useEffect(() => {
@@ -67,6 +71,8 @@ export function MatchDetailDrawer({
     }
     setRejecting(false);
     setReason('');
+    setInvalidating(false);
+    setEvReason('');
   }, [m?.id, m?.scoreA, m?.scoreB]);
 
   const open = !!matchId;
@@ -92,6 +98,12 @@ export function MatchDetailDrawer({
   const isCompleted = m.status === 'completed';
   const aWon = isCompleted && m.winnerId === m.aId;
   const bWon = isCompleted && m.winnerId === m.bId;
+
+  const isDoubleNoShow = m.status === 'double_no_show';
+  const isAdminReview = m.status === 'admin_review';
+  const isNoShowOrExpired = m.status === 'no_show' || m.status === 'expired';
+  // نگرانیِ مدرک: یا در بازبینیِ مدیر است، یا blockerReason به مدرکِ نامعتبر اشاره دارد
+  const evidenceConcern = isAdminReview || (!!m.blockerReason && m.blockerReason.includes('مدرک'));
 
   const Side = ({ p, won, lost, fallback }: { p?: CRParticipant; won: boolean; lost: boolean; fallback: string }) => (
     <button
@@ -302,6 +314,36 @@ export function MatchDetailDrawer({
           </section>
         )}
 
+        {/* Invalid-evidence reason editor */}
+        {invalidating && (
+          <section className="rounded-2xl border border-gold/40 bg-gold/5 p-4">
+            <label className="mb-1.5 block text-xs font-bold text-gold">دلیلِ ابطالِ مدرک (اختیاری)</label>
+            <textarea
+              rows={2}
+              value={evReason}
+              onChange={(e) => setEvReason(e.target.value)}
+              placeholder="مثلاً: اسکرین‌شات تاریخ ندارد یا مربوط به مسابقه‌ی دیگری است"
+              className="w-full resize-none rounded-lg border border-line bg-tile2 px-3 py-2 text-xs text-text outline-none focus:border-gold"
+            />
+            <p className="mt-1.5 text-[11px] leading-5 text-muted">با ابطالِ مدرک، از بازیکن خواسته می‌شود مدرکِ معتبر را دوباره ارسال کند.</p>
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  onRun('invalid_evidence', { matchId: m.id, reason: evReason.trim() || undefined });
+                  onClose();
+                }}
+                className="btn-danger px-3 py-1.5 text-xs"
+              >
+                تأییدِ ابطالِ مدرک
+              </button>
+              <button type="button" onClick={() => setInvalidating(false)} className="btn-ghost px-3 py-1.5 text-xs">
+                انصراف
+              </button>
+            </div>
+          </section>
+        )}
+
         {/* Action buttons */}
         <section className="grid grid-cols-2 gap-2">
           {(isPending || isLive) && !isDisputed && (
@@ -314,7 +356,47 @@ export function MatchDetailDrawer({
               ردِ نتیجه
             </button>
           )}
-          {!isCompleted && m.status !== 'no_show' && (
+          {/* عدمِ حضورِ دوطرفه → اخطار به هر دو + بازبینیِ مدیر */}
+          {isDoubleNoShow && (
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm('عدمِ حضورِ دوطرفه ثبت شود؟ هر دو بازیکن اخطار می‌گیرند و مسابقه به بازبینیِ مدیر می‌رود.')) {
+                  onRun('mark_double_no_show', { matchId: m.id });
+                  onClose();
+                }
+              }}
+              className="btn-danger py-2 text-sm"
+            >
+              ثبتِ عدمِ حضورِ دوطرفه
+            </button>
+          )}
+
+          {/* ابطالِ مدرک → درخواستِ ارسالِ مجدد از بازیکن */}
+          {evidenceConcern && !invalidating && (
+            <button type="button" onClick={() => setInvalidating(true)} className="btn-danger py-2 text-sm">
+              ابطالِ مدرک
+            </button>
+          )}
+
+          {/* تأیید/ثبتِ عدمِ حضور برای حالتِ یک‌طرفه یا مهلتِ گذشته */}
+          {isNoShowOrExpired && (
+            <button
+              type="button"
+              onClick={() => {
+                if (window.confirm('عدمِ حضور تأیید شود؟ بازیکنِ حاضر صعود می‌کند و بازیکنِ غایب اخطار/در صورتِ تکرار محروم می‌شود.')) {
+                  onRun('mark_no_show', { matchId: m.id });
+                  onClose();
+                }
+              }}
+              className="btn-danger py-2 text-sm"
+            >
+              ثبت/تأییدِ عدمِ حضور
+            </button>
+          )}
+
+          {/* ثبتِ عدمِ حضورِ عمومی برای سایرِ حالت‌های جریان‌دار */}
+          {!isCompleted && !isNoShowOrExpired && !isDoubleNoShow && (
             <button
               type="button"
               onClick={() => {
@@ -328,6 +410,21 @@ export function MatchDetailDrawer({
               ثبتِ عدمِ حضور
             </button>
           )}
+
+          {/* بازیِ مجدد — همیشه در دسترس */}
+          <button
+            type="button"
+            onClick={() => {
+              if (window.confirm('بازیِ مجدد برای این مسابقه تعیین شود؟ امتیاز و نتیجه بازنشانی می‌شوند.')) {
+                onRun('rematch', { matchId: m.id });
+                onClose();
+              }
+            }}
+            className="btn-ghost py-2 text-sm"
+          >
+            بازیِ مجدد
+          </button>
+
           {(isCompleted || m.status === 'no_show') && (
             <button type="button" onClick={() => onRun('reopen_match', { matchId: m.id })} className="btn-ghost py-2 text-sm">
               بازگشاییِ مسابقه

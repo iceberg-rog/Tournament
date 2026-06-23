@@ -29,6 +29,8 @@ const STATUS_TONE: Record<CRMatchStatus, Tone> = {
   disputed: 'bad',
   completed: 'good',
   no_show: 'bad',
+  double_no_show: 'bad',
+  expired: 'gold',
   cancelled: 'muted',
 };
 

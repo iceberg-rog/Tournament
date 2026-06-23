@@ -81,7 +81,14 @@ export function PlayerProfileDrawer({
   const blocked = p.status === 'disqualified' || p.status === 'no_show';
 
   const kycLabel = p.kyc === 'verified' ? 'تأییدشده' : p.kyc === 'pending' ? 'در انتظار' : 'بدونِ احراز';
-  const kycTone = p.kyc === 'verified' ? 'good' : p.kyc === 'pending' ? undefined : 'bad';
+  const kycTone: Tone = p.kyc === 'verified' ? 'good' : p.kyc === 'pending' ? 'gold' : 'muted';
+
+  const walletLabel = p.walletStatus === 'ok' ? 'سالم' : p.walletStatus === 'locked' ? 'قفل‌شده' : p.walletStatus === 'empty' ? 'خالی' : 'نامشخص';
+  const walletTone: Tone = p.walletStatus === 'ok' ? 'good' : p.walletStatus === 'locked' ? 'gold' : 'muted';
+
+  const warnings = p.warnings ?? 0;
+  const noShows = p.noShows ?? 0;
+  const lastSeenIso = p.lastSeen ?? p.lastActivity;
 
   const sendMessage = () => {
     const text = msg.trim();
@@ -90,7 +97,8 @@ export function PlayerProfileDrawer({
     setMsg('');
   };
 
-  const warn = () => onRun('message', { participantId: p.id, message: 'اخطارِ رسمی: لطفاً قوانینِ تورنومنت را رعایت کنید؛ تخلفِ بعدی منجر به محرومیت می‌شود.' });
+  const warn = () => onRun('warn', { participantId: p.id });
+  const mute = () => onRun('mute', { participantId: p.id });
 
   const disqualify = () => {
     if (typeof window !== 'undefined' && !window.confirm(`«${p.name}» محروم شود؟ این کار از براکت/رده‌بندی حذفش می‌کند.`)) return;
@@ -122,6 +130,12 @@ export function PlayerProfileDrawer({
                   {fmt(p.reports)} گزارش
                 </span>
               )}
+              {p.suspicious && (
+                <span className="chip bg-bad/15 text-[#fca5a5]">
+                  <Icon d="M12 9v4M12 17h.01M12 3 2 21h20L12 3Z" />
+                  مشکوک
+                </span>
+              )}
             </div>
           </div>
         </div>
@@ -136,10 +150,8 @@ export function PlayerProfileDrawer({
 
         {/* شبکه‌ی اطلاعات */}
         <div className="grid grid-cols-2 gap-2">
-          <InfoCell label="آخرین فعالیت" value={relTime(p.lastActivity)} />
+          <InfoCell label="سید" value={fmt(p.seed)} />
           <InfoCell label="پرداخت" value={p.paid ? 'پرداخت‌شده' : 'پرداخت‌نشده'} tone={p.paid ? 'good' : 'bad'} />
-          <InfoCell label="احرازِ هویت" value={kycLabel} tone={kycTone} />
-          <InfoCell label="گزارش‌ها" value={p.reports > 0 ? `${fmt(p.reports)} مورد` : 'بدونِ گزارش'} tone={p.reports > 0 ? 'bad' : 'good'} />
           <div className="col-span-2">
             {currentMatch ? (
               <button
@@ -158,6 +170,31 @@ export function PlayerProfileDrawer({
             )}
           </div>
         </div>
+
+        {/* اطلاعاتِ بازیکن */}
+        <section>
+          <h3 className="mb-2 font-display text-sm font-bold text-text">اطلاعاتِ بازیکن</h3>
+          <div className="grid grid-cols-2 gap-2">
+            <div className="col-span-2 rounded-xl border border-line bg-tile2 px-3 py-2">
+              <div className="text-[11px] text-faint">شناسه‌ی PSN</div>
+              <div className="tnum mt-0.5 text-sm font-bold text-text" dir="ltr">{p.psnId ?? '—'}</div>
+            </div>
+
+            <div className="rounded-xl border border-line bg-tile2 px-3 py-2">
+              <div className="text-[11px] text-faint">وضعیتِ KYC</div>
+              <div className="mt-1"><AdminBadge label={kycLabel} tone={kycTone} /></div>
+            </div>
+            <div className="rounded-xl border border-line bg-tile2 px-3 py-2">
+              <div className="text-[11px] text-faint">وضعیتِ کیف‌پول</div>
+              <div className="mt-1"><AdminBadge label={walletLabel} tone={walletTone} /></div>
+            </div>
+
+            <InfoCell label="اخطارها" value={warnings > 0 ? `${fmt(warnings)} مورد` : 'ندارد'} tone={warnings > 0 ? 'bad' : 'good'} />
+            <InfoCell label="عدمِ حضور" value={noShows > 0 ? `${fmt(noShows)} بار` : 'ندارد'} tone={noShows > 0 ? 'bad' : 'good'} />
+            <InfoCell label="گزارش‌ها" value={p.reports > 0 ? `${fmt(p.reports)} مورد` : 'بدونِ گزارش'} tone={p.reports > 0 ? 'bad' : 'good'} />
+            <InfoCell label="آخرین فعالیت" value={relTime(lastSeenIso)} />
+          </div>
+        </section>
 
         {/* تاریخچه‌ی مسابقات */}
         <section>
@@ -240,11 +277,15 @@ export function PlayerProfileDrawer({
               <Icon d="m12 9 0 4M12 17h.01M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z" />
               اخطار
             </button>
+            <button type="button" onClick={mute} className="btn-ghost justify-center gap-1.5">
+              <Icon d="M16 9a5 5 0 0 1 .95 2.9M19.07 4.93a10 10 0 0 1 0 14.14M3 3l18 18M9.5 5.4A2 2 0 0 1 13 7v1.5M13 13.4V17a2 2 0 0 1-3.6 1.2L6 15H4a1 1 0 0 1-1-1v-4a1 1 0 0 1 1-1h2" />
+              بی‌صداکردن
+            </button>
             <button
               type="button"
               onClick={() => onRun('mark_no_show', { participantId: p.id })}
               disabled={p.status === 'no_show'}
-              className="btn-ghost justify-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-40"
+              className="btn-ghost col-span-2 justify-center gap-1.5 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Icon d="M18 6 6 18M6 6l12 12" />
               ثبتِ عدمِ حضور

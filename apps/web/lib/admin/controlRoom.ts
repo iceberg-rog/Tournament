@@ -45,6 +45,8 @@ export type CRMatchStatus =
   | 'disputed'
   | 'completed'
   | 'no_show'
+  | 'double_no_show'
+  | 'expired'
   | 'cancelled';
 
 export const CRMATCH_FA: Record<CRMatchStatus, string> = {
@@ -58,6 +60,8 @@ export const CRMATCH_FA: Record<CRMatchStatus, string> = {
   disputed: 'دارای اختلاف',
   completed: 'پایان‌یافته',
   no_show: 'عدمِ حضور',
+  double_no_show: 'عدمِ حضورِ دوطرفه',
+  expired: 'مهلت گذشته',
   cancelled: 'لغوشده',
 };
 
@@ -107,6 +111,12 @@ export interface CRParticipant {
   paid: boolean;
   reports: number;
   kyc?: 'verified' | 'pending' | 'none';
+  psnId?: string;
+  walletStatus?: 'ok' | 'locked' | 'empty';
+  warnings?: number;
+  noShows?: number;
+  lastSeen?: string;
+  suspicious?: boolean;
   isTeam?: boolean;
   members?: string[];
   captain?: string;
@@ -300,7 +310,8 @@ export function roundName(format: TournamentFormat, round: number, total: number
   if (round === total) return 'فینال';
   if (round === total - 1) return 'نیمه‌نهایی';
   if (round === total - 2) return 'یک‌چهارمِ نهایی';
-  return `دور ${round.toLocaleString('fa-IR')}`;
+  const teams = Math.pow(2, total - round + 1);
+  return `مرحله‌ی ${teams.toLocaleString('fa-IR')}تایی`;
 }
 
 // ───────── سناریوی شاخص: Valorant Champions Arena (t1) ─────────
@@ -436,8 +447,118 @@ function buildRoundRobin(t: AdminTournament): ControlRoomCore {
   };
 }
 
+// ───────── سناریوی شاخص: FC26 Champions Cup با ۱۲۸ بازیکن ─────────
+const FC_NAMES = ['Ronaldo', 'Messi', 'Mbappé', 'Haaland', 'Vinicius', 'Bellingham', 'Salah', 'Kane', 'Neymar', 'Modric', 'De Bruyne', 'Lewandowski', 'Foden', 'Rodri', 'Saka', 'Musiala', 'Pedri', 'Gavi', 'Valverde', 'Rúben', 'Griezmann', 'Osimhen', 'Leão', 'Kvara', 'Bruno', 'Ødegaard', 'Wirtz', 'Yamal', 'Endrick', 'Güler', 'Cubarsí', 'Zaire'];
+
+function fcParticipant(i: number): CRParticipant {
+  const base = FC_NAMES[i % FC_NAMES.length];
+  const name = `${base}${i >= FC_NAMES.length ? '_' + Math.floor(i / FC_NAMES.length) : ''}`;
+  // وضعیت‌های متنوع
+  let status: CRParticipantStatus = 'checked_in';
+  if (i >= 120) status = 'waiting'; // ۸ نفرِ لیستِ انتظار
+  else if (i % 17 === 0) status = 'no_show';
+  else if (i % 23 === 0) status = 'registered'; // چک‌این‌نکرده
+  const kyc: CRParticipant['kyc'] = i % 3 === 0 ? 'verified' : i % 3 === 1 ? 'pending' : 'none';
+  const noShows = i % 17 === 0 ? 2 : i % 9 === 0 ? 1 : 0;
+  const warnings = i % 13 === 0 ? 1 : 0;
+  const suspicious = i % 31 === 0;
+  return {
+    id: `fc-p${i}`,
+    name,
+    initials: initials(name),
+    color: PALETTE[(i * 7 + 3) % PALETTE.length],
+    status,
+    seed: i + 1,
+    paid: i % 19 !== 0,
+    reports: suspicious ? 2 : warnings,
+    kyc,
+    psnId: `${base.replace(/[^a-zA-Z]/g, '')}_${(1000 + i).toString()}`,
+    walletStatus: i % 19 === 0 ? 'empty' : kyc === 'verified' ? 'ok' : 'locked',
+    warnings,
+    noShows,
+    suspicious,
+    lastSeen: minsAgo((i % 40) + 1),
+    lastActivity: minsAgo((i % 40) + 1),
+  };
+}
+
+function buildFC26(t: AdminTournament): ControlRoomCore {
+  const P = Array.from({ length: 128 }, (_, i) => fcParticipant(i));
+  const id = (i: number) => P[i % 128].id;
+  const total = 7; // 128→64→32→16→8→4→2→1
+  const current = 3; // مرحله‌ی ۳۲تایی در جریان است
+  const matches: CRMatch[] = [];
+  let num = 0;
+
+  for (let r = 1; r <= current; r++) {
+    const games = 128 / Math.pow(2, r);
+    for (let s = 0; s < games; s++) {
+      num++;
+      const rn = roundName(t.format, r, total);
+      const aId = id(s * 2);
+      const bId = id(s * 2 + 1);
+      const base: CRMatch = { id: `fc-r${r}m${s}`, number: num, round: r, roundName: rn, aId, bId, scoreA: 0, scoreB: 0, status: 'completed', evidenceCount: 1, chatUnread: 0 };
+
+      if (r < current) {
+        // دورهای قبلی همه کامل
+        matches.push({ ...base, scoreA: 3, scoreB: (s % 2) + 0, winnerId: aId, submittedById: aId, submittedAt: minsAgo(200 - r * 30 - s) });
+        continue;
+      }
+      // مرحله‌ی جاری (۳۲تایی) — حالت‌های چالشی
+      switch (s) {
+        case 0: // اختلافِ نتیجه ۳-۱ در برابرِ ادعای ۲-۲
+          matches.push({ ...base, scoreA: 3, scoreB: 1, status: 'disputed', submittedById: aId, submittedAt: minsAgo(18), deadline: minsAhead(20), evidenceCount: 1, chatUnread: 3, disputeId: 'fc-d1', blockerReason: 'اختلافِ باز: حریف نتیجه را ۲-۲ اعلام کرده است' });
+          break;
+        case 1: // مهلتِ گذشته، بدونِ نتیجه
+          matches.push({ ...base, status: 'expired', deadline: minsAgo(8), blockerReason: 'مهلتِ ثبتِ نتیجه گذشته و هیچ نتیجه‌ای ثبت نشده' });
+          break;
+        case 2: // فقط یک بازیکن حاضر → عدمِ حضورِ حریف
+          matches.push({ ...base, scoreA: 3, scoreB: 0, status: 'no_show', submittedById: aId, submittedAt: minsAgo(12), blockerReason: `${P[s * 2 + 1].name} حاضر نشد` });
+          break;
+        case 3: // هر دو غایب
+          matches.push({ ...base, status: 'double_no_show', deadline: minsAgo(5), blockerReason: 'هیچ‌یک از دو بازیکن حاضر نشدند — نیازِ بررسیِ مدیر' });
+          break;
+        case 4: // نتیجه ثبت‌شده، منتظرِ تأییدِ حریف
+          matches.push({ ...base, scoreA: 2, scoreB: 1, status: 'result_submitted', submittedById: aId, submittedAt: minsAgo(4), deadline: minsAhead(6), chatUnread: 1 });
+          break;
+        case 5: // مدرکِ نامعتبر → بازبینیِ مدیر
+          matches.push({ ...base, scoreA: 4, scoreB: 2, status: 'admin_review', submittedById: aId, submittedAt: minsAgo(9), evidenceCount: 1, blockerReason: 'مدرکِ ارسالی نامعتبر است؛ نیازِ ارسالِ مجدد' });
+          break;
+        case 6: // زنده
+          matches.push({ ...base, scoreA: 1, scoreB: 1, status: 'live', deadline: minsAhead(14), chatUnread: 2 });
+          break;
+        case 7:
+          matches.push({ ...base, status: 'ready', deadline: minsAhead(25) });
+          break;
+        default: // بقیه کامل
+          matches.push({ ...base, scoreA: 3, scoreB: s % 3, winnerId: aId, submittedById: aId, submittedAt: minsAgo(30 + s) });
+      }
+    }
+  }
+
+  const disputes: CRDispute[] = [
+    { id: 'fc-d1', matchId: 'fc-r3m0', reporterId: id(1), accusedId: id(0), reason: 'نتیجه ۲-۲ بوده ولی حریف ۳-۱ ثبت کرده؛ اسکرین‌شاتِ پایانِ بازی پیوست است', evidenceCount: 2, status: 'open', deadline: minsAhead(20), suggestedAction: 'مقایسه‌ی اسکرین‌شاتِ پایانِ بازیِ هر دو طرف' },
+  ];
+
+  const activity: CRActivity[] = [
+    { id: 'fc-a1', kind: 'dispute', text: `${P[1].name} برای مسابقه‌ی #${(2 * 16 + 1).toLocaleString('fa-IR')} اختلاف باز کرد`, at: minsAgo(18) },
+    { id: 'fc-a2', kind: 'admin', text: 'مسابقه‌ی دارای مدرکِ نامعتبر به بازبینیِ مدیر رفت', at: minsAgo(9) },
+    { id: 'fc-a3', kind: 'result', text: `${P[8].name} نتیجه را ثبت کرد`, at: minsAgo(4) },
+    { id: 'fc-a4', kind: 'admin', text: 'هشدارِ مهلتِ گذشته برای ۱ مسابقه صادر شد', at: minsAgo(8) },
+    { id: 'fc-a5', kind: 'admin', text: 'مرحله‌ی ۶۴تایی تکمیل شد', at: minsAgo(60) },
+  ];
+
+  return {
+    tournamentId: t.id, title: t.title, game: t.game, format: t.format, prize: t.prize,
+    phase: 'dispute_review', currentRound: current, totalRounds: total, roundName: roundName(t.format, current, total),
+    nextScheduled: minsAhead(20), estimatedFinish: minsAhead(180),
+    participants: P, matches, disputes, activity,
+  };
+}
+
 export function buildCore(t: AdminTournament): ControlRoomCore {
   if (t.id === 't1') return buildValorant(t);
+  if (t.id === 't7') return buildFC26(t);
   if (t.format === 'battle_royale') return buildBattleRoyale(t);
   if (t.format === 'round_robin' || t.format === 'league') return buildRoundRobin(t);
   return buildEliminationGeneric(t);
@@ -547,7 +668,13 @@ function buildActionQueue(core: ControlRoomCore): ActionQueueItem[] {
       out.push({ id: `aq-res-${m.id}`, priority: 'warning', title: `تأییدِ نتیجه‌ی مسابقه‌ی #${m.number.toLocaleString('fa-IR')}`, detail: m.submittedById ? 'نتیجه ثبت شده، منتظرِ تأیید' : 'بازبینیِ نتیجه', matchId: m.id, action: 'approve_result' });
     }
     if (m.status === 'no_show') {
-      out.push({ id: `aq-ns-${m.id}`, priority: 'warning', title: `عدمِ حضور در مسابقه‌ی #${m.number.toLocaleString('fa-IR')}`, detail: 'تعیینِ تکلیفِ بازیکنِ غایب', matchId: m.id, action: 'mark_no_show' });
+      out.push({ id: `aq-ns-${m.id}`, priority: 'warning', title: `عدمِ حضور در مسابقه‌ی #${m.number.toLocaleString('fa-IR')}`, detail: 'تأییدِ عدمِ حضور و صعودِ حریف', matchId: m.id, action: 'mark_no_show' });
+    }
+    if (m.status === 'double_no_show') {
+      out.push({ id: `aq-dns-${m.id}`, priority: 'warning', title: `عدمِ حضورِ دوطرفه در مسابقه‌ی #${m.number.toLocaleString('fa-IR')}`, detail: 'هر دو غایب — اخطار به طرفین و تصمیمِ مدیر', matchId: m.id, action: 'open_match' });
+    }
+    if (m.status === 'expired' || (m.deadline && Date.parse(m.deadline) < NOW && (m.status === 'scheduled' || m.status === 'ready' || m.status === 'live'))) {
+      out.push({ id: `aq-exp-${m.id}`, priority: 'warning', title: `مهلتِ مسابقه‌ی #${m.number.toLocaleString('fa-IR')} گذشته`, detail: 'هیچ نتیجه‌ای ثبت نشده — بررسی یا عدمِ حضور', matchId: m.id, action: 'open_match' });
     }
   }
   const noShow = core.participants.filter((p) => p.status === 'no_show');

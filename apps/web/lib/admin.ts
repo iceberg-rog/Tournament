@@ -268,6 +268,7 @@ export const ADMIN_TOURNAMENTS: AdminTournament[] = [
   { id: 't4', title: 'FC 26 Pro Cup', game: 'EA Sports FC 26', format: 'league', status: 'draft', participants: 0, minParticipants: 16, maxParticipants: 64, platform: 'PS5', prize: 15000000, escrow: 'none', organizer: 'GameHub', startAt: D(6), registrationEnd: D(5), currentRound: 0, disputes: 0, pendingResults: 0, pendingPayouts: 0 },
   { id: 't5', title: 'Fortnite Solo Cup', game: 'Fortnite', format: 'battle_royale', status: 'payout_pending', participants: 96, minParticipants: 32, maxParticipants: 100, platform: 'Cross-play', prize: 40000000, escrow: 'locked', organizer: 'SHELTER', startAt: D(-3), registrationEnd: D(-4), currentRound: 6, disputes: 0, pendingResults: 0, pendingPayouts: 2 },
   { id: 't6', title: 'Tekken 8 Showdown', game: 'Tekken 8', format: 'single_elimination', status: 'completed', participants: 16, minParticipants: 8, maxParticipants: 16, platform: 'PS5', prize: 12000000, escrow: 'released', organizer: 'SHELTER', startAt: D(-5), registrationEnd: D(-6), currentRound: 4, disputes: 0, pendingResults: 0, pendingPayouts: 0 },
+  { id: 't7', title: 'FC26 Champions Cup - 128 Players', game: 'EA Sports FC 26', format: 'single_elimination', status: 'live', participants: 128, minParticipants: 128, maxParticipants: 128, platform: 'PS5', prize: 8000000, escrow: 'locked', organizer: 'SHELTER', startAt: D(-1), registrationEnd: D(-2), currentRound: 3, disputes: 1, pendingResults: 2, pendingPayouts: 0 },
 ];
 
 export const ORGANIZER_REQUESTS: OrganizerRequest[] = [

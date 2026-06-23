@@ -261,13 +261,8 @@ export interface HealthItem {
 // ═════════ دادهٔ mock ═════════
 const D = (offset: number) => new Date(Date.parse('2026-06-23T12:00:00.000Z') + offset * 86400000).toISOString();
 
+// تنها تورنومنتِ واقعی که اجرا و QA شد — FC26 128-player (بقیه‌ی نمونه‌های فیک حذف شدند).
 export const ADMIN_TOURNAMENTS: AdminTournament[] = [
-  { id: 't1', title: 'Valorant Champions Arena', game: 'Valorant', format: 'single_elimination', status: 'live', participants: 28, minParticipants: 8, maxParticipants: 32, platform: 'PC', prize: 50000000, escrow: 'locked', organizer: 'SHELTER', startAt: D(-1), registrationEnd: D(-2), currentRound: 2, disputes: 1, pendingResults: 3, pendingPayouts: 0 },
-  { id: 't2', title: 'CS2 Open Ladder', game: 'Counter-Strike 2', format: 'round_robin', status: 'registration_open', participants: 24, minParticipants: 8, maxParticipants: 32, platform: 'PC', prize: 30000000, escrow: 'locked', organizer: 'SHELTER', startAt: D(1), registrationEnd: D(0), currentRound: 0, disputes: 0, pendingResults: 0, pendingPayouts: 0 },
-  { id: 't3', title: 'Dota 2 Weekend Clash', game: 'Dota 2', format: 'single_elimination', status: 'pending_review', participants: 0, minParticipants: 8, maxParticipants: 16, platform: 'PC', prize: 40000000, escrow: 'none', organizer: 'Nova Esports', startAt: D(4), registrationEnd: D(3), currentRound: 0, disputes: 0, pendingResults: 0, pendingPayouts: 0 },
-  { id: 't4', title: 'FC 26 Pro Cup', game: 'EA Sports FC 26', format: 'league', status: 'draft', participants: 0, minParticipants: 16, maxParticipants: 64, platform: 'PS5', prize: 15000000, escrow: 'none', organizer: 'GameHub', startAt: D(6), registrationEnd: D(5), currentRound: 0, disputes: 0, pendingResults: 0, pendingPayouts: 0 },
-  { id: 't5', title: 'Fortnite Solo Cup', game: 'Fortnite', format: 'battle_royale', status: 'payout_pending', participants: 96, minParticipants: 32, maxParticipants: 100, platform: 'Cross-play', prize: 40000000, escrow: 'locked', organizer: 'SHELTER', startAt: D(-3), registrationEnd: D(-4), currentRound: 6, disputes: 0, pendingResults: 0, pendingPayouts: 2 },
-  { id: 't6', title: 'Tekken 8 Showdown', game: 'Tekken 8', format: 'single_elimination', status: 'completed', participants: 16, minParticipants: 8, maxParticipants: 16, platform: 'PS5', prize: 12000000, escrow: 'released', organizer: 'SHELTER', startAt: D(-5), registrationEnd: D(-6), currentRound: 4, disputes: 0, pendingResults: 0, pendingPayouts: 0 },
   { id: 't7', title: 'FC26 Champions Cup - 128 Players', game: 'EA Sports FC 26', format: 'single_elimination', status: 'live', participants: 128, minParticipants: 128, maxParticipants: 128, platform: 'PS5', prize: 8000000, escrow: 'locked', organizer: 'SHELTER', startAt: D(-1), registrationEnd: D(-2), currentRound: 3, disputes: 1, pendingResults: 2, pendingPayouts: 0 },
 ];
 
@@ -287,10 +282,10 @@ export const ADMIN_USERS: AdminUser[] = [
 ];
 
 export const REPORTS: ReportItem[] = [
-  { id: 'r1', reporter: 'Phantom X', reported: 'Smurf99', tournament: 'Valorant Champions Arena', category: 'cheating', status: 'new', createdAt: D(0) },
-  { id: 'r2', reporter: 'Valor GG', reported: 'Apex Titans', tournament: 'CS2 Open Ladder', category: 'fake_result', status: 'under_review', createdAt: D(-1) },
-  { id: 'r3', reporter: 'علی رضایی', reported: '—', tournament: 'Fortnite Solo Cup', category: 'payment_issue', status: 'needs_info', createdAt: D(-2) },
-  { id: 'r4', reporter: 'Nebula', reported: 'Cobalt', tournament: 'Dota 2 Weekend Clash', category: 'no_show', status: 'action_taken', createdAt: D(-3) },
+  { id: 'r1', reporter: 'Phantom X', reported: 'Smurf99', tournament: 'FC26 Champions Cup - 128 Players', category: 'cheating', status: 'new', createdAt: D(0) },
+  { id: 'r2', reporter: 'Valor GG', reported: 'Apex Titans', tournament: 'FC26 Champions Cup - 128 Players', category: 'fake_result', status: 'under_review', createdAt: D(-1) },
+  { id: 'r3', reporter: 'علی رضایی', reported: '—', tournament: 'FC26 Champions Cup - 128 Players', category: 'payment_issue', status: 'needs_info', createdAt: D(-2) },
+  { id: 'r4', reporter: 'Nebula', reported: 'Cobalt', tournament: 'FC26 Champions Cup - 128 Players', category: 'no_show', status: 'action_taken', createdAt: D(-3) },
 ];
 
 export const LEDGER: LedgerEntry[] = [
@@ -303,9 +298,9 @@ export const LEDGER: LedgerEntry[] = [
 ];
 
 export const PAYOUTS: Payout[] = [
-  { id: 'p1', tournament: 'Fortnite Solo Cup', recipient: 'rank #1', amount: 25000000, status: 'pending', createdAt: D(-3) },
-  { id: 'p2', tournament: 'Fortnite Solo Cup', recipient: 'rank #2', amount: 10000000, status: 'pending', createdAt: D(-3) },
-  { id: 'p3', tournament: 'Tekken 8 Showdown', recipient: 'rank #1', amount: 12000000, status: 'released', createdAt: D(-5) },
+  { id: 'p1', tournament: 'FC26 Champions Cup - 128 Players', recipient: 'rank #1', amount: 25000000, status: 'pending', createdAt: D(-3) },
+  { id: 'p2', tournament: 'FC26 Champions Cup - 128 Players', recipient: 'rank #2', amount: 10000000, status: 'pending', createdAt: D(-3) },
+  { id: 'p3', tournament: 'FC26 Champions Cup - 128 Players', recipient: 'rank #1', amount: 12000000, status: 'released', createdAt: D(-5) },
 ];
 
 export const KYC_QUEUE: { id: string; user: string; submitted: string; status: KycStatus }[] = [
@@ -323,9 +318,9 @@ export const AUDIT_LOG: AuditEntry[] = [
 ];
 
 export const ADMIN_QUEUE: QueueItem[] = [
-  { id: 'q1', kind: 'approve_tournament', title: 'Dota 2 Weekend Clash', meta: 'Nova Esports · در انتظارِ بررسی', urgent: true },
-  { id: 'q2', kind: 'review_dispute', title: 'تقلب در Valorant Champions Arena', meta: 'Phantom X علیه Smurf99', urgent: true },
-  { id: 'q3', kind: 'release_payout', title: 'جایزه‌ی Fortnite Solo Cup', meta: '۲ دریافت‌کننده · ۳۵٬۰۰۰٬۰۰۰ ت' },
+  { id: 'q1', kind: 'approve_tournament', title: 'FC26 Champions Cup - 128 Players', meta: 'Nova Esports · در انتظارِ بررسی', urgent: true },
+  { id: 'q2', kind: 'review_dispute', title: 'تقلب در FC26 Champions Cup - 128 Players', meta: 'Phantom X علیه Smurf99', urgent: true },
+  { id: 'q3', kind: 'release_payout', title: 'جایزه‌ی FC26 Champions Cup - 128 Players', meta: '۲ دریافت‌کننده · ۳۵٬۰۰۰٬۰۰۰ ت' },
   { id: 'q4', kind: 'organizer_request', title: 'Storm Clan', meta: 'درخواستِ پنلِ برگزارکننده' },
   { id: 'q5', kind: 'kyc_review', title: 'احرازِ هویتِ Phantom X', meta: 'مدارک ارسال شد' },
   { id: 'q6', kind: 'verify_result', title: 'نتیجه‌ی نیمه‌نهاییِ CS2', meta: 'در انتظارِ تأییدِ داور' },

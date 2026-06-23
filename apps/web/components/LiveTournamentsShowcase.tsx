@@ -13,10 +13,10 @@ export function LiveTournamentsShowcase() {
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="flex items-center gap-3 font-display text-[clamp(22px,3vw,34px)] font-bold">
-            تورنومنت‌های در جریان
+            تورنومنت‌های فعالِ SHELTER
             <span className="live-pill"><span className="dot" />زنده</span>
           </h2>
-          <p className="mt-1.5 max-w-xl text-sm text-muted">رقابت‌های واقعی روی بازی‌های مختلف — یکی را انتخاب کن و بپیوند.</p>
+          <p className="mt-1.5 max-w-xl text-sm text-muted">رقابت‌های رسمی و منتخب روی بازی‌های محبوب؛ ثبت‌نام کن، براکت را دنبال کن و وارد رقابت شو.</p>
         </div>
         <Link href="/tournaments" className="inline-flex items-center gap-1.5 text-sm font-semibold text-accent">
           همه‌ی تورنومنت‌ها

@@ -26,26 +26,29 @@ export function FinalCTASection() {
               <span className="anim-float-sm inline-flex">
                 <Ico size={13}><path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z" /></Ico>
               </span>
-              شروعِ رایگان
+              رقابت‌های رسمیِ SHELTER
             </span>
 
             <h2 className="mt-5 max-w-3xl font-display text-[clamp(24px,4vw,40px)] font-bold leading-tight">
-              آماده‌ای اولین تورنومنتت رو بسازی؟
+              آماده‌ای وارد رقابت بشی؟
             </h2>
 
             <p className="mt-4 max-w-2xl text-base leading-8 text-muted">
-              در چند دقیقه تورنومنتت رو راه بنداز — براکتِ خودکار، داوریِ منصفانه و پرداختِ امن، همه یک‌جا.
+              تورنومنت‌های فعال را ببین، ثبت‌نام کن و مسیرت را تا جایزه دنبال کن.
             </p>
 
             <div className="mt-9 flex flex-col items-center gap-3 sm:flex-row">
-              <Link href="/register" className="btn-primary px-7 py-3 text-base">
-                ثبت‌نام رایگان
-                <Ico size={16}><path d="M5 12h14M13 6l6 6-6 6" /></Ico>
-              </Link>
-              <Link href="/tournaments" className="btn-ghost px-7 py-3 text-base">
+              <Link href="/tournaments" className="btn-primary px-7 py-3 text-base">
                 مشاهده‌ی تورنومنت‌ها
+                <Ico size={16}><path d="M19 12H5M11 18l-6-6 6-6" /></Ico>
+              </Link>
+              <Link href="/register" className="btn-ghost px-7 py-3 text-base">
+                ثبت‌نام رایگان
               </Link>
             </div>
+            <Link href="/register" className="mt-4 text-sm font-semibold text-muted transition hover:text-accent">
+              برگزارکننده‌ای؟ درخواستِ همکاری بده →
+            </Link>
           </div>
         </div>
       </Reveal>

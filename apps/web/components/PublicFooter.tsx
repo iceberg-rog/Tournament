@@ -16,7 +16,7 @@ const COLUMNS: FooterColumn[] = [
     links: [
       { href: '/tournaments', label: 'تورنومنت‌ها' },
       { href: '/games', label: 'دیسیپلین‌ها' },
-      { href: '/login', label: 'ساخت تورنومنت' },
+      { href: '/ladders', label: 'رتبه‌بندی' },
     ],
   },
   {
@@ -24,7 +24,7 @@ const COLUMNS: FooterColumn[] = [
     links: [
       { href: '#', label: 'درباره‌ی ما' },
       { href: '#', label: 'تماس' },
-      { href: '/register', label: 'برگزارکنندگان' },
+      { href: '/register', label: 'همکاری با ما' },
     ],
   },
   {
@@ -91,7 +91,7 @@ export function PublicFooter() {
               <span className="font-display text-[19px] font-bold tracking-[.14em]">SHELTER</span>
             </Link>
             <p className="mt-4 max-w-xs text-sm leading-7 text-muted">
-              پلتفرمِ برگزاری و مدیریتِ تورنومنت‌های ای‌اسپورت — از براکتِ خودکار تا داوری و پرداختِ امن، همه یک‌جا.
+              پلتفرمِ رسمیِ تورنومنت‌های گیمینگ — رقابت کن، براکت را دنبال کن و جایزه‌ی امن بگیر. برگزارکننده‌های منتخب با تأییدِ SHELTER همکاری می‌کنند.
             </p>
 
             {/* شبکه‌های اجتماعی */}

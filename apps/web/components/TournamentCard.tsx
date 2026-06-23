@@ -15,6 +15,7 @@ function Chip({ children }: { children: React.ReactNode }) {
 
 function ctaLabel(status: string, guest: boolean): string {
   if (status === 'DRAFT') return guest ? 'ورود برای ثبت‌نام' : 'ثبت‌نام / مشاهده';
+  if (status === 'RUNNING') return 'مشاهده‌ی زنده';
   if (status === 'COMPLETED') return 'مشاهده‌ی نتایج';
   return 'مشاهده‌ی جزئیات';
 }

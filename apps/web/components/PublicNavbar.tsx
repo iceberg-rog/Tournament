@@ -7,6 +7,7 @@ import { usePathname } from 'next/navigation';
 const NAV = [
   { href: '/tournaments', label: 'تورنومنت‌ها' },
   { href: '/games', label: 'دیسیپلین‌ها' },
+  { href: '/ladders', label: 'رتبه‌بندی' },
   { href: '/register', label: 'برگزارکنندگان' },
   { href: '/#how', label: 'راهنما' },
 ];
@@ -54,10 +55,7 @@ export function PublicNavbar() {
 
         {/* اکشن‌ها — سلسله‌مراتب: ساخت تورنومنت (ثانویه/outline) · ورود (متن) · ثبت‌نام (primary) */}
         <div className="ms-auto flex items-center gap-2">
-          <Link href="/login" className="btn-ghost hidden px-3.5 py-2 text-sm md:inline-flex">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
-            ساخت تورنومنت
-          </Link>
+          <Link href="/register" className="btn-ghost hidden px-3.5 py-2 text-sm md:inline-flex">همکاری با ما</Link>
           <Link href="/login" className="hidden rounded-xl px-3.5 py-2 text-sm font-semibold text-muted transition hover:text-text sm:block">ورود</Link>
           <Link href="/register" className="btn-primary px-4 py-2 text-sm">ثبت‌نام</Link>
           <button onClick={() => setOpen((o) => !o)} className="grid h-9 w-9 place-items-center rounded-xl border border-line text-muted md:hidden" aria-label="منو">
@@ -74,7 +72,7 @@ export function PublicNavbar() {
               {n.label}
             </Link>
           ))}
-          <Link href="/login" onClick={() => setOpen(false)} className="rounded-xl px-3 py-2.5 text-sm text-muted">ساخت تورنومنت</Link>
+          <Link href="/register" onClick={() => setOpen(false)} className="rounded-xl px-3 py-2.5 text-sm text-muted">همکاری با ما</Link>
           <Link href="/login" onClick={() => setOpen(false)} className="rounded-xl px-3 py-2.5 text-sm text-muted">ورود</Link>
           <Link href="/register" onClick={() => setOpen(false)} className="btn-primary mt-1 py-2.5 text-sm">ثبت‌نام</Link>
         </nav>

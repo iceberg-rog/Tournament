@@ -1,5 +1,6 @@
 import { Reveal } from '@/components/Reveal';
-import { HOW_STEPS, type HowStep } from '@/lib/landing';
+import Link from 'next/link';
+import { HOW_STEPS, ORGANIZER_STEPS, type HowStep } from '@/lib/landing';
 
 const Ico = ({ children, className = '' }: { children: React.ReactNode; className?: string }) => (
   <svg
@@ -18,14 +19,11 @@ const Ico = ({ children, className = '' }: { children: React.ReactNode; classNam
 /** ویژوالِ کوچکِ تشریحیِ هر مرحله (خطوطِ ظریف، هم‌خانواده با کاورهای پلتفرم). */
 function StepVisual({ n }: { n: number }) {
   if (n === 1) {
-    // ساختِ تورنومنت: ویزارد / فرم
+    // انتخابِ تورنومنت: جستجو / مرور
     return (
       <Ico className="h-7 w-7">
-        <rect x="3" y="4" width="18" height="16" rx="2.5" />
-        <path d="M3 9h18" />
-        <path d="M7 13h6M7 16.5h4" />
-        <circle cx="6.4" cy="6.5" r=".6" fill="currentColor" />
-        <circle cx="8.8" cy="6.5" r=".6" fill="currentColor" />
+        <circle cx="11" cy="11" r="7" />
+        <path d="m20 20-3-3" />
       </Ico>
     );
   }
@@ -106,11 +104,10 @@ export function HowItWorksSection() {
           سادهٔ سه‌مرحله‌ای
         </span>
         <h2 className="mt-4 font-display text-[clamp(22px,3vw,34px)] font-bold leading-tight">
-          از ساخت تا جایزه، در سه مرحله
+          از ثبت‌نام تا جایزه، مسیرِ رقابت روشن است
         </h2>
         <p className="mt-3 text-base leading-8 text-muted">
-          راه‌اندازیِ یک رقابتِ حرفه‌ای آسان است؛ تو می‌سازی و مدیریت می‌کنی، و پلتفرم بقیه را — از
-          براکت و داوری تا توزیعِ امنِ جایزه — خودکار پیش می‌برد.
+          پیدا کردنِ رقابت تا دریافتِ جایزه در سه مرحله؛ بقیه‌ی کار — براکت، داوری و پرداختِ امن — با SHELTER است.
         </p>
       </Reveal>
 
@@ -129,6 +126,29 @@ export function HowItWorksSection() {
           ))}
         </ol>
       </div>
+
+      {/* مسیرِ جدا برای برگزارکننده‌ها (همکاریِ تأییدشده) */}
+      <Reveal className="mt-14">
+        <div className="rounded-2xl border border-line bg-tile/60 p-6">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h3 className="font-display text-lg font-bold">برگزارکننده‌ای؟ با SHELTER همکاری کن</h3>
+            <Link href="/register" className="btn-ghost px-4 py-2 text-sm">درخواستِ همکاری</Link>
+          </div>
+          <ol className="mt-5 grid gap-5 md:grid-cols-3">
+            {ORGANIZER_STEPS.map((s) => (
+              <li key={s.n} className="flex gap-3">
+                <span className="grid h-8 w-8 flex-none place-items-center rounded-full border border-line2 bg-tile2 font-display text-sm font-bold text-accent tnum">
+                  {s.n.toLocaleString('fa-IR')}
+                </span>
+                <div>
+                  <p className="text-sm font-bold">{s.title}</p>
+                  <p className="mt-0.5 text-xs leading-6 text-faint">{s.desc}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </Reveal>
     </section>
   );
 }

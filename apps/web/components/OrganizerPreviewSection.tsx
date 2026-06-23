@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Reveal } from '@/components/Reveal';
 import { ORGANIZER_POINTS } from '@/lib/landing';
 
@@ -17,7 +18,7 @@ const Ico = ({ children, size = 14 }: { children: React.ReactNode; size?: number
 );
 
 /** نوارِ ۴ گامیِ راه‌اندازی (بازی → فرمت → جوایز → انتشار)؛ یک گام teal فعال. */
-const SETUP_STEPS = ['بازی', 'فرمت', 'جوایز', 'انتشار'] as const;
+const SETUP_STEPS = ['بازی', 'فرمت', 'جوایز', 'بررسی'] as const;
 const ACTIVE_STEP = 1; // «فرمت» highlighted
 
 /** ردیفِ انتخابِ فرمت؛ یک چیپ فعال. */
@@ -52,7 +53,7 @@ function OrganizerControlPanel() {
           <span className="grid h-7 w-7 flex-none place-items-center rounded-lg bg-accent/10 text-accent">
             <Shield />
           </span>
-          <p className="flex-1 truncate text-xs font-bold text-white">کنترلِ برگزارکننده</p>
+          <p className="flex-1 truncate text-xs font-bold text-white">پنلِ برگزارکننده · پیش‌نویس</p>
           <span className="inline-flex items-center gap-1.5 rounded-full border border-bad/30 bg-bad/10 px-2 py-0.5 text-[9px] font-bold text-[#fca5a5]">
             <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-bad" /> زنده
           </span>
@@ -195,12 +196,9 @@ function OrganizerControlPanel() {
             className="btn-primary w-full pointer-events-none text-[12px]"
           >
             <Ico size={14}>
-              <rect x="3" y="4" width="6" height="5" rx="1.5" />
-              <rect x="3" y="15" width="6" height="5" rx="1.5" />
-              <rect x="15" y="9.5" width="6" height="5" rx="1.5" />
-              <path d="M9 6.5h3a2 2 0 0 1 2 2v3.5M9 17.5h3a2 2 0 0 0 2-2V12" />
+              <path d="M22 2 11 13M22 2l-7 20-4-9-9-4z" />
             </Ico>
-            ساختِ خودکارِ براکت
+            ارسال برای بررسیِ SHELTER
           </button>
         </div>
       </div>
@@ -213,13 +211,19 @@ export function OrganizerPreviewSection() {
     <section>
       <Reveal>
         <div className="max-w-2xl">
-          <h2 className="font-display text-[clamp(22px,3vw,34px)] font-bold leading-tight">
-            برای برگزارکننده‌ها ساخته شده، برای بازیکن‌ها ساده شده
+          <span className="inline-flex items-center gap-2 rounded-full border border-line bg-tile/60 px-3 py-1 text-xs font-semibold text-muted backdrop-blur">
+            <span className="h-1.5 w-1.5 rounded-full bg-gold" />
+            برنامه‌ی همکاریِ برگزارکننده
+          </span>
+          <h2 className="mt-4 font-display text-[clamp(22px,3vw,34px)] font-bold leading-tight">
+            برای برگزارکننده‌های منتخب و همکاران رسمی
           </h2>
           <p className="mt-3 leading-7 text-muted">
-            شِلتر یک ابزارِ کنترل است، نه فقط یک صفحه‌نمایش: راه‌اندازی، داوری، escrow و انتشار —
-            همه از یک پنل و فقط با چند کلیک.
+            اگر تیم، کلن، مجموعه یا برندِ گیمینگ هستی، می‌توانی برای همکاری با SHELTER درخواست بدهی. پس از بررسی، پنلِ برگزارکننده در اختیارت قرار می‌گیرد و تورنومنت‌ها با تأییدِ SHELTER منتشر می‌شوند.
           </p>
+          <div className="mt-5">
+            <Link href="/register" className="btn-primary px-6 py-2.5">درخواستِ پنلِ برگزارکننده</Link>
+          </div>
         </div>
       </Reveal>
 

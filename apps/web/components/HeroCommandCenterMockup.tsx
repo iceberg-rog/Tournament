@@ -26,7 +26,7 @@ export function HeroCommandCenterMockup({ featured }: { featured?: TournamentRow
           </div>
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-bold text-white" dir="auto">{t.title}</p>
-            <p className="text-[11px] text-faint">{t.game} · کنترل‌رومِ زنده</p>
+            <p className="text-[11px] text-faint">{t.game} · کنترلِ مسابقه توسطِ SHELTER</p>
           </div>
           {live && (
             <span className="inline-flex items-center gap-1.5 rounded-full border border-bad/30 bg-bad/15 px-2.5 py-1 text-[10px] font-bold text-[#fca5a5]">
@@ -52,7 +52,7 @@ export function HeroCommandCenterMockup({ featured }: { featured?: TournamentRow
       </div>
 
       {/* چیپ‌های شناور */}
-      <span className="anim-float-sm absolute -right-3 top-8 hidden rounded-xl border border-line bg-tile px-3 py-1.5 text-[11px] font-bold text-accent shadow-lg backdrop-blur lg:block" style={{ animationDelay: '.4s' }}>براکتِ خودکار</span>
+      <span className="anim-float-sm absolute -right-3 top-8 hidden rounded-xl border border-line bg-tile px-3 py-1.5 text-[11px] font-bold text-accent shadow-lg backdrop-blur lg:block" style={{ animationDelay: '.4s' }}>براکتِ رسمی</span>
       <span className="anim-float-sm absolute -left-3 bottom-24 hidden rounded-xl border border-line bg-tile px-3 py-1.5 text-[11px] font-bold text-gold shadow-lg backdrop-blur lg:block" style={{ animationDelay: '1s' }}>پرداختِ امن</span>
     </div>
   );

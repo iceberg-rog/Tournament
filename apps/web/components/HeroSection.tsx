@@ -33,20 +33,21 @@ export function HeroSection({ featured }: { featured?: TournamentRow }) {
         <div>
           <span className="inline-flex items-center gap-2 rounded-full border border-line bg-tile/60 px-3 py-1 text-xs font-semibold text-muted backdrop-blur">
             <span className="h-1.5 w-1.5 rounded-full bg-accent" />
-            پلتفرمِ نسلِ بعدیِ برگزاریِ مسابقات
+            پلتفرمِ رسمیِ تورنومنت‌های گیمینگ
           </span>
           <h1 className="mt-5 font-display text-[clamp(34px,6vw,64px)] font-bold leading-[1.08]">
-            تورنومنت بساز،
+            رقابت کن،
             <br />
-            بازی کن،{' '}
+            صعود کن،{' '}
             <span className="anim-gradient bg-gradient-to-l from-accent via-gold to-accent bg-clip-text text-transparent">جایزه بگیر</span>
           </h1>
-          <p className="mt-5 max-w-lg text-base leading-8 text-muted">
-            براکت بساز، نتیجه بگیر، جایزه آزاد کن. هر مسابقه — از ثبت‌نام تا فینال — یک‌جا، زنده و امن.
+          <p className="mt-5 max-w-xl text-base leading-8 text-muted">
+            در SHELTER تورنومنت‌های معتبرِ بازی‌های محبوب را پیدا کن، ثبت‌نام کن، براکت را دنبال کن، نتیجه را ثبت کن و جایزه‌ات را امن دریافت کن.
           </p>
-          <div className="mt-7 flex flex-wrap gap-3">
-            <Link href="/register" className="btn-primary px-7 py-3 text-base">شروعِ رایگان</Link>
-            <Link href="/tournaments" className="btn-ghost px-7 py-3 text-base">مشاهده‌ی تورنومنت‌ها</Link>
+          <div className="mt-7 flex flex-wrap items-center gap-3">
+            <Link href="/tournaments" className="btn-primary px-7 py-3 text-base">مشاهده‌ی تورنومنت‌ها</Link>
+            <Link href="/register" className="btn-ghost px-7 py-3 text-base">ثبت‌نام رایگان</Link>
+            <Link href="/register" className="px-2 py-1 text-sm font-semibold text-muted transition hover:text-accent">درخواست همکاریِ برگزارکننده →</Link>
           </div>
           <div className="mt-7 flex flex-wrap items-center gap-x-6 gap-y-2 text-xs text-faint">
             <span className="inline-flex items-center gap-1.5"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-accent"><path d="M20 6 9 17l-5-5" /></svg> بدونِ نیاز به کارتِ بانکی برای شروع</span>

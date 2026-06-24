@@ -1,39 +1,42 @@
-// persistِ سبکِ refresh-safe برای دادهٔ عملیاتیِ هر تورنومنت (چت، اسکجول، استریم).
-// هر تب slice خودش را در localStorage نگه می‌دارد؛ بدونِ backend هم پایدار است.
+// هوکِ persistِ عملیات. پشتِ OpsRepository می‌نشیند: پیش‌فرض localStorage
+// (mock-functional)، با NEXT_PUBLIC_OPS_BACKEND=api روی backend. صفحه‌ها بدونِ
+// تغییر از useOpsSlice استفاده می‌کنند؛ adapter زیر آن عوض می‌شود.
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { getOpsRepository, localOpsRepository } from './opsRepository';
 
-const KEY = (id: string, slice: string) => `shelter:ops:${id}:${slice}`;
-
+// سازگاری به‌عقب: helperهای مستقیمِ localStorage (هرجا مستقیماً استفاده شده باشد).
 export function opsLoad<T>(id: string, slice: string, fallback: T): T {
-  if (typeof window === 'undefined') return fallback;
-  try {
-    const raw = window.localStorage.getItem(KEY(id, slice));
-    return raw ? (JSON.parse(raw) as T) : fallback;
-  } catch {
-    return fallback;
-  }
+  return localOpsRepository.loadSlice(id, slice, fallback) as T;
 }
-
 export function opsSave<T>(id: string, slice: string, data: T): void {
-  if (typeof window === 'undefined') return;
-  try {
-    window.localStorage.setItem(KEY(id, slice), JSON.stringify(data));
-  } catch {
-    /* quota/serialization — بی‌خطر صرف‌نظر می‌کنیم */
-  }
+  void localOpsRepository.saveSlice(id, slice, data);
 }
 
-/** useState که از localStorage مقداردهیِ اولیه می‌شود و هر تغییر را persist می‌کند. */
+/**
+ * useState که از repositoryِ فعال مقداردهیِ اولیه می‌شود و هر تغییر را persist
+ * می‌کند. قبل از hydration، fallback را برمی‌گرداند (SSR-safe + بدونِ mismatch).
+ */
 export function useOpsSlice<T>(id: string, slice: string, fallback: T): [T, (next: T | ((prev: T) => T)) => void] {
   const [state, setState] = useState<T>(fallback);
   const [hydrated, setHydrated] = useState(false);
 
-  // پس از mount از localStorage بخوان (SSR-safe؛ از mismatch جلوگیری می‌کند)
   useEffect(() => {
-    setState(opsLoad(id, slice, fallback));
-    setHydrated(true);
+    let alive = true;
+    const repo = getOpsRepository();
+    Promise.resolve(repo.loadSlice(id, slice, fallback)).then((value) => {
+      if (!alive) return;
+      // فقط اگر هنوز hydrate نشده مقدارِ بارگذاری‌شده را می‌نشانیم تا یک mutationِ
+      // کاربر در پنجره‌ی ریزِ پیش از hydration بازنویسی نشود.
+      setHydrated((h) => {
+        if (!h) setState(value);
+        return true;
+      });
+    });
+    return () => {
+      alive = false;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id, slice]);
 
@@ -41,13 +44,12 @@ export function useOpsSlice<T>(id: string, slice: string, fallback: T): [T, (nex
     (next: T | ((prev: T) => T)) => {
       setState((prev) => {
         const value = typeof next === 'function' ? (next as (p: T) => T)(prev) : next;
-        opsSave(id, slice, value);
+        void getOpsRepository().saveSlice(id, slice, value);
         return value;
       });
     },
     [id, slice],
   );
 
-  // قبل از hydration، fallback را برمی‌گردانیم تا server/client یکی باشد
   return [hydrated ? state : fallback, set];
 }

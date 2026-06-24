@@ -12,15 +12,16 @@
     "prisma:studio": "prisma studio"
   },
   "dependencies": {
-    "@tournament/core": "*",
     "@nestjs/common": "^11.0.0",
     "@nestjs/config": "^4.0.0",
     "@nestjs/core": "^11.0.0",
     "@nestjs/jwt": "^11.0.0",
     "@nestjs/passport": "^11.0.0",
     "@nestjs/platform-express": "^11.0.0",
+    "@nestjs/schedule": "^6.1.3",
     "@node-rs/argon2": "^2.0.0",
     "@prisma/client": "^6.2.0",
+    "@tournament/core": "*",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "passport": "^0.7.0",

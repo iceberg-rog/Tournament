@@ -278,3 +278,84 @@ model IntegrationConfig {
   updatedAt   DateTime @updatedAt
   createdAt   DateTime @default(now())
 }
+
+// ───────── Production Backend Foundation ─────────
+
+/**
+ * وضعیتِ عملیاتِ تورنومنت — persistِ سمتِ سرور به تفکیکِ «slice».
+ * پشتِ OpsRepository می‌نشیند و جایگزینِ localStorage در فرانت می‌شود.
+ * sliceها: chat-messages | chat-policy | chat-flags | announcements |
+ * schedule-patches | dispute-status | participant-patches | stream-config | stream-sessions
+ */
+model OpsState {
+  id           String   @id @default(uuid())
+  tournamentId String
+  slice        String
+  data         Json
+  updatedAt    DateTime @updatedAt
+  createdAt    DateTime @default(now())
+
+  @@unique([tournamentId, slice])
+  @@index([tournamentId])
+}
+
+/** فیدِ رویدادهای عملیاتی (جدا از AuditLog؛ برای نمایشِ activity). */
+model ActivityEvent {
+  id           String   @id @default(uuid())
+  tournamentId String
+  kind         String
+  actor        String   @default("system")
+  summary      String
+  entityType   String   @default("")
+  entityId     String   @default("")
+  createdAt    DateTime @default(now())
+
+  @@index([tournamentId])
+}
+
+/** نشستِ استریمِ هر مسابقه — persistِ وضعیت و سلامتِ پخش. */
+model StreamSessionRow {
+  id           String    @id @default(uuid())
+  tournamentId String
+  matchId      String
+  status       String    @default("offline")
+  visibility   String    @default("public")
+  viewers      Int       @default(0)
+  bitrate      Int       @default(0)
+  latency      Float     @default(0)
+  dropped      Int       @default(0)
+  caster       String?
+  playbackUrl  String?
+  startedAt    DateTime?
+  endedAt      DateTime?
+  updatedAt    DateTime  @updatedAt
+  createdAt    DateTime  @default(now())
+
+  @@unique([tournamentId, matchId])
+  @@index([tournamentId])
+}
+
+/**
+ * اعلانِ تحویل‌ردیابی‌شده — لاگِ تحویل با وضعیت/کانال/retry/read.
+ * (مدلِ Notificationِ ساده‌ی موجود دست‌نخورده می‌ماند.)
+ */
+model NotificationDelivery {
+  id           String    @id @default(uuid())
+  tournamentId String
+  userId       String?
+  channel      String    @default("in_app")
+  type         String    @default("info")
+  title        String    @default("")
+  body         String    @default("")
+  status       String    @default("scheduled")
+  sendAt       DateTime  @default(now())
+  sentAt       DateTime?
+  readAt       DateTime?
+  retries      Int       @default(0)
+  error        String?
+  createdAt    DateTime  @default(now())
+
+  @@index([tournamentId])
+  @@index([userId])
+  @@index([status])
+}

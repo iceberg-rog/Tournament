@@ -66,18 +66,38 @@ test.describe('Control room — operator flow', () => {
     expect(titlesReload).not.toContain(target);
   });
 
-  test('participant drawer opens with full identity and a working action', async ({ page }) => {
+  test('participant search + full identity drawer + warn/mute persist', async ({ page }) => {
     await page.goto(`${BASE}/admin/tournaments/${T}/participants`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(1500);
-    const row = page.locator('tbody tr').first();
-    await row.click();
+    expect(await page.locator('tbody tr').count()).toBe(128);
+
+    // جست‌وجو بر اساسِ ایمیل
+    await page.locator('input[placeholder*="جست"]').first().fill('phantom@example.com');
+    await page.waitForTimeout(500);
+    expect(await page.locator('tbody tr').count()).toBeLessThan(128);
+    await page.locator('input[placeholder*="جست"]').first().fill('');
+    await page.waitForTimeout(300);
+
+    // Player Drawer با هویتِ کامل
+    await page.locator('tbody tr').first().click();
     const drawer = page.getByRole('dialog');
     await expect(drawer).toBeVisible();
-    await expect(drawer).toContainText('ایمیل');
-    await expect(drawer).toContainText('KYC');
-    // یک اکشن: اخطار
-    const warn = drawer.getByRole('button', { name: /اخطار/ }).first();
-    if (await warn.count()) await warn.click();
+    for (const f of ['ایمیل', 'تلفن', 'Game ID', 'نامِ نمایشی', 'KYC', 'کیفِ پول']) {
+      await expect(drawer).toContainText(f);
+    }
+
+    // اخطار → بازخوردِ مرئی + persist
+    await drawer.getByRole('button', { name: /اخطار/ }).first().click();
+    await expect(page.getByText(/اخطار.*ثبت شد/).first()).toBeVisible();
+    await drawer.getByRole('button', { name: /^بی‌صدا/ }).first().click();
+    await page.waitForTimeout(400);
+    const patches = await page.evaluate(() => localStorage.getItem('shelter:ops:t7:participant-patches'));
+    expect(patches && patches.length > 5).toBeTruthy();
+
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.waitForTimeout(1200);
+    const after = await page.evaluate(() => localStorage.getItem('shelter:ops:t7:participant-patches'));
+    expect(after && after.length > 5).toBeTruthy();
   });
 
   test('bracket: full multi-round map, match list filter, match drawer, fullscreen modal', async ({ page }) => {

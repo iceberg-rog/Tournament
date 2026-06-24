@@ -244,3 +244,31 @@
 ### باقی‌مانده «به ترتیب» (با همین روشِ بازتولید→اصلاح→کلیک‌تست)
 - **۶) فعالیت و ممیزی:** detail drawer برای هر رویداد + فیلترها + diffِ before/after برای ممیزی.
 - **۸) تنظیماتِ عملیاتیِ کامل:** check-in/result/dispute/notification/chat/stream/payout policy (سیاستِ no-show از قبل ساخته و روی رفتار اثرگذار است).
+
+---
+
+## ۱۱. Bracket Progression / Double No-show QA
+
+**باگِ منطقی:** `mark_double_no_show` مسابقه را به `admin_review` می‌برد (هرگز resolve نمی‌شد) و **هیچ state machineِ براکت وجود نداشت** — propagation، bye و auto-start غایب بودند. برای همین مرحله‌ی ۱۶تایی با موانعِ مبهم قفل می‌ماند.
+
+### چه ساخته شد (state machine واقعی، نه UI دستی)
+- `recomputeBracket(core)`: دورهای آینده را از نتایجِ دورِ جاری می‌سازد — انتقالِ برنده به slot بعدی، **اعمالِ خودکارِ BYE** (slot مقابل خالی)، **void** (هر دو حذف)، و **آبشاری** تا براکت دوباره consistent شود.
+- `advanceProgression(core)`: اگر دورِ جاری کامل و بدونِ اختلاف باشد، دورِ بعد را **خودکار فعال** می‌کند (طبقِ `ProgressionSettings`: autoGenerate/autoStart/applyBye/requireApproval) و در فینال قهرمان را مشخص می‌کند.
+- `advanceBracket = advanceProgression(recomputeBracket(...))` پس از هر اقدامِ حساس (approve/edit/no-show/double-no-show/resolve-dispute) و نیز روی load اجرا می‌شود.
+- `mark_double_no_show` بازنویسی شد: مسابقه `completed + voided`، هر دو بازیکن `eliminated`، سپس propagation (BYE برای حریفِ تنها).
+- بلاکرها **ساختاریافته** شدند (`BracketBlocker`): matchId، شماره، بازیکنان، وضعیت، دلیلِ دقیق، اقدامِ پیشنهادی — StepPanel به‌جای متنِ مبهم، کارتِ هر بلاکر را با دکمه‌ی «باز کردن مسابقه» نشان می‌دهد.
+- مودالِ شیشه‌ایِ double-no-show (به‌جای `window.confirm`) با عاقبتِ دقیق.
+
+### جدولِ تست (کلیکِ واقعی + assert از stateِ persisted)
+| سناریو | اقدام | نتیجه‌ی موردِ انتظار | نتیجه‌ی واقعی | refresh | activity | audit | نتیجه |
+|--------|------|---------------------|---------------|:------:|:--------:|:-----:|:-----:|
+| عدمِ حضورِ دوطرفه | مودالِ شیشه‌ای → تأیید | هر دو حذف، مسابقه void، حریف BYE صعود | ✅ هر دو eliminated · `fc-r3m3` completed+voided · مسابقه‌ی دورِ ۴ `bye=true` با برنده | ✅ نماند نرفت | ✅ BYE/void | ✅ | PASS |
+| تکمیلِ دور | seed دورِ کامل → load | دورِ بعد خودکار فعال، فینال از برندگان ساخته | ✅ `currentRound=4` · فینال `[p0,p2]` · فعالیتِ «خودکار شروع شد» | ✅ دور همچنان ۴ | ✅ | — | PASS |
+| recalc بلاکرها | پس از resolve | بلاکرِ قدیمی نماند | ✅ آیتمِ double-no-show از صف رفت | ✅ | — | — | PASS |
+
+`tests/bracket-progression-double-no-show.spec.ts` + `tests/bracket-autostart.spec.ts`. **کلِ سوییت: ۱۱/۱۱ سبز.**
+
+### چه چیزی fake بود و اصلاح شد
+- موانعِ «مسابقه #۱۰۳/۱۰۴ هنوز کامل نشده»ی مبهم → حالا کارتِ بلاکرِ دقیق (بازیکنان، وضعیت، دلیل، اقدام). این مسابقات (live/ready) **بلاکرِ واقعی‌اند** (نتیجه ندارند) و حالا راهِ رفعشان واضح است.
+- double-no-show که match را قفل می‌کرد → حالا resolve می‌کند و **حریف با BYE صعود می‌کند**.
+- نبودِ auto-start → حالا با تکمیلِ دور، دورِ بعد خودکار فعال می‌شود.

@@ -6,6 +6,7 @@ import type { AdminTournament } from '@/lib/admin';
 import type { AdminRole } from '@/lib/admin/ops';
 import { appendAudit, pushToast } from '@/lib/admin/store';
 import {
+  advanceBracket,
   buildCore,
   derive,
   roundName,
@@ -123,6 +124,16 @@ export function useControlRoom(t: AdminTournament, role: AdminRole, actorName: s
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [core, ready, t.id]);
 
+  // auto-start: روی load هم اگر دورِ جاری کامل باشد، براکت را می‌سازد و خودکار به
+  // دورِ بعد می‌رود. با مقایسه‌ی currentRound/تعدادِ مسابقات converge می‌شود (recompute
+  // هر بار ref جدید می‌دهد، پس فقط وقتی واقعاً تغییری هست setCore می‌کنیم).
+  useEffect(() => {
+    if (!ready) return;
+    const next = advanceBracket(core);
+    if (next.currentRound !== core.currentRound || next.matches.length !== core.matches.length) setCore(next);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [core, ready]);
+
   // flushِ فوریِ backend هنگامِ خروج/پنهان‌شدن/unmount تا تغییرِ debounce‌نشده گم نشود
   const flushNow = useCallback(() => {
     if (!ready || !isLoggedIn()) return;
@@ -174,6 +185,7 @@ export function useControlRoom(t: AdminTournament, role: AdminRole, actorName: s
         case 'approve_result':
           if (!m) return;
           patchMatch(m.id, { status: 'completed', winnerId: m.scoreA >= m.scoreB ? m.aId ?? undefined : m.bId ?? undefined, blockerReason: undefined });
+          setCore((c) => advanceBracket(c));
           audit('تأییدِ نتیجه', 'match', m.id);
           addActivity('admin', `نتیجه‌ی مسابقه‌ی ${num} تأیید شد`);
           ok(`نتیجه‌ی مسابقه‌ی ${num} تأیید شد`);
@@ -188,6 +200,7 @@ export function useControlRoom(t: AdminTournament, role: AdminRole, actorName: s
         case 'edit_score':
           if (!m) return;
           patchMatch(m.id, { scoreA: p.scoreA ?? m.scoreA, scoreB: p.scoreB ?? m.scoreB, status: 'completed', winnerId: (p.scoreA ?? m.scoreA) >= (p.scoreB ?? m.scoreB) ? m.aId ?? undefined : m.bId ?? undefined });
+          setCore((c) => advanceBracket(c));
           audit('ویرایشِ امتیاز', 'match', m.id, `${p.scoreA}-${p.scoreB}`);
           ok(`امتیازِ مسابقه‌ی ${num} ویرایش شد`);
           break;
@@ -205,6 +218,7 @@ export function useControlRoom(t: AdminTournament, role: AdminRole, actorName: s
               disqualified = ns >= 2; // عدمِ حضورِ دوم → محرومیت
               patchParticipant(absent, (x) => ({ ...x, noShows: ns, warnings: (x.warnings ?? 0) + 1, status: disqualified ? 'disqualified' : 'eliminated' }));
             }
+            setCore((c) => advanceBracket(c));
             audit('ثبتِ عدمِ حضور', 'match', m.id, absent && disqualified ? 'عدمِ حضورِ دوم — محرومیت' : undefined);
             addActivity('admin', `${absentName} در مسابقه‌ی ${num} حاضر نشد؛ ${presentName} صعود کرد`);
             notifyNoShow(core.tournamentId, absentName, presentName, num);
@@ -224,12 +238,15 @@ export function useControlRoom(t: AdminTournament, role: AdminRole, actorName: s
           break;
         case 'mark_double_no_show':
           if (!m) return;
-          patchMatch(m.id, { status: 'admin_review', blockerReason: 'هر دو غایب — اخطار صادر شد، نیازِ تصمیمِ مدیر' });
-          if (m.aId) patchParticipant(m.aId, (x) => ({ ...x, warnings: (x.warnings ?? 0) + 1, noShows: (x.noShows ?? 0) + 1 }));
-          if (m.bId) patchParticipant(m.bId, (x) => ({ ...x, warnings: (x.warnings ?? 0) + 1, noShows: (x.noShows ?? 0) + 1 }));
-          audit('عدمِ حضورِ دوطرفه', 'match', m.id);
-          addActivity('admin', `عدمِ حضورِ دوطرفه در مسابقه‌ی ${num}؛ هر دو اخطار گرفتند`);
-          ok(`هر دو بازیکنِ مسابقه‌ی ${num} اخطار گرفتند؛ مسابقه به بازبینیِ مدیر رفت`);
+          // مسابقه را resolve می‌کنیم (بدونِ برنده) + هر دو را حذف می‌کنیم، سپس
+          // براکت propagate می‌شود: اگر حریفِ دورِ بعد تنها بماند، BYE می‌گیرد و صعود می‌کند.
+          patchMatch(m.id, { status: 'completed', voided: true, winnerId: undefined, bye: false, blockerReason: 'عدمِ حضورِ دوطرفه — بدونِ برنده' });
+          if (m.aId) patchParticipant(m.aId, (x) => ({ ...x, warnings: (x.warnings ?? 0) + 1, noShows: (x.noShows ?? 0) + 1, status: 'eliminated' }));
+          if (m.bId) patchParticipant(m.bId, (x) => ({ ...x, warnings: (x.warnings ?? 0) + 1, noShows: (x.noShows ?? 0) + 1, status: 'eliminated' }));
+          setCore((c) => advanceBracket(c));
+          audit('عدمِ حضورِ دوطرفه', 'match', m.id, 'هر دو حذف — مسابقه بدونِ برنده');
+          addActivity('admin', `عدمِ حضورِ دوطرفه در مسابقه‌ی ${num}؛ هر دو بازیکن حذف شدند`);
+          ok(`عدمِ حضورِ دوطرفه ثبت شد؛ مسابقه‌ی ${num} بدونِ برنده بسته و براکت به‌روز شد`);
           break;
         case 'invalid_evidence':
           if (!m) return;
@@ -276,7 +293,7 @@ export function useControlRoom(t: AdminTournament, role: AdminRole, actorName: s
           if (!d) return;
           const dm = core.matches.find((x) => x.id === d.matchId);
           const winner = action === 'resolve_dispute_a' ? dm?.aId : dm?.bId;
-          setCore((c) => ({
+          setCore((c) => advanceBracket({
             ...c,
             disputes: c.disputes.map((x) => (x.id === p.disputeId ? { ...x, status: 'resolved' } : x)),
             matches: c.matches.map((x) => (x.id === d.matchId ? { ...x, status: 'completed', winnerId: winner ?? undefined, disputeId: undefined, blockerReason: undefined } : x)),

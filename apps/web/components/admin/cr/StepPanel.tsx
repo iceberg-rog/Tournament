@@ -162,26 +162,34 @@ function RoundBody({ step, ctx }: { step: RoadmapStep; ctx: PanelCtx }) {
   const locked = step.state === 'locked' || step.state === 'upcoming';
 
   if (locked) {
-    const reasons = ctx.cr.nextRound.reasons;
+    const blockers = ctx.cr.nextRound.blockers;
+    const isNextRound = step.round === ctx.cr.currentRound + 1;
+    const fa = (n: number) => n.toLocaleString('fa-IR');
     return (
       <div className="space-y-3">
         <div className="rounded-xl border border-line bg-tile2 p-4 text-center">
-          <p className="font-display text-sm font-bold">این مرحله هنوز آماده نیست</p>
-          <p className="mt-1 text-xs text-faint">{step.label} پس از رفعِ موانعِ دورِ جاری شروع می‌شود.</p>
+          <p className="font-display text-sm font-bold">{isNextRound && blockers.length > 0 ? `${step.label} منتظرِ تکمیلِ دورِ جاری است` : `${step.label} هنوز شروع نشده`}</p>
+          <p className="mt-1 text-xs text-faint">{isNextRound ? `با حل/تکمیلِ ${fa(blockers.length)} موردِ زیر، این مرحله به‌صورتِ خودکار فعال می‌شود.` : 'پس از تکمیلِ مراحلِ قبل ساخته می‌شود.'}</p>
         </div>
-        {reasons.length > 0 && (
-          <Section title="دلایل">
-            <ul className="space-y-1.5">
-              {reasons.map((r, i) => (
-                <li key={i} className="flex items-start gap-2 rounded-lg border border-bad/25 bg-bad/[.06] px-3 py-2 text-[12px] text-[#fca5a5]">
-                  <span className="mt-1.5 h-1.5 w-1.5 flex-none rounded-full bg-bad" />{r}
-                </li>
+        {isNextRound && blockers.length > 0 && (
+          <Section title={`موانعِ شروع (${fa(blockers.length)})`}>
+            <div className="space-y-2">
+              {blockers.map((b, i) => (
+                <div key={b.matchId ?? `b${i}`} className="rounded-xl border border-bad/25 bg-bad/[.05] p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-[12px] font-bold text-text">{b.number ? `مسابقه #${fa(b.number)}` : 'بازیکن'}{b.aName ? ` · ${b.aName}${b.bName ? ` در برابرِ ${b.bName}` : ''}` : ''}</span>
+                    <span className="rounded-md border border-bad/30 bg-bad/10 px-2 py-0.5 text-[10px] text-[#fca5a5]">{b.status === 'participant' ? 'غایب' : CRMATCH_FA[b.status]}</span>
+                  </div>
+                  <p className="mt-1 text-[11.5px] text-muted">{b.reason}</p>
+                  {b.matchId && (
+                    <button onClick={() => ctx.onOpenMatch(b.matchId!)} className="btn-ghost mt-2 px-3 py-1.5 text-[11px]">{b.action}</button>
+                  )}
+                </div>
               ))}
-            </ul>
+            </div>
           </Section>
         )}
-        <button disabled className="btn-primary w-full cursor-not-allowed py-2 text-sm opacity-40">شروعِ {step.label}</button>
-        <p className="text-center text-[11px] text-faint">با حلِ موانعِ بالا، این مرحله قابلِ شروع می‌شود.</p>
+        <button disabled className="btn-primary w-full cursor-not-allowed py-2 text-sm opacity-40">{step.label} (خودکار فعال می‌شود)</button>
       </div>
     );
   }

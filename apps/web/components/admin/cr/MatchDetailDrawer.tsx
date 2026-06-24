@@ -59,6 +59,7 @@ export function MatchDetailDrawer({
   const [sa, setSa] = useState(0);
   const [sb, setSb] = useState(0);
   const [rejecting, setRejecting] = useState(false);
+  const [confirmDns, setConfirmDns] = useState(false);
   const [reason, setReason] = useState('');
   const [invalidating, setInvalidating] = useState(false);
   const [evReason, setEvReason] = useState('');
@@ -70,6 +71,7 @@ export function MatchDetailDrawer({
       setSb(m.scoreB);
     }
     setRejecting(false);
+    setConfirmDns(false);
     setReason('');
     setInvalidating(false);
     setEvReason('');
@@ -314,6 +316,24 @@ export function MatchDetailDrawer({
           </section>
         )}
 
+        {/* Double no-show — تأییدِ شیشه‌ای با عاقبت */}
+        {confirmDns && (
+          <section className="rounded-2xl border border-bad/40 bg-bad/[.06] p-4">
+            <h4 className="mb-1.5 font-display text-sm font-bold text-[#fca5a5]">ثبتِ عدمِ حضورِ دوطرفه — مسابقه‌ی #{m.number.toLocaleString('fa-IR')}</h4>
+            <p className="text-[12px] text-muted">{cr.participants.find((p) => p.id === m.aId)?.name ?? 'A'} و {cr.participants.find((p) => p.id === m.bId)?.name ?? 'B'}</p>
+            <ul className="mt-2 space-y-1 text-[12px] leading-6 text-slate-200">
+              <li>• هر دو بازیکن حذف می‌شوند.</li>
+              <li>• این مسابقه بدونِ برنده بسته می‌شود.</li>
+              <li>• اگر حریفِ مرحله‌ی بعدی تنها بماند، استراحت (BYE) گرفته و صعود می‌کند.</li>
+              <li>• این تصمیم در گزارشِ ممیزی ثبت می‌شود.</li>
+            </ul>
+            <div className="mt-3 flex gap-2">
+              <button type="button" onClick={() => { onRun('mark_double_no_show', { matchId: m.id }); onClose(); }} className="btn-danger px-3 py-1.5 text-xs">تأیید و اعمالِ عدمِ حضورِ دوطرفه</button>
+              <button type="button" onClick={() => setConfirmDns(false)} className="btn-ghost px-3 py-1.5 text-xs">لغو</button>
+            </div>
+          </section>
+        )}
+
         {/* Invalid-evidence reason editor */}
         {invalidating && (
           <section className="rounded-2xl border border-gold/40 bg-gold/5 p-4">
@@ -356,18 +376,9 @@ export function MatchDetailDrawer({
               ردِ نتیجه
             </button>
           )}
-          {/* عدمِ حضورِ دوطرفه → اخطار به هر دو + بازبینیِ مدیر */}
-          {isDoubleNoShow && (
-            <button
-              type="button"
-              onClick={() => {
-                if (window.confirm('عدمِ حضورِ دوطرفه ثبت شود؟ هر دو بازیکن اخطار می‌گیرند و مسابقه به بازبینیِ مدیر می‌رود.')) {
-                  onRun('mark_double_no_show', { matchId: m.id });
-                  onClose();
-                }
-              }}
-              className="btn-danger py-2 text-sm"
-            >
+          {/* عدمِ حضورِ دوطرفه → هر دو حذف + مسابقه بدونِ برنده + bye propagation */}
+          {isDoubleNoShow && !confirmDns && (
+            <button type="button" onClick={() => setConfirmDns(true)} className="btn-danger py-2 text-sm">
               ثبتِ عدمِ حضورِ دوطرفه
             </button>
           )}

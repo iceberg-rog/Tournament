@@ -141,6 +141,8 @@ export interface CRMatch {
   disputeId?: string;
   blockerReason?: string;
   map?: string;
+  voided?: boolean; // resolved بدونِ برنده (عدمِ حضورِ دوطرفه) — winnerId خالی
+  bye?: boolean; // صعودِ بی‌رقیب (slot مقابل خالی)
 }
 
 export type CRDisputeStatus = 'open' | 'under_review' | 'resolved' | 'rejected';
@@ -249,6 +251,34 @@ export const NOSHOW_PENALTY_FA: Record<NoShowPenalty, string> = {
   temporary_suspension: 'تعلیقِ موقت',
 };
 
+// ───────── تنظیماتِ پیشروی (روی auto-start و bye اثر می‌گذارد) ─────────
+export interface ProgressionSettings {
+  autoGenerateNextRound: boolean;
+  autoStartNextRoundWhenReady: boolean;
+  applyByeAutomatically: boolean;
+  requireAdminApprovalForNextRound: boolean;
+}
+export const DEFAULT_PROGRESSION: ProgressionSettings = {
+  autoGenerateNextRound: true,
+  autoStartNextRoundWhenReady: true,
+  applyByeAutomatically: true,
+  requireAdminApprovalForNextRound: false,
+};
+
+/** بلاکرِ ساختاریافته‌ی پیشرویِ براکت (به‌جای رشته‌ی مبهم). */
+export type BlockerKind = 'unresolved_dispute' | 'missing_result_past_deadline' | 'live_match_not_finished' | 'ready_match_not_started' | 'pending_admin_approval' | 'no_show_unresolved';
+export interface BracketBlocker {
+  matchId?: string;
+  number?: number;
+  round: number;
+  aName?: string;
+  bName?: string;
+  status: CRMatchStatus | 'participant';
+  kind: BlockerKind;
+  reason: string;
+  action: string; // برچسبِ اقدامِ پیشنهادی
+}
+
 export interface StandingRow {
   id: string;
   name: string;
@@ -300,6 +330,7 @@ export interface ControlRoomCore {
   disputes: CRDispute[];
   activity: CRActivity[];
   noShowPolicy?: NoShowPolicy;
+  progressionSettings?: ProgressionSettings;
 }
 
 export interface ControlRoomState extends ControlRoomCore {
@@ -313,7 +344,7 @@ export interface ControlRoomState extends ControlRoomCore {
   roadmap: RoadmapStep[];
   actionQueue: ActionQueueItem[];
   summary: CRSummary;
-  nextRound: { ready: boolean; reasons: string[]; label: string };
+  nextRound: { ready: boolean; reasons: string[]; label: string; blockers: BracketBlocker[] };
   standings?: StandingRow[];
   leaderboard?: LeaderboardRow[];
 }
@@ -618,7 +649,7 @@ export function buildCore(t: AdminTournament): ControlRoomCore {
           : t.format === 'round_robin' || t.format === 'league'
             ? buildRoundRobin(t)
             : buildEliminationGeneric(t);
-  return { ...core, noShowPolicy: noShowPolicyFor(t.id) };
+  return { ...core, noShowPolicy: noShowPolicyFor(t.id), progressionSettings: DEFAULT_PROGRESSION };
 }
 
 // ───────── derive: محاسبه‌ی همه‌ی موارد مشتق ─────────
@@ -779,24 +810,139 @@ function buildActionQueue(core: ControlRoomCore): ActionQueueItem[] {
   return out.sort((a, b) => order[a.priority] - order[b.priority]);
 }
 
-function nextRoundReadiness(core: ControlRoomCore): { ready: boolean; reasons: string[]; label: string } {
-  const reasons: string[] = [];
-  const curMatches = core.matches.filter((m) => m.round === core.currentRound);
-  const openDisputes = core.disputes.filter((d) => d.status === 'open' || d.status === 'under_review');
-  for (const d of openDisputes) {
-    const m = core.matches.find((x) => x.id === d.matchId);
-    reasons.push(`مسابقه‌ی #${(m?.number ?? 0).toLocaleString('fa-IR')} اختلافِ باز دارد`);
-  }
-  for (const m of curMatches) {
-    if (m.status !== 'completed' && m.status !== 'cancelled' && !reasons.some((r) => r.includes(`#${m.number.toLocaleString('fa-IR')}`)))
-      reasons.push(`مسابقه‌ی #${m.number.toLocaleString('fa-IR')} هنوز کامل نشده (${CRMATCH_FA[m.status]})`);
-  }
-  const noShow = core.participants.filter((p) => p.status === 'no_show');
-  if (noShow.length) reasons.push(`${noShow.length.toLocaleString('fa-IR')} بازیکنِ غایبِ بدونِ تعیینِ تکلیف`);
+// ───────── State machine براکت (propagation / bye / auto-advance) ─────────
 
+const PROTECTED_STATUS: CRMatchStatus[] = ['live', 'result_submitted', 'awaiting_opponent_confirmation', 'disputed', 'admin_review', 'no_show', 'double_no_show', 'expired'];
+const isResolvedMatch = (m: CRMatch) => m.status === 'completed';
+const winnerOf = (m: CRMatch): string | null => (m.voided ? null : m.winnerId ?? null);
+const pName = (core: ControlRoomCore, id?: string | null) => (id ? core.participants.find((p) => p.id === id)?.name : undefined);
+
+/** بازساختِ دورهای آینده از نتایجِ دورِ جاری: انتقالِ برنده، اعمالِ bye و void، آبشاری. */
+export function recomputeBracket(core: ControlRoomCore): ControlRoomCore {
+  const settings = core.progressionSettings ?? DEFAULT_PROGRESSION;
+  const matches = core.matches.map((m) => ({ ...m }));
+  const nextNum = () => matches.reduce((mx, x) => Math.max(mx, x.number), 0) + 1;
+
+  for (let r = core.currentRound + 1; r <= core.totalRounds; r++) {
+    const prev = matches.filter((m) => m.round === r - 1).sort((a, b) => a.number - b.number);
+    const games = Math.floor(prev.length / 2);
+    if (games === 0) break;
+    const rn = roundName(core.format, r, core.totalRounds);
+    for (let ns = 0; ns < games; ns++) {
+      const fA = prev[2 * ns];
+      const fB = prev[2 * ns + 1];
+      let nm = matches.filter((m) => m.round === r).sort((a, b) => a.number - b.number)[ns];
+      if (nm && (PROTECTED_STATUS.includes(nm.status) || nm.status === 'completed')) continue; // دستِ مدیر / حل‌شده را دست نزن
+      if (!nm) {
+        nm = { id: `fc-r${r}m${ns}`, number: nextNum(), round: r, roundName: rn, aId: null, bId: null, scoreA: 0, scoreB: 0, status: 'waiting_for_players', evidenceCount: 0, chatUnread: 0 };
+        matches.push(nm);
+      }
+      const rA = !!fA && isResolvedMatch(fA);
+      const rB = !!fB && isResolvedMatch(fB);
+      const wA = rA ? winnerOf(fA) : undefined;
+      const wB = rB ? winnerOf(fB) : undefined;
+      nm.aId = wA === undefined ? null : wA;
+      nm.bId = wB === undefined ? null : wB;
+      nm.bye = false; nm.voided = false; nm.winnerId = undefined; nm.blockerReason = undefined;
+      if (rA && rB) {
+        if (wA == null && wB == null) {
+          nm.status = 'completed'; nm.voided = true; nm.blockerReason = 'هر دو طرف حذف شده‌اند — بدونِ برنده';
+        } else if (wA == null || wB == null) {
+          const win = (wA ?? wB) as string;
+          if (settings.applyByeAutomatically) { nm.status = 'completed'; nm.bye = true; nm.winnerId = win; }
+          else nm.status = 'ready';
+        } else {
+          nm.status = 'ready';
+        }
+      } else {
+        nm.status = 'waiting_for_players';
+        const waitOn = [!rA ? fA?.number : null, !rB ? fB?.number : null].filter((x) => x != null).map((n) => `#${(n as number).toLocaleString('fa-IR')}`);
+        nm.blockerReason = `منتظرِ نتیجه‌ی مسابقه‌ی ${waitOn.join(' و ')}`;
+      }
+    }
+  }
+  return { ...core, matches };
+}
+
+const roundFullyResolved = (matches: CRMatch[], r: number) => {
+  const inR = matches.filter((m) => m.round === r);
+  return inR.length > 0 && inR.every((m) => m.status === 'completed');
+};
+
+/** پیشرویِ خودکارِ تورنومنت: شروعِ دورهای آماده + تعیینِ قهرمان (طبقِ تنظیمات). */
+export function advanceProgression(core: ControlRoomCore): ControlRoomCore {
+  const s = core.progressionSettings ?? DEFAULT_PROGRESSION;
+  const openDisputes = core.disputes.filter((d) => d.status === 'open' || d.status === 'under_review').length;
+  let cur = core.currentRound;
+  const acts: CRActivity[] = [];
+  const stamp = Date.now();
+  while (cur < core.totalRounds && roundFullyResolved(core.matches, cur) && openDisputes === 0 && s.autoStartNextRoundWhenReady && !s.requireAdminApprovalForNextRound) {
+    cur++;
+    acts.push({ id: `adv-${stamp}-${cur}`, kind: 'admin', text: `${roundName(core.format, cur, core.totalRounds)} به‌صورتِ خودکار شروع شد`, at: new Date(stamp).toISOString() });
+  }
+  let phase = core.phase;
+  if (cur >= core.totalRounds && roundFullyResolved(core.matches, core.totalRounds)) {
+    const finalM = core.matches.filter((m) => m.round === core.totalRounds).sort((a, b) => a.number - b.number)[0];
+    if (finalM?.winnerId && core.phase !== 'payout_pending' && core.phase !== 'paid') {
+      phase = 'payout_pending';
+      acts.push({ id: `adv-${stamp}-champ`, kind: 'admin', text: `تورنومنت پایان یافت؛ قهرمان: ${pName(core, finalM.winnerId) ?? '—'}`, at: new Date(stamp).toISOString() });
+    }
+  }
+  if (cur === core.currentRound && phase === core.phase) return core;
+  return { ...core, currentRound: cur, phase, roundName: roundName(core.format, cur, core.totalRounds), activity: [...acts, ...core.activity] };
+}
+
+/** پس از هر اقدامِ حساس: انتقالِ نتایج + رویدادهای bye/void + پیشرویِ خودکار. */
+export function advanceBracket(core: ControlRoomCore): ControlRoomCore {
+  const before = new Map(core.matches.map((m) => [m.id, m] as const));
+  const recomputed = recomputeBracket(core);
+  const acts: CRActivity[] = [];
+  const stamp = Date.now();
+  for (const m of recomputed.matches) {
+    const prev = before.get(m.id);
+    if (m.bye && !prev?.bye) acts.push({ id: `bye-${stamp}-${m.id}`, kind: 'admin', text: `${pName(recomputed, m.winnerId) ?? 'بازیکن'} به‌دلیلِ خالی بودنِ slot مقابل، استراحت (BYE) گرفت و به ${m.roundName} صعود کرد`, at: new Date(stamp).toISOString() });
+    else if (m.voided && !prev?.voided && m.round > core.currentRound) acts.push({ id: `void-${stamp}-${m.id}`, kind: 'admin', text: `مسابقه‌ی #${m.number.toLocaleString('fa-IR')} بدونِ برنده بسته شد`, at: new Date(stamp).toISOString() });
+  }
+  const withActs = acts.length ? { ...recomputed, activity: [...acts, ...recomputed.activity] } : recomputed;
+  return advanceProgression(withActs);
+}
+
+/** بلاکرهای ساختاریافته‌ی پیشروی (دقیق، نه رشته‌ی مبهم). */
+export function computeBlockers(core: ControlRoomCore): BracketBlocker[] {
+  const out: BracketBlocker[] = [];
+  const cur = core.currentRound;
+  for (const d of core.disputes.filter((x) => x.status === 'open' || x.status === 'under_review')) {
+    const m = core.matches.find((x) => x.id === d.matchId);
+    out.push({ matchId: d.matchId, number: m?.number, round: cur, aName: pName(core, m?.aId), bName: pName(core, m?.bId), status: m?.status ?? 'disputed', kind: 'unresolved_dispute', reason: d.reason, action: 'حلِ اختلاف' });
+  }
+  for (const m of core.matches.filter((x) => x.round === cur)) {
+    if (m.status === 'completed' || m.status === 'disputed') continue;
+    let kind: BlockerKind = 'ready_match_not_started';
+    let reason = CRMATCH_FA[m.status];
+    let action = 'بررسی مسابقه';
+    if (m.status === 'live') { kind = 'live_match_not_finished'; reason = 'مسابقه در جریان است و نتیجه‌ای نهایی نشده.'; action = 'باز کردن مسابقه / ثبت نتیجه'; }
+    else if (m.status === 'ready') { kind = 'ready_match_not_started'; reason = 'مسابقه آماده است اما شروع/ثبت نشده.'; action = 'شروع مسابقه / ثبت نتیجه'; }
+    else if (m.status === 'result_submitted' || m.status === 'awaiting_opponent_confirmation') { kind = 'pending_admin_approval'; reason = 'نتیجه ثبت شده، منتظرِ تأیید.'; action = 'تأییدِ نتیجه'; }
+    else if (m.status === 'admin_review') { kind = 'pending_admin_approval'; reason = 'نیازمندِ بازبینیِ مدیر.'; action = 'بازبینی'; }
+    else if (m.status === 'expired') { kind = 'missing_result_past_deadline'; reason = 'مهلت گذشته و نتیجه‌ای ثبت نشده.'; action = 'ثبتِ عدمِ حضور / بررسی'; }
+    else if (m.status === 'no_show') { reason = 'عدمِ حضورِ یک‌طرفه — نیازِ تأیید.'; action = 'ثبتِ عدمِ حضور'; }
+    else if (m.status === 'double_no_show') { reason = 'عدمِ حضورِ دوطرفه — نیازِ ثبت.'; action = 'ثبتِ عدمِ حضورِ دوطرفه'; }
+    out.push({ matchId: m.id, number: m.number, round: cur, aName: pName(core, m.aId), bName: pName(core, m.bId), status: m.status, kind, reason, action });
+  }
+  for (const p of core.participants.filter((x) => x.status === 'no_show')) {
+    out.push({ round: cur, aName: p.name, status: 'participant', kind: 'no_show_unresolved', reason: 'بازیکنِ غایبِ بدونِ تعیینِ تکلیف.', action: 'ثبتِ عدمِ حضور' });
+  }
+  return out;
+}
+
+function nextRoundReadiness(core: ControlRoomCore): { ready: boolean; reasons: string[]; label: string; blockers: BracketBlocker[] } {
+  const fa = (n: number) => n.toLocaleString('fa-IR');
+  const blockers = computeBlockers(core);
+  const curMatches = core.matches.filter((m) => m.round === core.currentRound);
   const last = core.currentRound >= core.totalRounds;
   const label = last ? 'پایانِ تورنومنت' : core.currentRound + 1 === core.totalRounds ? 'شروعِ فینال' : `ساختِ ${roundName(core.format, core.currentRound + 1, core.totalRounds)}`;
-  return { ready: reasons.length === 0 && curMatches.length > 0, reasons, label };
+  const reasons = blockers.map((b) => (b.number ? `مسابقه‌ی #${fa(b.number)}: ${b.reason}` : b.reason));
+  return { ready: blockers.length === 0 && curMatches.length > 0, reasons, label, blockers };
 }
 
 function buildSummary(core: ControlRoomCore, standings?: StandingRow[], leaderboard?: LeaderboardRow[]): CRSummary {

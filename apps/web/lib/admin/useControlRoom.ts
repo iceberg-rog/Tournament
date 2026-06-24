@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { authedGet, authedPut, isLoggedIn } from '@/lib/api';
+import { authedGet, authedPost, authedPut, isLoggedIn } from '@/lib/api';
 import type { AdminTournament } from '@/lib/admin';
 import type { AdminRole } from '@/lib/admin/ops';
 import { appendAudit, pushToast } from '@/lib/admin/store';
@@ -53,6 +53,15 @@ export interface CRPayload {
 }
 
 const STORAGE_KEY = (id: string) => `shelter:cr:${id}:v1`;
+
+/** اعلانِ عدمِ حضور را به‌صورتِ best-effort روی backend ثبت می‌کند (fire-and-forget). */
+function notifyNoShow(tournamentId: string, absent: string, opponent: string | undefined, num: string) {
+  if (!isLoggedIn()) return;
+  const body = opponent
+    ? `عدمِ حضور در مسابقه‌ی ${num} ثبت شد؛ ${absent} بازنده و ${opponent} صعود کرد.`
+    : `${absent} به‌دلیلِ عدمِ حضور حذف شد.`;
+  authedPost('/notifications-delivery', { tournamentId, channel: 'in_app', type: 'no_show', title: 'ثبتِ عدمِ حضور', body }).catch(() => {});
+}
 
 export function useControlRoom(t: AdminTournament, role: AdminRole, actorName: string) {
   const [core, setCore] = useState<ControlRoomCore>(() => buildCore(t));
@@ -162,19 +171,29 @@ export function useControlRoom(t: AdminTournament, role: AdminRole, actorName: s
             const absent = present === m.aId ? m.bId : m.aId;
             patchMatch(m.id, { status: 'completed', winnerId: present, blockerReason: undefined });
             let disqualified = false;
+            const absentName = core.participants.find((x) => x.id === absent)?.name ?? 'بازیکنِ غایب';
+            const presentName = core.participants.find((x) => x.id === present)?.name ?? 'حریف';
             if (absent) {
               const cur = core.participants.find((x) => x.id === absent);
               const ns = (cur?.noShows ?? 0) + 1;
               disqualified = ns >= 2; // عدمِ حضورِ دوم → محرومیت
-              patchParticipant(absent, (x) => ({ ...x, noShows: ns, warnings: (x.warnings ?? 0) + 1, status: disqualified ? 'disqualified' : x.status }));
+              patchParticipant(absent, (x) => ({ ...x, noShows: ns, warnings: (x.warnings ?? 0) + 1, status: disqualified ? 'disqualified' : 'eliminated' }));
             }
             audit('ثبتِ عدمِ حضور', 'match', m.id, absent && disqualified ? 'عدمِ حضورِ دوم — محرومیت' : undefined);
-            addActivity('admin', `عدمِ حضور در مسابقه‌ی ${num} ثبت شد؛ حریف صعود کرد`);
-            ok(`عدمِ حضور ثبت شد؛ حریف صعود کرد${disqualified ? ' و بازیکنِ غایب محروم شد' : ''}`);
+            addActivity('admin', `${absentName} در مسابقه‌ی ${num} حاضر نشد؛ ${presentName} صعود کرد`);
+            notifyNoShow(core.tournamentId, absentName, presentName, num);
+            ok(`عدمِ حضور ثبت شد؛ ${presentName} صعود کرد${disqualified ? ` و ${absentName} محروم شد` : ''}`);
           } else if (p.participantId) {
-            patchParticipant(p.participantId, (x) => ({ ...x, status: 'no_show', noShows: (x.noShows ?? 0) + 1 }));
-            audit('ثبتِ عدمِ حضور', 'participant', p.participantId);
-            ok('عدمِ حضورِ بازیکن ثبت شد');
+            // غیبتِ بازیکن را نهایی می‌کنیم: حذف (یا محرومیت در no-showِ دوم) →
+            // وضعیت دیگر no_show نیست، پس آیتم از صفِ اقدامات خارج می‌شود.
+            const cur = core.participants.find((x) => x.id === p.participantId);
+            const ns = (cur?.noShows ?? 0) + 1;
+            const disq = ns >= 2;
+            patchParticipant(p.participantId, (x) => ({ ...x, status: disq ? 'disqualified' : 'eliminated', noShows: ns, warnings: (x.warnings ?? 0) + 1 }));
+            audit('ثبتِ عدمِ حضور و حذف', 'participant', p.participantId, disq ? 'no-showِ دوم — محرومیت' : 'حذف به‌دلیلِ عدمِ حضور');
+            addActivity('admin', `${cur?.name ?? 'بازیکن'} به‌دلیلِ عدمِ حضور حذف شد${disq ? ' و محروم شد' : ''}`);
+            notifyNoShow(core.tournamentId, cur?.name ?? 'بازیکن', undefined, num);
+            ok(`${cur?.name ?? 'بازیکن'} حذف شد${disq ? ' و محروم شد' : ''}`);
           }
           break;
         case 'mark_double_no_show':

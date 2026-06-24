@@ -7,8 +7,10 @@ import type { AdminTournament } from '@/lib/admin';
 import type { AdminRole } from '@/lib/admin/ops';
 import { useAdminRole, useEnsureAdminRole, useTournament } from '@/lib/admin/store';
 import { useControlRoom } from '@/lib/admin/useControlRoom';
-import type { ActionQueueItem, RoadmapStep } from '@/lib/admin/controlRoom';
+import { noShowPolicyFor, type ActionQueueItem, type RoadmapStep } from '@/lib/admin/controlRoom';
+import { useOpsSlice } from '@/lib/admin/opsStore';
 import { AuditLogList } from '@/components/admin/AuditLogList';
+import { NoShowSettings } from '@/components/admin/cr/NoShowSettings';
 import { CompactStatusBar } from '@/components/admin/cr/CompactStatusBar';
 import { OperationRoadmap } from '@/components/admin/cr/OperationRoadmap';
 import { CriticalBlockerCard } from '@/components/admin/cr/CriticalBlockerCard';
@@ -31,7 +33,27 @@ function Cockpit({ t, role, actorName }: { t: AdminTournament; role: AdminRole; 
   const cr = useControlRoom(t, role, actorName);
   const [tab, setTab] = useState<TabKey>('actions');
   const [step, setStep] = useState<RoadmapStep | null>(null);
+  const [dismissed, setDismissed] = useState<Set<string>>(new Set());
+  const [policy, setPolicy] = useOpsSlice(t.id, 'noshow-policy', noShowPolicyFor(t.id));
   const unread = cr.cr.matches.reduce((s, m) => s + m.chatUnread, 0);
+
+  // صفِ اقدامات: حذفِ موارد «رد شده» + (اگر سیاست تأییدِ مدیر را لازم نداند) حذفِ غیبت‌های دستی
+  const actionsCr = {
+    ...cr.cr,
+    actionQueue: cr.cr.actionQueue.filter(
+      (i) => !dismissed.has(i.id) && (policy.requireAdminApprovalForNoShow || !i.id.startsWith('aq-nsp-')),
+    ),
+  };
+
+  function handleSecondary(item: ActionQueueItem, kind: 'message' | 'open' | 'dismiss') {
+    if (kind === 'message') cr.run('message', { participantId: item.participantId });
+    else if (kind === 'open') {
+      if (item.matchId) cr.openMatch(item.matchId);
+      else if (item.participantId) cr.openParticipant(item.participantId);
+    } else if (kind === 'dismiss') {
+      setDismissed((s) => new Set(s).add(item.id));
+    }
+  }
 
   function handleAct(item: ActionQueueItem) {
     switch (item.action) {
@@ -108,7 +130,12 @@ function Cockpit({ t, role, actorName }: { t: AdminTournament; role: AdminRole; 
           })}
         </div>
 
-        {tab === 'actions' && <ActionQueuePanel cr={cr.cr} onAct={handleAct} />}
+        {tab === 'actions' && (
+          <div className="space-y-3">
+            <ActionQueuePanel cr={actionsCr} onAct={handleAct} onSecondary={handleSecondary} />
+            <NoShowSettings policy={policy} onChange={setPolicy} />
+          </div>
+        )}
         {tab === 'matches' && (
           <div className="space-y-6">
             <ProgressView cr={cr.cr} onOpenMatch={cr.openMatch} />

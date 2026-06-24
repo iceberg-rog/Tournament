@@ -188,6 +188,25 @@ export type ActionKind =
   | 'pause'
   | 'review_evidence'
   | 'release_prize';
+export interface ActionMeta {
+  player?: string;
+  gameId?: string;
+  round?: string;
+  matchLabel?: string;
+  opponent?: string;
+  deadline?: string;
+  reminders?: string;
+  response?: string;
+  noShows?: number;
+  warnings?: number;
+  lastSeen?: string;
+  reason?: string;
+  impact?: string;
+  suggested?: string;
+  consequence?: string; // متنِ مودالِ تأیید — «اگر تأیید کنی چه می‌شود»
+  confirm?: boolean; // آیا قبل از اجرا مودالِ تأیید لازم است
+}
+
 export interface ActionQueueItem {
   id: string;
   priority: 'critical' | 'warning' | 'normal';
@@ -197,7 +216,38 @@ export interface ActionQueueItem {
   participantId?: string;
   disputeId?: string;
   action: ActionKind;
+  meta?: ActionMeta;
 }
+
+// ───────── سیاستِ عدمِ حضور (روی رفتارِ صفِ اقدامات اثر می‌گذارد) ─────────
+export type NoShowPenalty = 'warning' | 'loss' | 'disqualification' | 'temporary_suspension';
+export interface NoShowPolicy {
+  autoForfeitOnNoShow: boolean;
+  noShowGraceMinutes: number;
+  requireAdminApprovalForNoShow: boolean;
+  reminderSchedule: string[]; // برچسبِ زمان‌ها
+  penalty: NoShowPenalty;
+}
+export const DEFAULT_NOSHOW_POLICY: NoShowPolicy = {
+  autoForfeitOnNoShow: true,
+  noShowGraceMinutes: 10,
+  requireAdminApprovalForNoShow: true,
+  reminderSchedule: ['۲۴ ساعت قبل', '۱ ساعت قبل', '۱۰ دقیقه قبل'],
+  penalty: 'loss',
+};
+const NOSHOW_POLICY_BY_ID: Record<string, NoShowPolicy> = {
+  // FC26: عدمِ حضور نیازِ تأییدِ مدیر دارد (صفِ دستی)؛ penalty = باخت + اخطار.
+  t7: { autoForfeitOnNoShow: true, noShowGraceMinutes: 10, requireAdminApprovalForNoShow: true, reminderSchedule: ['۲۴ ساعت قبل', '۱ ساعت قبل', '۱۰ دقیقه قبل'], penalty: 'loss' },
+};
+export function noShowPolicyFor(id: string): NoShowPolicy {
+  return NOSHOW_POLICY_BY_ID[id] ?? DEFAULT_NOSHOW_POLICY;
+}
+export const NOSHOW_PENALTY_FA: Record<NoShowPenalty, string> = {
+  warning: 'اخطار',
+  loss: 'باخت (حذف از مسابقه)',
+  disqualification: 'محرومیت از تورنومنت',
+  temporary_suspension: 'تعلیقِ موقت',
+};
 
 export interface StandingRow {
   id: string;
@@ -249,6 +299,7 @@ export interface ControlRoomCore {
   matches: CRMatch[];
   disputes: CRDispute[];
   activity: CRActivity[];
+  noShowPolicy?: NoShowPolicy;
 }
 
 export interface ControlRoomState extends ControlRoomCore {
@@ -557,11 +608,17 @@ function buildFC26(t: AdminTournament): ControlRoomCore {
 }
 
 export function buildCore(t: AdminTournament): ControlRoomCore {
-  if (t.id === 't1') return buildValorant(t);
-  if (t.id === 't7') return buildFC26(t);
-  if (t.format === 'battle_royale') return buildBattleRoyale(t);
-  if (t.format === 'round_robin' || t.format === 'league') return buildRoundRobin(t);
-  return buildEliminationGeneric(t);
+  const core =
+    t.id === 't1'
+      ? buildValorant(t)
+      : t.id === 't7'
+        ? buildFC26(t)
+        : t.format === 'battle_royale'
+          ? buildBattleRoyale(t)
+          : t.format === 'round_robin' || t.format === 'league'
+            ? buildRoundRobin(t)
+            : buildEliminationGeneric(t);
+  return { ...core, noShowPolicy: noShowPolicyFor(t.id) };
 }
 
 // ───────── derive: محاسبه‌ی همه‌ی موارد مشتق ─────────
@@ -657,18 +714,35 @@ function buildRoadmap(core: ControlRoomCore, openDisputes: number, missingResult
 
 function buildActionQueue(core: ControlRoomCore): ActionQueueItem[] {
   const out: ActionQueueItem[] = [];
+  const fa = (n: number) => n.toLocaleString('fa-IR');
   for (const d of core.disputes) {
     if (d.status === 'open' || d.status === 'under_review') {
       const m = core.matches.find((x) => x.id === d.matchId);
       out.push({ id: `aq-${d.id}`, priority: 'critical', title: `حلِ اختلافِ مسابقه‌ی #${(m?.number ?? 0).toLocaleString('fa-IR')}`, detail: d.reason, disputeId: d.id, matchId: d.matchId, action: 'resolve_dispute' });
     }
   }
+  const pol = core.noShowPolicy ?? DEFAULT_NOSHOW_POLICY;
+  const pName = (id?: string | null) => (id ? core.participants.find((x) => x.id === id)?.name : undefined);
   for (const m of core.matches) {
     if (PENDING_MATCH.includes(m.status)) {
       out.push({ id: `aq-res-${m.id}`, priority: 'warning', title: `تأییدِ نتیجه‌ی مسابقه‌ی #${m.number.toLocaleString('fa-IR')}`, detail: m.submittedById ? 'نتیجه ثبت شده، منتظرِ تأیید' : 'بازبینیِ نتیجه', matchId: m.id, action: 'approve_result' });
     }
     if (m.status === 'no_show') {
-      out.push({ id: `aq-ns-${m.id}`, priority: 'warning', title: `عدمِ حضور در مسابقه‌ی #${m.number.toLocaleString('fa-IR')}`, detail: 'تأییدِ عدمِ حضور و صعودِ حریف', matchId: m.id, action: 'mark_no_show' });
+      const present = pName(m.submittedById ?? m.aId);
+      const absent = pName(m.submittedById === m.aId ? m.bId : m.aId);
+      out.push({
+        id: `aq-ns-${m.id}`, priority: 'warning', matchId: m.id, action: 'mark_no_show',
+        title: `${absent ?? 'بازیکن'} در مسابقه‌ی #${m.number.toLocaleString('fa-IR')} حاضر نشده`,
+        detail: `${m.roundName} · مقابلِ ${present ?? 'حریف'} · مهلت تمام شده`,
+        meta: {
+          player: absent, opponent: present, round: m.roundName, matchLabel: `#${m.number.toLocaleString('fa-IR')}`,
+          deadline: m.deadline, reminders: pol.reminderSchedule.join('، '), response: 'بدون پاسخ',
+          impact: `با تأیید، ${absent ?? 'بازیکنِ غایب'} بازنده می‌شود و ${present ?? 'حریف'} صعود می‌کند.`,
+          suggested: 'ثبتِ عدمِ حضور و صعودِ حریف',
+          consequence: `با تأیید: نتیجه‌ی مسابقه‌ی #${m.number.toLocaleString('fa-IR')} به‌نفعِ ${present ?? 'حریف'} نهایی می‌شود، ${absent ?? 'بازیکنِ غایب'} اخطار می‌گیرد (no-showِ دوم → محرومیت)، براکت به‌روز می‌شود و این مورد از صف خارج می‌شود.`,
+          confirm: true,
+        },
+      });
     }
     if (m.status === 'double_no_show') {
       out.push({ id: `aq-dns-${m.id}`, priority: 'warning', title: `عدمِ حضورِ دوطرفه در مسابقه‌ی #${m.number.toLocaleString('fa-IR')}`, detail: 'هر دو غایب — اخطار به طرفین و تصمیمِ مدیر', matchId: m.id, action: 'open_match' });
@@ -677,8 +751,27 @@ function buildActionQueue(core: ControlRoomCore): ActionQueueItem[] {
       out.push({ id: `aq-exp-${m.id}`, priority: 'warning', title: `مهلتِ مسابقه‌ی #${m.number.toLocaleString('fa-IR')} گذشته`, detail: 'هیچ نتیجه‌ای ثبت نشده — بررسی یا عدمِ حضور', matchId: m.id, action: 'open_match' });
     }
   }
-  const noShow = core.participants.filter((p) => p.status === 'no_show');
-  for (const p of noShow) out.push({ id: `aq-nsp-${p.id}`, priority: 'warning', title: `${p.name} غایب است`, detail: 'تعیینِ تکلیف یا جایگزینی', participantId: p.id, action: 'mark_no_show' });
+  // غیبتِ بازیکن — فقط اگر سیاست تأییدِ مدیر را لازم بداند در صفِ دستی می‌آید؛
+  // در غیرِ این‌صورت سیستم خودکار اعمال می‌کند (در فعالیت دیده می‌شود).
+  if (pol.requireAdminApprovalForNoShow) {
+    const noShow = core.participants.filter((p) => p.status === 'no_show');
+    for (const p of noShow) {
+      out.push({
+        id: `aq-nsp-${p.id}`, priority: 'warning', participantId: p.id, action: 'mark_no_show',
+        title: `${p.name} غایب است`,
+        detail: `${core.roundName} · ${fa(p.noShows ?? 0)} عدمِ حضور · ${fa(p.warnings ?? 0)} اخطار`,
+        meta: {
+          player: p.name, gameId: p.psnId, round: core.roundName, noShows: p.noShows ?? 0, warnings: p.warnings ?? 0, lastSeen: p.lastSeen,
+          reminders: pol.reminderSchedule.join('، '), response: 'بدون پاسخ',
+          reason: 'بازیکن به یادآوری‌ها پاسخ نداد و در مهلتِ مقرر حاضر نشد.',
+          impact: `با تأیید، ${p.name} بازنده و از تورنومنت حذف می‌شود؛ جزای: ${NOSHOW_PENALTY_FA[pol.penalty]}.`,
+          suggested: 'ثبتِ عدمِ حضور و حذف',
+          consequence: `با تأیید: وضعیتِ ${p.name} به «حذف‌شده» تغییر می‌کند، اخطار ثبت می‌شود (no-showِ دوم → محرومیت)، رویدادِ فعالیت و ممیزی ثبت می‌شود و این مورد از صف خارج می‌شود.`,
+          confirm: true,
+        },
+      });
+    }
+  }
 
   if (core.phase === 'payout_pending') out.push({ id: 'aq-payout', priority: 'normal', title: 'آزادسازیِ جایزه', detail: `${money(core.prize)} آماده‌ی پرداخت است`, action: 'release_prize' });
 

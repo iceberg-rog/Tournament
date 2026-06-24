@@ -54,15 +54,25 @@
 ### پیش‌نیازها
 - Node.js ≥ ۲۰ — دیتابیسِ پیش‌فرض **SQLite** است؛ به سرور دیتابیس یا Docker نیازی نیست.
 
-### راه‌اندازی
+### راه‌اندازی (روی هر سیستمِ تازه)
+> راهنمای کاملِ گام‌به‌گام: **[SETUP.md](SETUP.md)**.
 ```bash
+git clone <repo-url> && cd Tournament
 npm install                              # نصب وابستگی‌ها (npm workspaces)
-cp apps/api/.env.example apps/api/.env   # فایل محیط (DATABASE_URL=file:./dev.db)
-npm run prisma:migrate                   # ساخت دیتابیس SQLite + جدول‌ها
+cp apps/api/.env.example apps/api/.env   # محیطِ API (DATABASE_URL=file:./dev.db)
+npm run prisma:migrate                   # ساخت/مهاجرتِ دیتابیس SQLite + جدول‌ها
+npm run prisma:generate                  # تولیدِ Prisma Client
+npm run seed -w @tournament/api          # ⭐ ساختِ اکانتِ مدیر + بازیکنانِ دمو + کاتالوگِ بازی
 npm run dev:api                          # اجرای API روی پورت 4000
-npm run dev:web                          # (ترمینال دیگر) اجرای Web روی پورت 3000
+npm run dev:web                          # (ترمینالِ دیگر) اجرای Web روی پورت 3000
 ```
-سپس http://localhost:3000 → ثبت‌نام → تورنومنت‌ها.
+- **کاربر:** http://localhost:3000 → ثبت‌نام → تورنومنت‌ها.
+- **پنلِ مدیریت (اتاقِ کنترلِ عملیاتیِ FC26):** http://localhost:3000/admin → ورود با
+  **`admin@example.com` / `admin12345`**. سپس `/admin/tournaments/t7/control-room`.
+  اکانت‌های دمو در [SETUP.md](SETUP.md) فهرست شده‌اند.
+
+> دیتابیس (`dev.db`) در گیت نیست؛ روی سیستمِ تازه حتماً `prisma:migrate` و سپس `seed` را اجرا کنید
+> تا اکانتِ مدیر ساخته شود.
 
 ### دموی زنده‌ی end-to-end
 با سرورِ در حال اجرا:

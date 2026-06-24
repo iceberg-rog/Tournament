@@ -9,7 +9,7 @@ import { useAdminRole, useEnsureAdminRole, useTournament } from '@/lib/admin/sto
 import { useControlRoom } from '@/lib/admin/useControlRoom';
 import { noShowPolicyFor, type ActionQueueItem, type RoadmapStep } from '@/lib/admin/controlRoom';
 import { useOpsSlice } from '@/lib/admin/opsStore';
-import { AuditLogList } from '@/components/admin/AuditLogList';
+import { AuditConsole } from '@/components/admin/cr/AuditConsole';
 import { NoShowSettings } from '@/components/admin/cr/NoShowSettings';
 import { CompactStatusBar } from '@/components/admin/cr/CompactStatusBar';
 import { OperationRoadmap } from '@/components/admin/cr/OperationRoadmap';
@@ -146,12 +146,7 @@ function Cockpit({ t, role, actorName }: { t: AdminTournament; role: AdminRole; 
         {tab === 'chat' && <ChatAnnouncementsPanel cr={cr.cr} onRun={cr.run} />}
         {tab === 'disputes' && <DisputesPanel cr={cr.cr} onOpenDispute={cr.openDispute} />}
         {tab === 'activity' && <ActivityLog cr={cr.cr} />}
-        {tab === 'audit' && (
-          <section className="rounded-2xl border border-line bg-tile p-5">
-            <h2 className="mb-3 font-display text-base font-bold">گزارشِ ممیزی</h2>
-            <AuditLogList limit={50} />
-          </section>
-        )}
+        {tab === 'audit' && <AuditConsole cr={cr.cr} />}
       </div>
 
       {/* سطح ۲ — Glass panel هر مرحله */}

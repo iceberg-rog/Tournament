@@ -23,6 +23,9 @@ export class ControlBoardService {
       matches: b.matches,
       disputes: b.disputes,
       activity: b.activity,
+      auditLog: (b.meta as any)?.auditLog ?? [],
+      noShowPolicy: (b.meta as any)?.noShowPolicy ?? undefined,
+      progressionSettings: (b.meta as any)?.progressionSettings ?? undefined,
       updatedAt: b.updatedAt?.toISOString?.() ?? undefined,
     };
   }
@@ -48,6 +51,7 @@ export class ControlBoardService {
       matches: core?.matches ?? [],
       disputes: core?.disputes ?? [],
       activity: core?.activity ?? [],
+      meta: { auditLog: core?.auditLog ?? [], noShowPolicy: core?.noShowPolicy ?? null, progressionSettings: core?.progressionSettings ?? null },
     };
     const b = await this.prisma.controlBoard.upsert({
       where: { tournamentId },

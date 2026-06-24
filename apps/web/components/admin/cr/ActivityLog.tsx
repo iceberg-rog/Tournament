@@ -3,6 +3,7 @@
 import { useMemo, useState } from 'react';
 import type { ControlRoomState, CRActivity, CRActivityKind } from '@/lib/admin/controlRoom';
 import { relTime } from '@/lib/admin/controlRoom';
+import { Drawer } from '@/components/admin/cr/Drawer';
 
 type FilterKey = 'all' | 'result' | 'dispute' | 'admin' | 'chat' | 'payment';
 
@@ -47,6 +48,7 @@ const EMPTY_FA: Record<FilterKey, string> = {
 /** فیدِ زنده‌ی فعالیت — با فیلترِ نوع، نقطه‌ی رنگی و زمانِ نسبی. */
 export function ActivityLog({ cr }: { cr: ControlRoomState }) {
   const [filter, setFilter] = useState<FilterKey>('all');
+  const [sel, setSel] = useState<CRActivity | null>(null);
 
   // شمارشِ هر نوع برای نشان‌دادنِ تعداد روی چیپ‌ها
   const counts = useMemo(() => {
@@ -105,19 +107,35 @@ export function ActivityLog({ cr }: { cr: ControlRoomState }) {
       ) : (
         <ol className="flex flex-col">
           {items.map((a, i) => (
-            <li
-              key={a.id}
-              className={`flex items-start gap-3 py-2.5 ${i === 0 ? '' : 'border-t border-line/60'}`}
-            >
-              <span className="mt-1.5 flex-none" title={KIND_FA[a.kind]}>
-                <span className={`block h-2 w-2 rounded-full ${DOT[a.kind]}`} />
-              </span>
-              <p className="min-w-0 flex-1 text-[13px] leading-5 text-muted">{a.text}</p>
-              <time className="mt-0.5 flex-none text-[11px] text-faint tnum">{relTime(a.at)}</time>
+            <li key={a.id} className={i === 0 ? '' : 'border-t border-line/60'}>
+              <button onClick={() => setSel(a)} className="flex w-full items-start gap-3 py-2.5 text-right transition hover:bg-white/[.02]">
+                <span className="mt-1.5 flex-none" title={KIND_FA[a.kind]}>
+                  <span className={`block h-2 w-2 rounded-full ${DOT[a.kind]}`} />
+                </span>
+                <p className="min-w-0 flex-1 text-[13px] leading-5 text-muted">{a.text}</p>
+                <time className="mt-0.5 flex-none text-[11px] text-faint tnum">{relTime(a.at)}</time>
+              </button>
             </li>
           ))}
         </ol>
       )}
+
+      <Drawer open={!!sel} onClose={() => setSel(null)} width={420}
+        title={sel ? <span className="font-display text-sm font-bold">{KIND_FA[sel.kind]}</span> : ''}
+        subtitle={sel ? relTime(sel.at) : ''}
+      >
+        {sel && (
+          <div className="space-y-3 text-[13px]">
+            <p className="rounded-xl border border-line bg-tile2 p-3 leading-6 text-slate-200">{sel.text}</p>
+            <div className="grid grid-cols-2 gap-2">
+              <div className="rounded-lg border border-line bg-tile2 p-2.5"><p className="text-[11px] text-faint">نوع</p><p className="mt-0.5">{KIND_FA[sel.kind]}</p></div>
+              <div className="rounded-lg border border-line bg-tile2 p-2.5"><p className="text-[11px] text-faint">زمان</p><p className="mt-0.5 tnum">{relTime(sel.at)}</p></div>
+              {sel.entityType && <div className="rounded-lg border border-line bg-tile2 p-2.5"><p className="text-[11px] text-faint">موجودیت</p><p className="mt-0.5">{sel.entityType}{sel.entityId ? `:${sel.entityId}` : ''}</p></div>}
+            </div>
+            {sel.detail && <p className="text-[12px] text-faint">{sel.detail}</p>}
+          </div>
+        )}
+      </Drawer>
     </section>
   );
 }

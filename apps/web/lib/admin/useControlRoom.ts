@@ -164,7 +164,11 @@ export function useControlRoom(t: AdminTournament, role: AdminRole, actorName: s
   const [chatOpen, setChatOpen] = useState(false);
 
   const audit = useCallback(
-    (action: string, entityType: string, entityId: string, reason?: string) => appendAudit({ actor: actorName, actorRole: role, action, entityType, entityId, reason }),
+    (action: string, entityType: string, entityId: string, reason?: string, before?: string, after?: string) => {
+      const entry = { id: `au-${Date.now()}-${Math.floor(Math.abs(Math.sin(Date.now())) * 1e5)}`, actor: actorName, actorRole: role, action, entityType, entityId, reason, before, after, createdAt: new Date().toISOString() };
+      setCore((c) => ({ ...c, auditLog: [entry, ...(c.auditLog ?? [])].slice(0, 200) }));
+      appendAudit({ actor: actorName, actorRole: role, action, entityType, entityId, reason });
+    },
     [actorName, role],
   );
 
@@ -201,7 +205,7 @@ export function useControlRoom(t: AdminTournament, role: AdminRole, actorName: s
           if (!m) return;
           patchMatch(m.id, { scoreA: p.scoreA ?? m.scoreA, scoreB: p.scoreB ?? m.scoreB, status: 'completed', winnerId: (p.scoreA ?? m.scoreA) >= (p.scoreB ?? m.scoreB) ? m.aId ?? undefined : m.bId ?? undefined });
           setCore((c) => advanceBracket(c));
-          audit('ویرایشِ امتیاز', 'match', m.id, `${p.scoreA}-${p.scoreB}`);
+          audit('ویرایشِ امتیاز', 'match', m.id, undefined, `امتیاز ${m.scoreA}-${m.scoreB}`, `امتیاز ${p.scoreA ?? m.scoreA}-${p.scoreB ?? m.scoreB}`);
           ok(`امتیازِ مسابقه‌ی ${num} ویرایش شد`);
           break;
         case 'mark_no_show':
@@ -219,7 +223,7 @@ export function useControlRoom(t: AdminTournament, role: AdminRole, actorName: s
               patchParticipant(absent, (x) => ({ ...x, noShows: ns, warnings: (x.warnings ?? 0) + 1, status: disqualified ? 'disqualified' : 'eliminated' }));
             }
             setCore((c) => advanceBracket(c));
-            audit('ثبتِ عدمِ حضور', 'match', m.id, absent && disqualified ? 'عدمِ حضورِ دوم — محرومیت' : undefined);
+            audit('ثبتِ عدمِ حضور', 'match', m.id, absent && disqualified ? 'عدمِ حضورِ دوم — محرومیت' : undefined, `وضعیتِ مسابقه: ${m.status}`, `${presentName} برنده · ${absentName} حذف${disqualified ? ' + محروم' : ''}`);
             addActivity('admin', `${absentName} در مسابقه‌ی ${num} حاضر نشد؛ ${presentName} صعود کرد`);
             notifyNoShow(core.tournamentId, absentName, presentName, num);
             ok(`عدمِ حضور ثبت شد؛ ${presentName} صعود کرد${disqualified ? ` و ${absentName} محروم شد` : ''}`);
@@ -244,7 +248,7 @@ export function useControlRoom(t: AdminTournament, role: AdminRole, actorName: s
           if (m.aId) patchParticipant(m.aId, (x) => ({ ...x, warnings: (x.warnings ?? 0) + 1, noShows: (x.noShows ?? 0) + 1, status: 'eliminated' }));
           if (m.bId) patchParticipant(m.bId, (x) => ({ ...x, warnings: (x.warnings ?? 0) + 1, noShows: (x.noShows ?? 0) + 1, status: 'eliminated' }));
           setCore((c) => advanceBracket(c));
-          audit('عدمِ حضورِ دوطرفه', 'match', m.id, 'هر دو حذف — مسابقه بدونِ برنده');
+          audit('عدمِ حضورِ دوطرفه', 'match', m.id, 'هر دو حذف — مسابقه بدونِ برنده', `وضعیتِ مسابقه: ${m.status}`, 'بسته‌شده (void) — هر دو بازیکن eliminated');
           addActivity('admin', `عدمِ حضورِ دوطرفه در مسابقه‌ی ${num}؛ هر دو بازیکن حذف شدند`);
           ok(`عدمِ حضورِ دوطرفه ثبت شد؛ مسابقه‌ی ${num} بدونِ برنده بسته و براکت به‌روز شد`);
           break;
@@ -277,7 +281,7 @@ export function useControlRoom(t: AdminTournament, role: AdminRole, actorName: s
         case 'disqualify':
           if (!p.participantId) return;
           setCore((c) => ({ ...c, participants: c.participants.map((x) => (x.id === p.participantId ? { ...x, status: 'disqualified' } : x)) }));
-          audit('محروم‌سازی', 'participant', p.participantId, p.reason);
+          audit('محروم‌سازی', 'participant', p.participantId, p.reason, 'فعال در تورنومنت', 'محروم');
           ok('بازیکن محروم شد');
           break;
         case 'restore':
@@ -298,7 +302,7 @@ export function useControlRoom(t: AdminTournament, role: AdminRole, actorName: s
             disputes: c.disputes.map((x) => (x.id === p.disputeId ? { ...x, status: 'resolved' } : x)),
             matches: c.matches.map((x) => (x.id === d.matchId ? { ...x, status: 'completed', winnerId: winner ?? undefined, disputeId: undefined, blockerReason: undefined } : x)),
           }));
-          audit('حلِ اختلاف', 'dispute', d.id, p.reason);
+          audit('حلِ اختلاف', 'dispute', d.id, p.reason, 'اختلافِ باز — دورِ بعد قفل', `حل‌شده به‌نفعِ ${core.participants.find((x) => x.id === winner)?.name ?? '—'} — نتیجه نهایی`);
           addActivity('dispute', `اختلافِ مسابقه‌ی #${(dm?.number ?? 0).toLocaleString('fa-IR')} حل شد`);
           ok('اختلاف حل شد و نتیجه نهایی شد');
           break;

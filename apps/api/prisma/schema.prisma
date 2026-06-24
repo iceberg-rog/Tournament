@@ -266,6 +266,7 @@ model ControlBoard {
   matches         Json
   disputes        Json
   activity        Json
+  meta            Json?
   updatedAt       DateTime @updatedAt
   createdAt       DateTime @default(now())
 }

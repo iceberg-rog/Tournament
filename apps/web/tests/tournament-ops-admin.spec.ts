@@ -60,7 +60,7 @@ test.describe('Control room — operator flow', () => {
     // ممیزی ثبت شده
     await page.getByRole('button', { name: 'گزارشِ ممیزی' }).first().click({ force: true });
     await page.waitForTimeout(600);
-    await expect(page.getByText(/عدمِ حضور/).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: /عدمِ حضور/ }).first()).toBeVisible();
 
     // persistence پس از refresh
     await page.reload({ waitUntil: 'networkidle' });

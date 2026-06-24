@@ -50,7 +50,7 @@ test.describe('Real operator QA — persistence', () => {
     // ممیزی ثبت شد
     await page.getByRole('button', { name: 'گزارشِ ممیزی' }).first().click({ force: true });
     await page.waitForTimeout(500);
-    await expect(page.getByText(/حلِ اختلاف/).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: /حلِ اختلاف/ }).first()).toBeVisible();
 
     // REFRESH (سریع) → اختلاف نباید برگردد
     await page.reload({ waitUntil: 'networkidle' });

@@ -165,6 +165,23 @@ export interface CRActivity {
   kind: CRActivityKind;
   text: string;
   at: string;
+  entityType?: string;
+  entityId?: string;
+  detail?: string;
+}
+
+/** رکوردِ ممیزی — جدا از فعالیت؛ فقط اقدام‌های حساس، با before/after. persisted. */
+export interface CRAuditEntry {
+  id: string;
+  actor: string;
+  actorRole: string;
+  action: string;
+  entityType: string;
+  entityId: string;
+  reason?: string;
+  before?: string;
+  after?: string;
+  createdAt: string;
 }
 
 export type RoadmapKind = 'registration' | 'check_in' | 'bracket' | 'round' | 'verify' | 'payout';
@@ -329,6 +346,7 @@ export interface ControlRoomCore {
   matches: CRMatch[];
   disputes: CRDispute[];
   activity: CRActivity[];
+  auditLog?: CRAuditEntry[];
   noShowPolicy?: NoShowPolicy;
   progressionSettings?: ProgressionSettings;
 }

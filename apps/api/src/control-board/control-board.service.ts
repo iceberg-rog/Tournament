@@ -23,6 +23,7 @@ export class ControlBoardService {
       matches: b.matches,
       disputes: b.disputes,
       activity: b.activity,
+      updatedAt: b.updatedAt?.toISOString?.() ?? undefined,
     };
   }
 

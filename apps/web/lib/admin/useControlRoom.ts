@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { authedGet, authedPost, authedPut, isLoggedIn } from '@/lib/api';
 import type { AdminTournament } from '@/lib/admin';
 import type { AdminRole } from '@/lib/admin/ops';
@@ -67,43 +67,53 @@ export function useControlRoom(t: AdminTournament, role: AdminRole, actorName: s
   const [core, setCore] = useState<ControlRoomCore>(() => buildCore(t));
   const cr = useMemo<ControlRoomState>(() => derive(core), [core]);
 
-  // ماندگاری: بُردِ عملیات روی دیتابیس ذخیره می‌شود (بین‌دستگاهی)، با کشِ محلی برای resilience.
+  // ماندگاری: localStorage منبعِ refresh-safe (همان‌دستگاه، همیشه تازه — synchronous)؛
+  // backend برای همگام‌سازیِ بین‌دستگاهی best-effort. هنگامِ بارگذاری، تازه‌ترین
+  // نسخه (با timestamp) برنده می‌شود تا هیچ اقدامی پس از refresh برنگردد.
   const [ready, setReady] = useState(false);
+  const coreRef = useRef(core);
+  coreRef.current = core;
+
   const cache = (c: ControlRoomCore) => {
-    try { window.localStorage.setItem(STORAGE_KEY(t.id), JSON.stringify(c)); } catch { /* ignore */ }
+    try { window.localStorage.setItem(STORAGE_KEY(t.id), JSON.stringify({ ...c, _savedAt: Date.now() })); } catch { /* ignore */ }
   };
+  const stripTs = (c: any): ControlRoomCore => { const { _savedAt, ...rest } = c ?? {}; return rest as ControlRoomCore; };
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
-      if (isLoggedIn()) {
-        try {
-          const remote = await authedGet<ControlRoomCore | null>(`/control-board/${t.id}`);
-          if (cancelled) return;
-          if (remote && Array.isArray((remote as { matches?: unknown }).matches)) {
-            setCore(remote);
-            setReady(true);
-            return;
-          }
-          // هنوز بُردی نیست → با نمونه‌ی پیش‌فرض seed کن
-          authedPut(`/control-board/${t.id}`, buildCore(t)).catch(() => {});
-          setReady(true);
-          return;
-        } catch {
-          /* خطای شبکه/دسترسی → سقوط به کشِ محلی */
-        }
+      // نسخه‌ی محلی (synchronous، با timestamp)
+      let local: any = null;
+      try { const raw = window.localStorage.getItem(STORAGE_KEY(t.id)); local = raw ? JSON.parse(raw) : null; } catch { /* ignore */ }
+      // نسخه‌ی backend (best-effort)
+      let backend: any = null;
+      if (isLoggedIn()) { try { backend = await authedGet<any>(`/control-board/${t.id}`); } catch { /* ignore */ } }
+      if (cancelled) return;
+
+      const localValid = local && Array.isArray(local.matches);
+      const backendValid = backend && Array.isArray(backend.matches);
+      const localTs = Number(local?._savedAt ?? 0);
+      const backendTs = backend?.updatedAt ? Date.parse(backend.updatedAt) : 0;
+
+      if (localValid && (!backendValid || localTs >= backendTs)) {
+        // محلیِ تازه‌تر برنده — refresh-safe تضمین‌شده
+        setCore(stripTs(local));
+      } else if (backendValid) {
+        setCore(backend as ControlRoomCore);
+        cache(backend as ControlRoomCore); // محلی را با backend هم‌تراز کن
+      } else {
+        const def = buildCore(t);
+        setCore(def);
+        cache(def);
+        if (isLoggedIn()) authedPut(`/control-board/${t.id}`, def).catch(() => {});
       }
-      try {
-        const raw = window.localStorage.getItem(STORAGE_KEY(t.id));
-        if (raw && !cancelled) setCore(JSON.parse(raw) as ControlRoomCore);
-      } catch { /* ignore */ }
-      if (!cancelled) setReady(true);
+      setReady(true);
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [t.id]);
 
-  // ذخیره (با debounce) روی API + کشِ محلی
+  // ذخیره: localStorage فوری (هر تغییر) + backend با debounce (batching حینِ کار)
   useEffect(() => {
     if (!ready) return;
     cache(core);
@@ -112,6 +122,22 @@ export function useControlRoom(t: AdminTournament, role: AdminRole, actorName: s
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [core, ready, t.id]);
+
+  // flushِ فوریِ backend هنگامِ خروج/پنهان‌شدن/unmount تا تغییرِ debounce‌نشده گم نشود
+  const flushNow = useCallback(() => {
+    if (!ready || !isLoggedIn()) return;
+    authedPut(`/control-board/${t.id}`, coreRef.current).catch(() => {});
+  }, [ready, t.id]);
+  useEffect(() => {
+    const onVis = () => { if (document.visibilityState === 'hidden') flushNow(); };
+    window.addEventListener('pagehide', flushNow);
+    document.addEventListener('visibilitychange', onVis);
+    return () => {
+      window.removeEventListener('pagehide', flushNow);
+      document.removeEventListener('visibilitychange', onVis);
+      flushNow();
+    };
+  }, [flushNow]);
 
   const reset = useCallback(() => {
     const def = buildCore(t);

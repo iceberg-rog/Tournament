@@ -81,6 +81,19 @@ test.describe('Real operator QA — persistence', () => {
     expect(await page.locator('h4').allInnerTexts()).not.toContain(target);
   });
 
+  test('overview is operational (state, health, blocker action, non-empty recent ops)', async ({ page }) => {
+    await loginResetOpen(page, `/admin/tournaments/${T}`);
+    const body = page.locator('body');
+    await expect(body).toContainText('نمای کلیِ عملیات');
+    await expect(body).toContainText('مرحله‌ی فعلی');
+    await expect(body).toContainText('بعد چه می‌شود');
+    // مانعِ بحرانی با اقدامِ مستقیم
+    await expect(page.getByRole('link', { name: 'حلِ اختلاف' }).first()).toBeVisible();
+    // عملیاتِ اخیر خالیِ تزئینی نیست
+    await expect(body).not.toContainText('رویدادی ثبت نشده است');
+    await expect(body).toContainText('عملیاتِ اخیر');
+  });
+
   test('approve a pending result in control room → survives refresh', async ({ page }) => {
     await loginResetOpen(page, `/admin/tournaments/${T}/control-room`);
     const approveBtns = page.getByRole('button', { name: 'تأییدِ نتیجه' });

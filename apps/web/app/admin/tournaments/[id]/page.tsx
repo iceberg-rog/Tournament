@@ -1,68 +1,177 @@
 'use client';
 
-// نمای کلیِ تورنومنت (تبِ OVERVIEW) — خلاصه‌ی عملیاتیِ واقعی:
-// شبکه‌ی آماری (با تونِ هشدار)، گام‌های بعدیِ مجاز برای وضعیتِ جاری، و گزارشِ ممیزیِ اخیر.
-// چیدمانِ دو ستونی روی lg. این صفحه فقط بدنه را رندر می‌کند (هدر/تب‌بار در layout است).
+// نمای کلیِ تورنومنت (تبِ OVERVIEW) — کنسولِ عملیاتیِ واقعی، از control board.
+// وضعیتِ جاری، سلامتِ عملیاتی، مانعِ بحرانی با اقدامِ مستقیم، «بعد چه می‌شود»،
+// مسابقاتِ زنده/بعدی + مهلت‌ها، و عملیاتِ اخیر (هرگز خالیِ تزئینی نیست).
 
-import { useEffect, useMemo, useState, type ComponentProps } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { apiGet, isLoggedIn } from '@/lib/api';
 import { AdminBadge } from '@/components/admin/AdminBadge';
-import { AuditLogList } from '@/components/admin/AuditLogList';
-import { money, fmt, type Tone, type AdminTournament } from '@/lib/admin';
-import { ACTIONS_BY_STATUS, ACTION_LABEL, can, navHref, NAV_ACTIONS, type AdminRole } from '@/lib/admin/ops';
+import { money, fmt } from '@/lib/admin';
 import { useAdminRole, useTournament } from '@/lib/admin/store';
-import { participantsFor, matchesFor, disputesFor } from '@/lib/admin/fixtures';
+import { useControlRoom } from '@/lib/admin/useControlRoom';
+import { roundName, participantById, CRMATCH_FA, type ControlRoomState, type CRMatch } from '@/lib/admin/controlRoom';
 
-const TONE_TEXT: Record<Tone, string> = {
-  accent: 'text-accent',
-  gold: 'text-gold',
-  bad: 'text-bad',
-  good: 'text-good',
-  muted: 'text-slate-200',
-};
+const clock = (iso?: string) => { try { return iso ? new Date(iso).toLocaleTimeString('fa-IR', { hour: '2-digit', minute: '2-digit' }) : '—'; } catch { return '—'; } };
+const fa = (n: number) => n.toLocaleString('fa-IR');
+const ACT_DOT: Record<string, string> = { result: 'bg-accent', dispute: 'bg-bad', admin: 'bg-gold', chat: 'bg-slate-400', payment: 'bg-good', checkin: 'bg-slate-400' };
 
-type IconKey = 'users' | 'trophy' | 'lock' | 'play' | 'flag' | 'clipboard' | 'wallet';
-
-function Icon({ name }: { name: IconKey }) {
-  const common = { width: 16, height: 16, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round' as const, strokeLinejoin: 'round' as const };
-  switch (name) {
-    case 'users':
-      return <svg {...common}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" /><circle cx="9" cy="7" r="4" /><path d="M22 21v-2a4 4 0 0 0-3-3.87" /></svg>;
-    case 'trophy':
-      return <svg {...common}><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6" /><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18" /><path d="M4 22h16" /><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22" /><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22" /><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z" /></svg>;
-    case 'lock':
-      return <svg {...common}><rect x="3" y="11" width="18" height="11" rx="2" /><path d="M7 11V7a5 5 0 0 1 10 0v4" /></svg>;
-    case 'play':
-      return <svg {...common}><polygon points="5 3 19 12 5 21 5 3" /></svg>;
-    case 'flag':
-      return <svg {...common}><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z" /><line x1="4" y1="22" x2="4" y2="15" /></svg>;
-    case 'clipboard':
-      return <svg {...common}><rect x="8" y="2" width="8" height="4" rx="1" /><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" /></svg>;
-    case 'wallet':
-      return <svg {...common}><path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4a1 1 0 0 1-1 1H5a2 2 0 0 1-2-2V5" /><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4" /></svg>;
-  }
+function Stat({ label, value, sub, tone = 'text-slate-200', href }: { label: string; value: string; sub?: string; tone?: string; href: string }) {
+  return (
+    <Link href={href} className="rounded-2xl border border-line bg-tile p-3.5 transition hover:border-accent-dim">
+      <p className="text-[11px] text-faint">{label}</p>
+      <p className={`mt-1 font-display text-xl font-bold tnum ${tone}`}>{value}</p>
+      {sub && <p className="mt-0.5 line-clamp-1 text-[11px] text-faint">{sub}</p>}
+    </Link>
+  );
 }
 
-const ESCROW_FA: Record<AdminTournament['escrow'], { label: string; tone: Tone }> = {
-  none: { label: 'بدونِ امانی', tone: 'muted' },
-  locked: { label: 'قفل‌شده', tone: 'gold' },
-  released: { label: 'آزادشده', tone: 'good' },
-  refunded: { label: 'بازپرداخت', tone: 'accent' },
-};
-
-function StatCard({ icon, label, primary, sub, tone, bar }: { icon: IconKey; label: string; primary: string; sub?: string; tone: Tone; bar?: number }) {
+function MatchRow({ cr, m, base }: { cr: ControlRoomState; m: CRMatch; base: string }) {
+  const a = participantById(cr, m.aId)?.name ?? 'TBD';
+  const b = participantById(cr, m.bId)?.name ?? 'TBD';
   return (
-    <div className="rounded-2xl border border-line bg-tile p-4">
-      <div className="mb-2 flex items-center gap-2">
-        <span className={`grid h-7 w-7 flex-none place-items-center rounded-lg bg-tile2 ${TONE_TEXT[tone]}`}><Icon name={icon} /></span>
-        <span className="text-[11px] text-faint">{label}</span>
+    <Link href={`${base}/bracket`} className="flex items-center justify-between gap-2 rounded-lg border border-line bg-tile2 px-3 py-2 text-[12px] transition hover:border-accent-dim">
+      <span className="min-w-0 truncate"><span className="tnum text-faint">#{fa(m.number)}</span> {a} <span className="text-faint">—</span> {b}</span>
+      <span className="flex-none text-[11px] text-faint">{m.deadline ? `مهلت ${clock(m.deadline)}` : CRMATCH_FA[m.status]}</span>
+    </Link>
+  );
+}
+
+function Overview({ t, role, actorName }: { t: NonNullable<ReturnType<typeof useTournament>>; role: ReturnType<typeof useAdminRole>; actorName: string }) {
+  const ctrl = useControlRoom(t, role, actorName);
+  const cr = ctrl.cr;
+  const id = t.id;
+  const base = `/admin/tournaments/${id}`;
+
+  const completed = cr.matches.filter((m) => m.status === 'completed').length;
+  const live = cr.matches.filter((m) => m.status === 'live');
+  const noShowPending = cr.matches.filter((m) => m.status === 'no_show' || m.status === 'double_no_show').length + cr.participants.filter((p) => p.status === 'no_show').length;
+  const overdue = cr.matches.filter((m) => m.status === 'expired');
+  const nextMatches = cr.matches.filter((m) => m.status === 'ready' || m.status === 'scheduled' || m.status === 'waiting_for_players').sort((a, b) => Date.parse(a.deadline ?? '0') - Date.parse(b.deadline ?? '0')).slice(0, 5);
+  const recentResults = cr.matches.filter((m) => m.status === 'completed' && m.submittedAt).sort((a, b) => Date.parse(b.submittedAt!) - Date.parse(a.submittedAt!)).slice(0, 5);
+  const openDispute = cr.disputes.find((d) => d.status === 'open' || d.status === 'under_review');
+  const dm = openDispute ? cr.matches.find((m) => m.id === openDispute.matchId) : undefined;
+  const needAction = cr.openDisputes + cr.pendingResults + noShowPending;
+
+  // «بعد چه می‌شود» — مشتق از وضعیتِ واقعی
+  const next: string[] = [];
+  if (cr.openDisputes > 0) next.push(`حلِ ${fa(cr.openDisputes)} اختلافِ باز، مانعِ ساختِ ${cr.nextRound.label} را برمی‌دارد.`);
+  if (cr.pendingResults > 0) next.push(`تأییدِ ${fa(cr.pendingResults)} نتیجه‌ی معلق، دورِ جاری را کامل می‌کند.`);
+  if (overdue.length > 0) next.push(`تعیینِ تکلیفِ ${fa(overdue.length)} مسابقه‌ی مهلت‌گذشته لازم است.`);
+  if (cr.nextRound.ready) next.push(`دور آماده است → می‌توانید ${cr.nextRound.label} را بسازید.`);
+  if (t.escrow === 'locked') next.push(`پس از رفعِ همه‌ی موانع و تأییدِ نتایج، ${money(t.prize)} از امانت آزاد می‌شود.`);
+  if (next.length === 0) next.push('همه‌چیز در جریان است؛ منتظرِ ثبتِ نتایجِ دورِ جاری هستیم.');
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <h2 className="font-display text-lg font-bold">نمای کلیِ عملیات</h2>
+        <AdminBadge label={`${fa(needAction)} موردِ نیازمندِ اقدام`} tone={needAction > 0 ? 'gold' : 'good'} />
       </div>
-      <p className={`font-display text-2xl font-bold leading-none tnum ${TONE_TEXT[tone]}`}>{primary}</p>
-      {sub && <p className="mt-1 text-[11px] text-faint">{sub}</p>}
-      {typeof bar === 'number' && (
-        <div className="pbar mt-2.5"><span style={{ width: `${Math.min(100, Math.max(0, bar))}%` }} /></div>
-      )}
+
+      {/* وضعیتِ جاری */}
+      <div className="rounded-2xl border border-line bg-tile p-4">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <div><p className="text-[11px] text-faint">مرحله‌ی فعلی</p><p className="mt-0.5 font-display text-sm font-bold">{cr.roundName}</p></div>
+          <div><p className="text-[11px] text-faint">پیشرفتِ دور</p><p className="mt-0.5 font-display text-sm font-bold tnum">{fa(cr.currentRoundCompleted)} / {fa(cr.currentRoundTotal)} مسابقه</p></div>
+          <div><p className="text-[11px] text-faint">مسابقاتِ زنده</p><p className={`mt-0.5 font-display text-sm font-bold tnum ${live.length ? 'text-[#fca5a5]' : 'text-muted'}`}>{fa(live.length)}</p></div>
+          <div><p className="text-[11px] text-faint">اقدامِ بعدی</p><p className="mt-0.5 text-[12px] font-semibold text-[#5eead4]">{cr.openDisputes ? 'حلِ اختلافِ باز' : cr.pendingResults ? 'تأییدِ نتایجِ معلق' : cr.nextRound.ready ? `ساختِ ${cr.nextRound.label}` : 'انتظارِ نتایج'}</p></div>
+        </div>
+      </div>
+
+      {/* سلامتِ عملیاتی */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        <Stat label="تکمیل‌شده / کل" value={`${fa(completed)}/${fa(cr.matches.length)}`} href={`${base}/bracket`} tone="text-good" />
+        <Stat label="نتایجِ معلق" value={fa(cr.pendingResults)} tone={cr.pendingResults ? 'text-gold' : 'text-muted'} sub={cr.pendingResults ? 'در صفِ تأیید' : 'چیزی نیست'} href={`${base}/control-room`} />
+        <Stat label="اختلافِ باز" value={fa(cr.openDisputes)} tone={cr.openDisputes ? 'text-[#fca5a5]' : 'text-good'} sub={cr.openDisputes ? 'مانعِ دورِ بعد' : 'بدونِ اختلاف'} href={`${base}/disputes`} />
+        <Stat label="عدمِ حضور" value={fa(noShowPending)} tone={noShowPending ? 'text-gold' : 'text-muted'} sub={noShowPending ? 'نیازِ رسیدگی' : '—'} href={`${base}/control-room`} />
+        <Stat label="امانی (escrow)" value={t.escrow === 'locked' ? 'قفل' : 'آزاد'} tone={t.escrow === 'locked' ? 'text-gold' : 'text-good'} sub={money(t.prize)} href={`${base}/finance`} />
+        <Stat label="پرداختِ معلق" value={fa(t.pendingPayouts)} tone={t.pendingPayouts ? 'text-gold' : 'text-good'} sub={t.pendingPayouts ? 'نیازمندِ آزادسازی' : 'تسویه'} href={`${base}/finance`} />
+      </div>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* مانعِ بحرانی */}
+        <section className={`rounded-2xl border p-5 ${openDispute ? 'border-bad/35 bg-bad/[.05]' : 'border-good/25 bg-good/[.04]'}`}>
+          <h3 className="mb-2 font-display text-sm font-bold">{openDispute ? 'مانعِ بحرانی' : 'مانعی وجود ندارد'}</h3>
+          {openDispute ? (
+            <div className="space-y-2 text-[13px]">
+              <p className="font-bold text-text">اختلافِ مسابقه‌ی #{fa(dm?.number ?? 0)} مانعِ {cr.nextRound.label} است</p>
+              <p className="text-muted">{openDispute.reason}</p>
+              <p className="text-[#fca5a5]"><span className="text-faint">طرفین: </span>{participantById(cr, dm?.aId)?.name ?? '—'} در برابرِ {participantById(cr, dm?.bId)?.name ?? '—'}</p>
+              <div className="flex flex-wrap gap-2 pt-1">
+                <Link href={`${base}/control-room`} className="btn-danger px-3 py-1.5 text-xs">حلِ اختلاف</Link>
+                <Link href={`${base}/disputes`} className="btn-ghost px-3 py-1.5 text-xs">پرونده‌ی اختلاف</Link>
+                <Link href={`${base}/bracket`} className="btn-ghost px-3 py-1.5 text-xs">مشاهده‌ی مسابقه</Link>
+              </div>
+            </div>
+          ) : (
+            <p className="text-[13px] text-good">هیچ اختلاف یا مانعِ بازی نیست؛ دور می‌تواند پیش برود.</p>
+          )}
+        </section>
+
+        {/* بعد چه می‌شود */}
+        <section className="rounded-2xl border border-line bg-tile p-5">
+          <h3 className="mb-2 font-display text-sm font-bold">بعد چه می‌شود</h3>
+          <ul className="space-y-1.5">
+            {next.map((s, i) => (
+              <li key={i} className="flex items-start gap-2 text-[12.5px] leading-6 text-slate-200">
+                <span className="mt-2 h-1.5 w-1.5 flex-none rounded-full bg-accent" />{s}
+              </li>
+            ))}
+          </ul>
+        </section>
+      </div>
+
+      {/* زنده / بعدی + مهلت‌ها (empty stateِ actionable) */}
+      <section className="rounded-2xl border border-line bg-tile p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="font-display text-sm font-bold">{live.length ? 'مسابقاتِ زنده' : 'مسابقاتِ بعدی و مهلت‌های نزدیک'}</h3>
+          <Link href={`${base}/bracket`} className="text-xs font-semibold text-accent">همه‌ی مسابقات ←</Link>
+        </div>
+        {live.length > 0 ? (
+          <div className="space-y-2">{live.map((m) => <MatchRow key={m.id} cr={cr} m={m} base={base} />)}</div>
+        ) : (
+          <div className="grid gap-4 md:grid-cols-2">
+            <div>
+              <p className="mb-1.5 text-[11px] font-semibold text-faint">مسابقاتِ بعدی</p>
+              {nextMatches.length ? <div className="space-y-1.5">{nextMatches.map((m) => <MatchRow key={m.id} cr={cr} m={m} base={base} />)}</div> : <p className="text-[12px] text-faint">مسابقه‌ی آماده‌ای نیست.</p>}
+              {overdue.length > 0 && <p className="mt-2 text-[11px] text-[#fca5a5]">{fa(overdue.length)} مسابقه‌ی مهلت‌گذشته — <Link href={`${base}/control-room`} className="underline">رسیدگی</Link></p>}
+            </div>
+            <div>
+              <p className="mb-1.5 text-[11px] font-semibold text-faint">آخرین نتایجِ ثبت‌شده</p>
+              {recentResults.length ? <div className="space-y-1.5">{recentResults.map((m) => <MatchRow key={m.id} cr={cr} m={m} base={base} />)}</div> : <p className="text-[12px] text-faint">نتیجه‌ای ثبت نشده.</p>}
+            </div>
+          </div>
+        )}
+        <div className="mt-3 flex flex-wrap gap-2">
+          <Link href={`${base}/control-room`} className="btn-primary px-3 py-1.5 text-xs">اتاقِ کنترل</Link>
+          <Link href={`${base}/schedule`} className="btn-ghost px-3 py-1.5 text-xs">برنامه‌ی زمان‌بندی</Link>
+          <Link href={`${base}/matches`} className="btn-ghost px-3 py-1.5 text-xs">بازبینیِ نتایج</Link>
+        </div>
+      </section>
+
+      {/* عملیاتِ اخیر — از activityِ control board (هرگز خالیِ تزئینی نیست) */}
+      <section className="rounded-2xl border border-line bg-tile p-5">
+        <div className="mb-3 flex items-center justify-between">
+          <h3 className="font-display text-sm font-bold">عملیاتِ اخیر</h3>
+          <Link href={`${base}/control-room`} className="text-xs font-semibold text-accent">فعالیتِ کامل ←</Link>
+        </div>
+        {cr.activity.length === 0 ? (
+          <p className="text-[12px] text-faint">رویدادی ثبت نشده است.</p>
+        ) : (
+          <ul className="divide-y divide-line">
+            {cr.activity.slice(0, 8).map((e) => (
+              <li key={e.id}><Link href={`${base}/control-room`} className="flex items-center gap-3 py-2 text-[13px] transition hover:bg-white/[.02]">
+                <span className={`h-1.5 w-1.5 flex-none rounded-full ${ACT_DOT[e.kind] ?? 'bg-slate-500'}`} />
+                <span className="min-w-0 flex-1 truncate text-slate-200">{e.text}</span>
+                <span className="flex-none text-[11px] text-faint">{clock(e.at)}</span>
+              </Link></li>
+            ))}
+          </ul>
+        )}
+      </section>
     </div>
   );
 }
@@ -72,119 +181,9 @@ export default function TournamentOverviewPage() {
   const t = useTournament(id);
   const role = useAdminRole();
   const [actorName, setActorName] = useState('مدیر سیستم');
-
   useEffect(() => {
     if (isLoggedIn()) apiGet<{ displayName: string }>('/users/me').then((m) => m.displayName && setActorName(m.displayName)).catch(() => {});
   }, []);
-
-  // مشتق‌سازیِ آمارِ منسجم از همان fixtureها (نه عددِ خام).
-  const derived = useMemo(() => {
-    if (!t) return null;
-    const participants = participantsFor(t);
-    const matches = matchesFor(t);
-    const disputes = disputesFor(t);
-    return {
-      checkedIn: participants.filter((p) => p.status === 'checked_in' || p.status === 'winner' || p.status === 'eliminated').length,
-      disqualified: participants.filter((p) => p.status === 'disqualified').length,
-      pendingResultRows: matches.filter((m) => m.status === 'result_submitted' || m.status === 'admin_review').length,
-      openDisputeRows: disputes.filter((d) => d.status === 'open' || d.status === 'under_review').length,
-      participants,
-      matches,
-      disputes,
-    };
-  }, [t]);
-
-  if (!t || !derived) return null;
-
-  const pct = t.maxParticipants ? Math.round((t.participants / t.maxParticipants) * 100) : 0;
-  const escrow = ESCROW_FA[t.escrow];
-
-  // فقط اکشن‌هایی که status را عوض می‌کنند تونِ هشدار بگیرند.
-  const nextActions = ACTIONS_BY_STATUS[t.status];
-
-  const stats: Array<ComponentProps<typeof StatCard>> = [
-    { icon: 'users', label: 'شرکت‌کننده‌ها', primary: `${fmt(t.participants)} / ${fmt(t.maxParticipants)}`, sub: `حداقل ${fmt(t.minParticipants)} · ${fmt(pct)}٪ ظرفیت`, tone: t.participants < t.minParticipants ? 'gold' : 'accent', bar: pct },
-    { icon: 'trophy', label: 'جایزه', primary: money(t.prize), sub: `${derived.checkedIn ? `${fmt(derived.checkedIn)} چک‌این‌شده` : 'هنوز چک‌این نشده'}${derived.disqualified ? ` · ${fmt(derived.disqualified)} محروم` : ''}`, tone: 'gold' },
-    { icon: 'lock', label: 'امانی (escrow)', primary: escrow.label, sub: t.escrow === 'locked' ? money(t.prize) + ' در امانت' : '—', tone: escrow.tone },
-    { icon: 'play', label: 'دورِ جاری', primary: t.currentRound ? `دورِ ${fmt(t.currentRound)}` : '—', sub: derived.matches.length ? `${fmt(derived.matches.length)} مسابقه` : 'براکت ساخته نشده', tone: t.status === 'live' ? 'bad' : 'muted' },
-    { icon: 'flag', label: 'اختلاف‌ها', primary: fmt(t.disputes), sub: derived.openDisputeRows ? `${fmt(derived.openDisputeRows)} باز/در بررسی` : 'بدونِ اختلاف', tone: t.disputes > 0 ? 'bad' : 'good' },
-    { icon: 'clipboard', label: 'نتایجِ معلق', primary: fmt(t.pendingResults), sub: derived.pendingResultRows ? `${fmt(derived.pendingResultRows)} در صفِ تأیید` : 'چیزی معلق نیست', tone: t.pendingResults > 0 ? 'gold' : 'good' },
-    { icon: 'wallet', label: 'پرداختِ معلق', primary: fmt(t.pendingPayouts), sub: t.pendingPayouts > 0 ? 'نیازمندِ آزادسازی' : 'تسویه‌شده', tone: t.pendingPayouts > 0 ? 'gold' : 'good' },
-  ];
-
-  // راهنمای متنیِ هر اکشن (بدون اجرا — اجرا در quick-actionsِ هدر/تب‌های مربوط است).
-  const navOnly = (a: typeof nextActions[number]) => NAV_ACTIONS.has(a);
-
-  return (
-    <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <h2 className="font-display text-lg font-bold">نمای کلیِ عملیات</h2>
-        <AdminBadge label={`${fmt(derived.openDisputeRows + t.pendingResults + t.pendingPayouts)} موردِ نیازمندِ اقدام`} tone={derived.openDisputeRows + t.pendingResults + t.pendingPayouts > 0 ? 'gold' : 'good'} />
-      </div>
-
-      {/* شبکه‌ی آماری */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-        {stats.map((s) => <StatCard key={s.label} {...s} />)}
-      </div>
-
-      {/* دو ستون روی lg */}
-      <div className="grid gap-4 lg:grid-cols-2">
-        {/* گام‌های بعدی */}
-        <section className="rounded-2xl border border-line bg-tile p-5">
-          <div className="mb-3 flex items-center gap-2">
-            <span className="grid h-7 w-7 place-items-center rounded-lg bg-accent/10 text-accent">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6" /></svg>
-            </span>
-            <h3 className="font-display text-sm font-bold">گام‌های بعدی</h3>
-            <span className="ms-auto text-[11px] text-faint">برای وضعیتِ «{t.status}»</span>
-          </div>
-
-          {nextActions.length === 0 ? (
-            <p className="rounded-xl border border-line bg-tile2 px-3 py-4 text-center text-xs text-faint">در این وضعیت اقدامِ دیگری لازم نیست.</p>
-          ) : (
-            <ul className="space-y-1.5">
-              {nextActions.map((a) => {
-                const allowed = can(role, a);
-                const isNav = navOnly(a);
-                return (
-                  <li
-                    key={a}
-                    className={`flex items-center gap-2.5 rounded-xl border px-3 py-2.5 text-xs ${allowed ? 'border-line bg-tile2' : 'border-line bg-tile2 opacity-60'}`}
-                    title={allowed ? undefined : 'دسترسی لازم را ندارید'}
-                  >
-                    <span className={`grid h-6 w-6 flex-none place-items-center rounded-md ${allowed ? 'bg-accent/10 text-accent' : 'bg-tile text-faint'}`}>
-                      {allowed ? (
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5" /></svg>
-                      ) : (
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></svg>
-                      )}
-                    </span>
-                    <span className="font-semibold text-slate-200">{ACTION_LABEL[a]}</span>
-                    <span className="ms-auto flex items-center gap-1.5 text-[11px] text-faint">
-                      {isNav ? 'پیمایش' : 'اقدامِ وضعیتی'}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-          <p className="mt-3 text-[11px] leading-relaxed text-faint">
-            این فهرست راهنماست؛ اجرای اقدام‌ها از «اقداماتِ سریعِ» بالای صفحه یا تبِ مربوطه انجام می‌شود.
-          </p>
-        </section>
-
-        {/* گزارشِ عملیاتِ اخیر */}
-        <section className="rounded-2xl border border-line bg-tile p-5">
-          <div className="mb-3 flex items-center gap-2">
-            <span className="grid h-7 w-7 place-items-center rounded-lg bg-gold/10 text-gold">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M12 8v4l3 2" /><circle cx="12" cy="12" r="9" /></svg>
-            </span>
-            <h3 className="font-display text-sm font-bold">گزارشِ عملیاتِ اخیر</h3>
-            <span className="ms-auto text-[11px] text-faint">۶ موردِ آخر</span>
-          </div>
-          <AuditLogList entityId={id} limit={6} />
-        </section>
-      </div>
-    </div>
-  );
+  if (!t) return null;
+  return <Overview t={t} role={role} actorName={actorName} />;
 }

@@ -24,19 +24,22 @@ test.describe('Control room — operator flow', () => {
   });
 
   test('no-show action: confirm modal → resolves → leaves queue → activity → persists', async ({ page }) => {
+    // ریست control-board تا غیبت‌های FC26 تازه seed شوند (جلوگیری از آلودگیِ state بینِ تست‌ها)
+    const tok = await page.evaluate(() => localStorage.getItem('accessToken'));
+    await page.request.delete(`${API}/control-board/${T}`, { headers: { Authorization: `Bearer ${tok}` } });
+
     await page.goto(`${BASE}/admin/tournaments/${T}/control-room`, { waitUntil: 'networkidle' });
-    await page.waitForTimeout(2500); // seed از control-board
+    await page.waitForTimeout(2800); // seed از control-board
 
-    const noShowBtns = page.getByRole('button', { name: 'ثبتِ عدمِ حضور' });
-    const before = await noShowBtns.count();
-    expect(before).toBeGreaterThan(0);
+    // کارتِ «X غایب است» (no-showِ بازیکن) — دکمه را داخلِ همان کارت می‌زنیم تا با
+    // آیتمِ no-showِ مسابقه اشتباه نشود.
+    const card = page.locator('li').filter({ hasText: 'غایب است' }).first();
+    await expect(card).toBeVisible();
+    const target = (await card.locator('h4').first().innerText()).trim();
+    expect(target).toContain('غایب');
 
-    const titlesBefore = await page.locator('h4').allInnerTexts();
-    const target = titlesBefore.find((t) => t.includes('غایب')) as string;
-    expect(target).toBeTruthy();
-
-    // کلیک → باید مودالِ تأیید باز شود (نه اجرای بی‌صدا)
-    await noShowBtns.first().click();
+    // کلیک روی دکمه‌ی همان کارت → باید مودالِ تأیید باز شود (نه اجرای بی‌صدا)
+    await card.getByRole('button', { name: 'ثبتِ عدمِ حضور' }).click();
     const modal = page.getByRole('dialog');
     await expect(modal).toBeVisible();
     await expect(modal).toContainText('با تأیید');
@@ -49,13 +52,13 @@ test.describe('Control room — operator flow', () => {
     const titlesAfter = await page.locator('h4').allInnerTexts();
     expect(titlesAfter).not.toContain(target);
 
-    // رویدادِ فعالیت ثبت شده
-    await page.getByRole('button', { name: 'فعالیت' }).first().click();
+    // رویدادِ فعالیت ثبت شده (force: کلیک ممکن است با toastِ گذرا تداخل کند)
+    await page.getByRole('button', { name: 'فعالیت' }).first().click({ force: true });
     await page.waitForTimeout(600);
     await expect(page.getByText(/حذف شد|حاضر نشد/).first()).toBeVisible();
 
     // ممیزی ثبت شده
-    await page.getByRole('button', { name: 'گزارشِ ممیزی' }).first().click();
+    await page.getByRole('button', { name: 'گزارشِ ممیزی' }).first().click({ force: true });
     await page.waitForTimeout(600);
     await expect(page.getByText(/عدمِ حضور/).first()).toBeVisible();
 
@@ -98,6 +101,26 @@ test.describe('Control room — operator flow', () => {
     await page.waitForTimeout(1200);
     const after = await page.evaluate(() => localStorage.getItem('shelter:ops:t7:participant-patches'));
     expect(after && after.length > 5).toBeTruthy();
+  });
+
+  test('chat: send message persists, policy + moderation controls present', async ({ page }) => {
+    await page.goto(`${BASE}/admin/tournaments/${T}/chat`, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(1500);
+    const uniq = 'qaChat-' + Date.now();
+    await page.locator('input[placeholder*="پیامِ مدیر"], textarea[placeholder*="پیامِ مدیر"]').first().fill(uniq);
+    await page.getByRole('button', { name: 'ارسال' }).first().click();
+    await page.waitForTimeout(600);
+    await expect(page.getByText(uniq).first()).toBeVisible();
+
+    // policy + moderation controls exist
+    expect(await page.locator('select option').count()).toBeGreaterThanOrEqual(4);
+    expect(await page.getByRole('button', { name: /بی‌صدا/ }).count()).toBeGreaterThan(0);
+    expect(await page.getByRole('button', { name: /حذف/ }).count()).toBeGreaterThan(0);
+
+    // persistence
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.waitForTimeout(1300);
+    await expect(page.getByText(uniq).first()).toBeVisible();
   });
 
   test('bracket: full multi-round map, match list filter, match drawer, fullscreen modal', async ({ page }) => {

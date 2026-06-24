@@ -80,6 +80,37 @@ test.describe('Control room — operator flow', () => {
     if (await warn.count()) await warn.click();
   });
 
+  test('bracket: full multi-round map, match list filter, match drawer, fullscreen modal', async ({ page }) => {
+    await page.goto(`${BASE}/admin/tournaments/${T}/bracket`, { waitUntil: 'networkidle' });
+    await page.waitForTimeout(2500);
+
+    // نقشه‌ی براکت: بیش از ۳ دور و ده‌ها مسابقه (نه چند مسابقه‌ی fixture)
+    await expect(page.getByText(/مرحله‌ی ۳۲تایی/).first()).toBeVisible();
+    const cardCount = await page.locator('button:has-text("#")').count();
+    expect(cardCount).toBeGreaterThan(20);
+
+    // کلیک روی یک کارت → Match Drawer با امتیاز/اکشن
+    await page.locator('button:has-text("#")').first().click();
+    const drawer = page.getByRole('dialog');
+    await expect(drawer).toBeVisible();
+    await expect(drawer).toContainText('ثبتِ امتیاز');
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(300);
+
+    // فهرستِ مسابقات + جست‌وجو
+    await page.getByRole('button', { name: 'فهرستِ مسابقات' }).click();
+    await page.waitForTimeout(500);
+    await page.locator('input[placeholder*="جست"]').first().fill('Messi');
+    await page.waitForTimeout(500);
+    expect(await page.locator('ul li').count()).toBeGreaterThan(0);
+
+    // مودالِ تمام‌صفحه
+    await page.getByRole('button', { name: 'نقشه‌ی براکت' }).click();
+    await page.getByRole('button', { name: 'نمایشِ تمام‌صفحه' }).click();
+    await page.waitForTimeout(500);
+    await expect(page.getByText('نقشه‌ی کاملِ براکت')).toBeVisible();
+  });
+
   test('dispute drawer opens with reporter/opponent/evidence/impact and a decision persists', async ({ page }) => {
     await page.goto(`${BASE}/admin/tournaments/${T}/disputes`, { waitUntil: 'networkidle' });
     await page.waitForTimeout(1500);

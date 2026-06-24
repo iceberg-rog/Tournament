@@ -272,3 +272,23 @@
 - موانعِ «مسابقه #۱۰۳/۱۰۴ هنوز کامل نشده»ی مبهم → حالا کارتِ بلاکرِ دقیق (بازیکنان، وضعیت، دلیل، اقدام). این مسابقات (live/ready) **بلاکرِ واقعی‌اند** (نتیجه ندارند) و حالا راهِ رفعشان واضح است.
 - double-no-show که match را قفل می‌کرد → حالا resolve می‌کند و **حریف با BYE صعود می‌کند**.
 - نبودِ auto-start → حالا با تکمیلِ دور، دورِ بعد خودکار فعال می‌شود.
+
+---
+
+## ۱۲. Problem 6 و 8 — فعالیت/ممیزی و تنظیماتِ عملیاتی
+
+### Problem 6 — Activity & Audit (اصلاح‌شده + کلیک‌تست)
+- **باگ:** audit در state ماژولِ in-memory بود (بعد refresh می‌رفت)؛ فهرستِ خام بدونِ before/after/فیلتر/drawer/export؛ activity کلیک‌ناپذیر.
+- **اصلاح:** audit به core.auditLog (persisted) منتقل شد — جدا از activity. **before/after** برای اقدام‌های حساس (حلِ اختلاف، ویرایشِ امتیاز، عدمِ حضور، عدمِ حضورِ دوطرفه، محرومیت). backend ستونِ `meta` (مهاجرت `control_board_meta`) را round-trip می‌کند تا auditLog/سیاست‌ها بعد از refresh نمانند نروند.
+- **AuditConsole**: فیلترِ مدیر/اقدام/موجودیت + جست‌وجو، **diffِ before→after**، detail drawer، **خروجیِ CSV**. ActivityLog کلیک‌پذیر شد → drawer.
+- تست `tests/activity-audit.spec.ts`: اقدامِ حساس → audit با before/after → فیلتر/drawer/CSV → **بعد refresh باقی می‌ماند**؛ activity کلیک‌پذیر.
+
+### Problem 8 — Operational Settings (اصلاح‌شده + کلیک‌تست)
+- مدلِ جامعِ `OperationalSettings` (چک‌این/عدمِ حضور/نتیجه/اختلاف/پیشروی/اعلان/چت/استریم/پرداخت) در یک منبعِ **persisted** (`useOpsSlice('operational-settings')`).
+- صفحه‌ی `/admin/tournaments/:id/settings` (تبِ «تنظیمات») با toggle/number/select برای همه‌ی دسته‌ها.
+- **اثرِ واقعی بر رفتار** (نشانِ «اثرگذار»): اتاقِ کنترل `noShow` و `progression` را از همین تنظیمات می‌خواند. مثالِ صریحِ کاربر تأیید شد: خاموش‌کردنِ «نیازِ تأییدِ مدیر برای عدمِ حضور» → آیتم‌های «X غایب است» **خودکار از صف خارج می‌شوند**. بقیه‌ی دسته‌ها persist و adapter-ready.
+- تست `tests/operational-settings.spec.ts`: همه‌ی ۹ دسته رندر، toggle persist می‌شود، **رفتارِ صف تغییر می‌کند**، و بعد refresh باقی می‌ماند.
+
+**کلِ سوییت: ۱۳/۱۳ سبز** (no-show، شرکت‌کننده، چت، براکت، اختلاف، persistence×۴، bracket-progression، auto-start، activity/audit، operational-settings).
+
+> با این، هر ۸ موردِ فهرستِ کاربر + باگِ persistence + state machineِ براکت اصلاح و کلیک‌تست شده‌اند.

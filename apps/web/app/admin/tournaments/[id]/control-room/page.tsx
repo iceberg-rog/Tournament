@@ -7,8 +7,9 @@ import type { AdminTournament } from '@/lib/admin';
 import type { AdminRole } from '@/lib/admin/ops';
 import { useAdminRole, useEnsureAdminRole, useTournament } from '@/lib/admin/store';
 import { useControlRoom } from '@/lib/admin/useControlRoom';
-import { noShowPolicyFor, type ActionQueueItem, type RoadmapStep } from '@/lib/admin/controlRoom';
+import { type ActionQueueItem, type RoadmapStep } from '@/lib/admin/controlRoom';
 import { useOpsSlice } from '@/lib/admin/opsStore';
+import { defaultOperationalSettings, mergeSettings, type OperationalSettings } from '@/lib/admin/opsSettings';
 import { AuditConsole } from '@/components/admin/cr/AuditConsole';
 import { NoShowSettings } from '@/components/admin/cr/NoShowSettings';
 import { CompactStatusBar } from '@/components/admin/cr/CompactStatusBar';
@@ -34,7 +35,9 @@ function Cockpit({ t, role, actorName }: { t: AdminTournament; role: AdminRole; 
   const [tab, setTab] = useState<TabKey>('actions');
   const [step, setStep] = useState<RoadmapStep | null>(null);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
-  const [policy, setPolicy] = useOpsSlice(t.id, 'noshow-policy', noShowPolicyFor(t.id));
+  const [opSettings, setOpSettings] = useOpsSlice<OperationalSettings>(t.id, 'operational-settings', defaultOperationalSettings(t.id));
+  const policy = mergeSettings(opSettings, t.id).noShow;
+  const setPolicy = (p: typeof policy) => setOpSettings({ ...mergeSettings(opSettings, t.id), noShow: p });
   const unread = cr.cr.matches.reduce((s, m) => s + m.chatUnread, 0);
 
   // صفِ اقدامات: حذفِ موارد «رد شده» + (اگر سیاست تأییدِ مدیر را لازم نداند) حذفِ غیبت‌های دستی

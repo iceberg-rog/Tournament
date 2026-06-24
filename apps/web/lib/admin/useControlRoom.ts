@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { authedGet, authedPost, authedPut, isLoggedIn } from '@/lib/api';
+import { opsLoad } from '@/lib/admin/opsStore';
 import type { AdminTournament } from '@/lib/admin';
 import type { AdminRole } from '@/lib/admin/ops';
 import { appendAudit, pushToast } from '@/lib/admin/store';
@@ -123,6 +124,21 @@ export function useControlRoom(t: AdminTournament, role: AdminRole, actorName: s
     return () => clearTimeout(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [core, ready, t.id]);
+
+  // همگام‌سازیِ سیاست‌ها از تنظیماتِ عملیاتیِ persisted (no-show + progression) تا
+  // ویرایش در صفحه‌ی تنظیمات روی رفتارِ اتاقِ کنترل اثر بگذارد.
+  useEffect(() => {
+    if (!ready) return;
+    const op = opsLoad<{ noShow?: ControlRoomCore['noShowPolicy']; progression?: ControlRoomCore['progressionSettings'] } | null>(t.id, 'operational-settings', null);
+    if (!op) return;
+    setCore((c) => {
+      const noShowPolicy = op.noShow ?? c.noShowPolicy;
+      const progressionSettings = op.progression ?? c.progressionSettings;
+      if (noShowPolicy === c.noShowPolicy && progressionSettings === c.progressionSettings) return c;
+      return { ...c, noShowPolicy, progressionSettings };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, t.id]);
 
   // auto-start: روی load هم اگر دورِ جاری کامل باشد، براکت را می‌سازد و خودکار به
   // دورِ بعد می‌رود. با مقایسه‌ی currentRound/تعدادِ مسابقات converge می‌شود (recompute

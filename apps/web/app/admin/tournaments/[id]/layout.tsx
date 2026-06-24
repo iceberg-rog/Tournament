@@ -21,6 +21,7 @@ const TABS = [
   { seg: 'disputes', label: 'اختلاف‌ها' },
   { seg: 'stream', label: 'استریمِ زنده' },
   { seg: 'finance', label: 'مالی' },
+  { seg: 'settings', label: 'تنظیمات' },
   { seg: 'audit-log', label: 'گزارشِ عملیات' },
 ];
 
